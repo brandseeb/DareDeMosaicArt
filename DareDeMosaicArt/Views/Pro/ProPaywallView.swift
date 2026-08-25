@@ -266,12 +266,15 @@ public struct ProPaywallView: View {
             }
             .disabled(storeKit.isPurchasing || storeKit.isRestoring)
             
-            // 利用規約 ＆ プライバシーポリシーリンク
-            HStack(spacing: 16) {
-                Link("利用規約 (EULA)", destination: URL(string: "https://www.apple.com/legal/internet-services/itunes/dev/stdeula/")!)
+            // 利用規約 ＆ プライバシーポリシー ＆ お問い合わせリンク
+            HStack(spacing: 14) {
+                Link("利用規約", destination: URL(string: "https://www.apple.com/legal/internet-services/itunes/dev/stdeula/")!)
                 Text("・")
                     .foregroundColor(.secondary)
-                Link("プライバシーポリシー", destination: URL(string: "https://brandseeb.github.io/DareDeMosaicArt/privacy.html")!)
+                Link("プライバシー", destination: URL(string: "https://brandseeb.github.io/DareDeMosaicArt/privacy.html")!)
+                Text("・")
+                    .foregroundColor(.secondary)
+                Link("サポート", destination: URL(string: "https://docs.google.com/forms/d/e/1FAIpQLSdlxMpCz5wvirp-X8LBdrJuT58UtP3eO8mkJsfrzm396mSUEQ/viewform?pli=1")!)
             }
             .font(.caption2)
             .foregroundColor(.secondary)
