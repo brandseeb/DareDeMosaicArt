@@ -17,7 +17,10 @@ public struct ProjectSetupView: View {
     @State private var showPaywall: Bool = false
     @State private var showAlbumPickerSheet: Bool = false
     @State private var showLimitedAccessAlert: Bool = false
+    @State private var showPermissionDeniedAlert: Bool = false
     @State private var showAlbumNotFoundAlert: Bool = false
+    @State private var showGeneralErrorAlert: Bool = false
+    @State private var errorMessage: String = ""
     @State private var albumNotFoundMessage: String = ""
     
     @State private var selectedImage: UIImage? = nil
@@ -241,6 +244,16 @@ public struct ProjectSetupView: View {
             } message: {
                 Text("特定のアルバムを指定するには、設定で「すべての写真へのアクセス」を許可してください。")
             }
+            .alert("写真へのアクセスが許可されていません", isPresented: $showPermissionDeniedAlert) {
+                Button("設定を開く") {
+                    if let url = URL(string: UIApplication.openSettingsURLString) {
+                        UIApplication.shared.open(url)
+                    }
+                }
+                Button("キャンセル", role: .cancel) {}
+            } message: {
+                Text("写真素材をスキャンしてモザイクを生成するために、設定アプリで写真へのアクセスを許可してください。")
+            }
             .alert("アルバムが見つかりません", isPresented: $showAlbumNotFoundAlert) {
                 Button("別のアルバムを選ぶ") {
                     showAlbumPickerSheet = true
@@ -252,6 +265,11 @@ public struct ProjectSetupView: View {
                 Button("キャンセル", role: .cancel) {}
             } message: {
                 Text(albumNotFoundMessage)
+            }
+            .alert("エラー", isPresented: $showGeneralErrorAlert) {
+                Button("OK", role: .cancel) {}
+            } message: {
+                Text(errorMessage)
             }
             .onAppear {
                 scanner.checkPermission()
@@ -383,16 +401,26 @@ public struct ProjectSetupView: View {
                         )
                     }.value
                 } catch let error as PhotoLibraryScannerError {
-                    if case .albumNotFound(let albumTitle) = error {
-                        await MainActor.run {
-                            self.isCreating = false
+                    await MainActor.run {
+                        self.isCreating = false
+                        switch error {
+                        case .permissionDenied:
+                            self.showPermissionDeniedAlert = true
+                        case .albumNotFound(let albumTitle):
                             self.albumNotFoundMessage = "指定されたアルバム「\(albumTitle)」が見つかりません。削除された可能性があります。"
                             self.showAlbumNotFoundAlert = true
+                        case .cancelled:
+                            break
                         }
-                        return
                     }
+                    return
                 } catch {
-                    // その他のエラー
+                    await MainActor.run {
+                        self.isCreating = false
+                        self.errorMessage = "写真の取得中にエラーが発生しました: \(error.localizedDescription)"
+                        self.showGeneralErrorAlert = true
+                    }
+                    return
                 }
             }
             

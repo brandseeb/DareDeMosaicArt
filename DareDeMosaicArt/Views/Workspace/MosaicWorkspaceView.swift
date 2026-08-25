@@ -14,6 +14,8 @@ public struct MosaicWorkspaceView: View {
     @State private var activeMission: ColorMission? = nil
     @State private var showCompletion: Bool = false
     @State private var showPaywall: Bool = false
+    @State private var showAlbumMissingAlert: Bool = false
+    @State private var albumMissingMessage: String = ""
     
     // 手動差し替え用の候補リスト
     @State private var replacementCandidates: [PhotoMatchCandidate] = []
@@ -105,6 +107,17 @@ public struct MosaicWorkspaceView: View {
             .sheet(isPresented: $showPaywall) {
                 ProPaywallView()
             }
+            .alert("アルバムが見つかりません", isPresented: $showAlbumMissingAlert) {
+                Button("端末内の全写真に切り替える") {
+                    project.photoSource = .allLocalPhotos
+                    Task {
+                        await loadSourcePhotos()
+                    }
+                }
+                Button("OK", role: .cancel) {}
+            } message: {
+                Text(albumMissingMessage)
+            }
             .task {
                 await loadSourcePhotos()
             }
@@ -115,6 +128,14 @@ public struct MosaicWorkspaceView: View {
     private func loadSourcePhotos() async {
         do {
             self.allSourcePhotos = try await PhotoLibraryScanner.shared.photos(for: project.photoSource)
+        } catch let error as PhotoLibraryScannerError {
+            if case .albumNotFound(let albumTitle) = error {
+                await MainActor.run {
+                    self.albumMissingMessage = "指定されたアルバム「\(albumTitle)」が見つかりません。削除された可能性があります。"
+                    self.showAlbumMissingAlert = true
+                }
+            }
+            self.allSourcePhotos = []
         } catch {
             self.allSourcePhotos = []
         }
@@ -134,12 +155,11 @@ public struct MosaicWorkspaceView: View {
                 await loadSourcePhotos()
             }
             
-            let usedIDs = Set(project.tiles.compactMap { t -> String? in
-                if t.id != tile.id {
-                    return t.placedPhotoIdentifier
-                }
-                return nil
-            })
+            // 選択中タイル自身の現在の写真も含め、プロジェクト内で配置済みの全写真IDを除外
+            var usedIDs = Set(project.tiles.compactMap(\.placedPhotoIdentifier))
+            if let currentPhotoID = tile.placedPhotoIdentifier {
+                usedIDs.insert(currentPhotoID)
+            }
             
             let candidates = MosaicEngine.shared.findBestMatchCandidates(
                 for: tile,

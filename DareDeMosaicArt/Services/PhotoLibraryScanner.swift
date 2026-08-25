@@ -9,13 +9,16 @@ import UIKit
 public enum PhotoLibraryScannerError: LocalizedError, Sendable {
     case permissionDenied
     case albumNotFound(String)
+    case cancelled
     
     public var errorDescription: String? {
         switch self {
         case .permissionDenied:
-            return "写真ライブラリへのアクセスが許可されていません。"
+            return "写真ライブラリへのアクセスが許可されていません。設定アプリで許可してください。"
         case .albumNotFound(let title):
             return "指定されたアルバム「\(title)」が見つかりません。削除された可能性があります。"
+        case .cancelled:
+            return "写真のスキャンが中断されました。"
         }
     }
 }
@@ -134,18 +137,13 @@ public final class PhotoLibraryScanner: ObservableObject {
             
             let batchResults = await withTaskGroup(of: CachedPhotoIndexEntry?.self) { group in
                 for asset in batchAssets {
-                    if let cached = cachedEntries[asset.localIdentifier],
-                       cached.modificationDate == asset.modificationDate {
-                        group.addTask { cached }
-                        continue
-                    }
-
+                    // キャッシュがあっても端末ローカルに写真が存在するか確認するためリクエストを実行
                     group.addTask {
                         let requestOptions = PHImageRequestOptions()
                         requestOptions.isSynchronous = false
                         requestOptions.deliveryMode = .fastFormat
                         requestOptions.resizeMode = .fast
-                        requestOptions.isNetworkAccessAllowed = false // 端末保存写真のみ対象
+                        requestOptions.isNetworkAccessAllowed = false // 端末ローカル写真のみ対象
 
                         return await withCheckedContinuation { continuation in
                             let gate = PhotoRequestContinuationGate(continuation)
@@ -162,20 +160,29 @@ public final class PhotoLibraryScanner: ObservableObject {
                                 if isCancelled || isError {
                                     gate.resume(returning: nil)
                                 } else if let uiImage = image {
-                                    let signature = ColorAnalysisService.shared.extractSpatialSignature(from: uiImage)
-                                    let thumbData = uiImage.jpegData(compressionQuality: 0.6)
-                                    let item = IndexedPhoto(
-                                        id: asset.localIdentifier,
-                                        labColor: signature.average,
-                                        signature: signature,
-                                        thumbnailData: thumbData
-                                    )
-                                    gate.resume(returning: CachedPhotoIndexEntry(
-                                        id: asset.localIdentifier,
-                                        modificationDate: asset.modificationDate,
-                                        photo: item
-                                    ))
+                                    // 端末内に画像が存在する場合
+                                    if let cached = cachedEntries[asset.localIdentifier],
+                                       cached.modificationDate == asset.modificationDate {
+                                        // キャッシュ利用
+                                        gate.resume(returning: cached)
+                                    } else {
+                                        // 新規色解析
+                                        let signature = ColorAnalysisService.shared.extractSpatialSignature(from: uiImage)
+                                        let thumbData = uiImage.jpegData(compressionQuality: 0.6)
+                                        let item = IndexedPhoto(
+                                            id: asset.localIdentifier,
+                                            labColor: signature.average,
+                                            signature: signature,
+                                            thumbnailData: thumbData
+                                        )
+                                        gate.resume(returning: CachedPhotoIndexEntry(
+                                            id: asset.localIdentifier,
+                                            modificationDate: asset.modificationDate,
+                                            photo: item
+                                        ))
+                                    }
                                 } else if image == nil && !isDegraded {
+                                    // iCloudのみに存在しローカルにない
                                     gate.resume(returning: nil)
                                 }
                             }
@@ -203,7 +210,7 @@ public final class PhotoLibraryScanner: ObservableObject {
         self.scannedPhotos = results
         self.isScanning = false
 
-        // キャッシュに差分マージ（他写真のキャッシュを消さない）
+        // キャッシュに差分マージ
         let newEntries = newlyProcessedEntries
         Task {
             PhotoColorIndexCache.merge(newEntries)
@@ -211,7 +218,7 @@ public final class PhotoLibraryScanner: ObservableObject {
         return results
     }
     
-    /// ソースに該当する写真群をキャッシュまたは再取得から取得
+    /// ソースに該当する写真群を取得
     public func photos(for source: PhotoSource) async throws -> [IndexedPhoto] {
         return try await scanPhotos(source: source)
     }

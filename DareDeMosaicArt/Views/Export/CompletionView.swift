@@ -193,7 +193,7 @@ public struct CompletionView: View {
     // MARK: - プレビュー用テキストオーバーレイ
     private var watermarkOverlayView: some View {
         GeometryReader { _ in
-            let text = String(draftWatermark.text.prefix(60))
+            let text = sanitizeWatermarkText(draftWatermark.text)
             
             switch draftWatermark.position {
             case .footerBar:
@@ -222,6 +222,7 @@ public struct CompletionView: View {
                             .foregroundColor(textColorForStyle(draftWatermark.colorStyle))
                             .shadow(color: .black.opacity(0.8), radius: 2, x: 1, y: 1)
                             .lineLimit(2)
+                            .multilineTextAlignment(.trailing)
                             .padding([.trailing, .bottom], 12)
                     }
                 }
@@ -235,6 +236,7 @@ public struct CompletionView: View {
                             .foregroundColor(textColorForStyle(draftWatermark.colorStyle))
                             .shadow(color: .black.opacity(0.8), radius: 2, x: 1, y: 1)
                             .lineLimit(2)
+                            .multilineTextAlignment(.leading)
                             .padding([.leading, .bottom], 12)
                         Spacer()
                     }
@@ -264,12 +266,15 @@ public struct CompletionView: View {
         NavigationStack {
             Form {
                 Section(header: Text("刻印テキスト (最大60文字・2行まで)")) {
-                    TextField("例: Happy Wedding 2026.08.26 Ken & Yui", text: $draftWatermark.text)
+                    TextField("例: 2026.08.26 Happy Wedding\nKen & Yui", text: $draftWatermark.text, axis: .vertical)
+                        .lineLimit(2...3)
                         .onChange(of: draftWatermark.text) { _, newText in
-                            if newText.count > 60 {
-                                draftWatermark.text = String(newText.prefix(60))
-                            }
+                            draftWatermark.text = sanitizeWatermarkText(newText)
                         }
+                    
+                    Text("\(draftWatermark.text.count) / 60文字")
+                        .font(.caption2)
+                        .foregroundColor(.secondary)
                 }
                 
                 Section(header: Text("フォントスタイル")) {
@@ -506,7 +511,7 @@ public struct CompletionView: View {
                 
                 let width = baseImage.size.width
                 let height = baseImage.size.height
-                let text = String(config.text.prefix(60))
+                let text = sanitizeWatermarkText(config.text)
                 
                 let fontSize: CGFloat = width * 0.024 // 4096pxに対して約98ptの高精細文字
                 let font: UIFont
@@ -548,10 +553,22 @@ public struct CompletionView: View {
                 shadow.shadowOffset = CGSize(width: 2, height: 2)
                 shadow.shadowBlurRadius = 4
                 
+                let paragraphStyle = NSMutableParagraphStyle()
+                switch config.position {
+                case .bottomRight:
+                    paragraphStyle.alignment = .right
+                case .bottomLeft:
+                    paragraphStyle.alignment = .left
+                case .bottomCenter, .footerBar:
+                    paragraphStyle.alignment = .center
+                }
+                paragraphStyle.lineBreakMode = .byWordWrapping
+                
                 let attributes: [NSAttributedString.Key: Any] = [
                     .font: font,
                     .foregroundColor: textColor,
-                    .shadow: shadow
+                    .shadow: shadow,
+                    .paragraphStyle: paragraphStyle
                 ]
                 
                 let margin: CGFloat = width * 0.03 // 端から約120px
@@ -649,6 +666,17 @@ public struct CompletionView: View {
         case .gold: return Color(red: 0.95, green: 0.80, blue: 0.40)
         }
     }
+}
+
+/// 刻印テキストの文字数（最大60文字）および行数（最大2行）制限
+private func sanitizeWatermarkText(_ rawText: String) -> String {
+    let lines = rawText.components(separatedBy: "\n")
+    let limitedLines = lines.prefix(2) // 最大2行
+    let joined = limitedLines.joined(separator: "\n")
+    if joined.count > 60 {
+        return String(joined.prefix(60))
+    }
+    return joined
 }
 
 private final class ImageRequestContinuationGate: @unchecked Sendable {
