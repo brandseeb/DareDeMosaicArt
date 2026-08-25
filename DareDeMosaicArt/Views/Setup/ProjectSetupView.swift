@@ -1,4 +1,5 @@
 import SwiftUI
+import Photos
 
 #if canImport(UIKit)
 import UIKit
@@ -14,10 +15,18 @@ public struct ProjectSetupView: View {
     
     @State private var showPickerSheet: Bool = false
     @State private var showPaywall: Bool = false
+    @State private var showAlbumPickerSheet: Bool = false
+    @State private var showLimitedAccessAlert: Bool = false
+    @State private var showAlbumNotFoundAlert: Bool = false
+    @State private var albumNotFoundMessage: String = ""
+    
     @State private var selectedImage: UIImage? = nil
     @State private var title: String = "マイモザイクアート"
-    @State private var gridSize: Int = 20 // デフォルト 20x20 = 400マス
+    @State private var gridSize: Int = 20
     @State private var mode: GameMode = .hybrid
+    @State private var selectedPhotoSource: PhotoSource = .allLocalPhotos
+    @State private var userAlbums: [PhotoAlbumItem] = []
+    
     @State private var isCreating: Bool = false
     @State private var statusMessage: String = ""
     
@@ -101,16 +110,73 @@ public struct ProjectSetupView: View {
                         .foregroundColor(.secondary)
                 }
                 
-                // 3. 作成ボタン & 進捗表示
+                // 3. 写真ソース選択（ハイブリッドモード時のみ）
+                if mode == .hybrid {
+                    Section(header: Text("3. 使用する写真素材")) {
+                        Button {
+                            selectedPhotoSource = .allLocalPhotos
+                        } label: {
+                            HStack {
+                                Image(systemName: selectedPhotoSource == .allLocalPhotos ? "checkmark.circle.fill" : "circle")
+                                    .foregroundColor(selectedPhotoSource == .allLocalPhotos ? .accentColor : .secondary)
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text("端末内のすべての写真")
+                                        .foregroundColor(.primary)
+                                    Text("カメラロール内の保存済み写真すべてからマッチング")
+                                        .font(.caption2)
+                                        .foregroundColor(.secondary)
+                                }
+                            }
+                        }
+                        
+                        Button {
+                            handleAlbumSourceSelected()
+                        } label: {
+                            HStack {
+                                Image(systemName: selectedPhotoSource != .allLocalPhotos ? "checkmark.circle.fill" : "circle")
+                                    .foregroundColor(selectedPhotoSource != .allLocalPhotos ? .accentColor : .secondary)
+                                VStack(alignment: .leading, spacing: 2) {
+                                    HStack(spacing: 4) {
+                                        Text("特定のアルバムを指定")
+                                            .foregroundColor(.primary)
+                                        Text("👑Pro")
+                                            .font(.caption2.bold())
+                                            .foregroundColor(.orange)
+                                    }
+                                    if case .album(_, let albumTitle) = selectedPhotoSource {
+                                        Text("選択中: \(albumTitle)")
+                                            .font(.caption.bold())
+                                            .foregroundColor(.accentColor)
+                                    } else {
+                                        Text("旅行・結婚式・推し活など、思い出のフォルダから作成")
+                                            .font(.caption2)
+                                            .foregroundColor(.secondary)
+                                    }
+                                }
+                                Spacer()
+                                Image(systemName: "chevron.right")
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                            }
+                        }
+                    }
+                }
+                
+                // 4. 作成ボタン & 進捗表示
                 Section {
                     if isCreating {
                         VStack(spacing: 12) {
                             ProgressView(value: scanner.scanProgress)
                             
                             if scanner.isScanning && scanner.totalPhotoCount > 0 {
-                                Text("端末内の写真 \(scanner.processedCount) / \(scanner.totalPhotoCount) 枚 解析中...")
-                                    .font(.caption.bold())
-                                    .foregroundColor(.primary)
+                                VStack(spacing: 4) {
+                                    Text("写真 \(scanner.processedCount) / \(scanner.totalPhotoCount) 枚 解析中...")
+                                        .font(.caption.bold())
+                                        .foregroundColor(.primary)
+                                    Text("端末保存済みの \(scanner.localAvailableCount) 枚を使用")
+                                        .font(.caption2)
+                                        .foregroundColor(.secondary)
+                                }
                             } else {
                                 Text(statusMessage)
                                     .font(.caption)
@@ -162,7 +228,99 @@ public struct ProjectSetupView: View {
             .sheet(isPresented: $showPaywall) {
                 ProPaywallView()
             }
+            .sheet(isPresented: $showAlbumPickerSheet) {
+                albumSelectionView
+            }
+            .alert("写真へのフルアクセスが必要です", isPresented: $showLimitedAccessAlert) {
+                Button("設定を開く") {
+                    if let url = URL(string: UIApplication.openSettingsURLString) {
+                        UIApplication.shared.open(url)
+                    }
+                }
+                Button("キャンセル", role: .cancel) {}
+            } message: {
+                Text("特定のアルバムを指定するには、設定で「すべての写真へのアクセス」を許可してください。")
+            }
+            .alert("アルバムが見つかりません", isPresented: $showAlbumNotFoundAlert) {
+                Button("別のアルバムを選ぶ") {
+                    showAlbumPickerSheet = true
+                }
+                Button("端末内の全写真を使用する") {
+                    selectedPhotoSource = .allLocalPhotos
+                    startGeneration()
+                }
+                Button("キャンセル", role: .cancel) {}
+            } message: {
+                Text(albumNotFoundMessage)
+            }
+            .onAppear {
+                scanner.checkPermission()
+            }
         }
+    }
+    
+    // MARK: - アルバム選択シート
+    private var albumSelectionView: some View {
+        NavigationStack {
+            List {
+                if userAlbums.isEmpty {
+                    Text("ユーザー作成のアルバムが見つかりませんでした。")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                } else {
+                    ForEach(userAlbums) { album in
+                        Button {
+                            selectedPhotoSource = .album(localIdentifier: album.id, title: album.title)
+                            showAlbumPickerSheet = false
+                        } label: {
+                            HStack {
+                                VStack(alignment: .leading, spacing: 4) {
+                                    Text(album.title)
+                                        .font(.headline)
+                                        .foregroundColor(.primary)
+                                    Text("\(album.assetCount) 枚の写真")
+                                        .font(.caption)
+                                        .foregroundColor(.secondary)
+                                }
+                                Spacer()
+                                if case .album(let id, _) = selectedPhotoSource, id == album.id {
+                                    Image(systemName: "checkmark")
+                                        .foregroundColor(.accentColor)
+                                }
+                            }
+                            .padding(.vertical, 4)
+                        }
+                    }
+                }
+            }
+            .navigationTitle("アルバムを選択")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("閉じる") {
+                        showAlbumPickerSheet = false
+                    }
+                }
+            }
+            .onAppear {
+                self.userAlbums = scanner.fetchUserAlbums()
+            }
+        }
+    }
+    
+    private func handleAlbumSourceSelected() {
+        guard storeKit.isProUser else {
+            showPaywall = true
+            return
+        }
+        
+        if scanner.authorizationStatus == .limited {
+            showLimitedAccessAlert = true
+            return
+        }
+        
+        self.userAlbums = scanner.fetchUserAlbums()
+        showAlbumPickerSheet = true
     }
     
     private func handleStartButtonTapped() {
@@ -173,12 +331,16 @@ public struct ProjectSetupView: View {
             return
         }
         
+        if selectedPhotoSource != .allLocalPhotos && !storeKit.isProUser {
+            showPaywall = true
+            return
+        }
+        
         startGeneration()
     }
     
     private func startGeneration() {
         guard let rawImage = selectedImage else { return }
-        // 高密度分割に合わせて解像度を適切に確保 (最大1200px)
         let image = ImageUtils.normalizeOrientationAndFit(image: rawImage, maxDimension: 1200)
         guard let cgImage = image.cgImage else { return }
         guard let imageData = image.jpegData(compressionQuality: 0.8) else { return }
@@ -199,27 +361,39 @@ public struct ProjectSetupView: View {
             
             var processedTiles = tiles
             
-            // 2. ハイブリッドモードの場合はライブラリから端末ローカル全写真を自動配置（写真重複なし）
+            // 2. ハイブリッドモードの場合は指定ソースから写真をスキャンして自動配置
             if mode == .hybrid {
                 await MainActor.run {
-                    self.statusMessage = "端末内の全写真をスキャン中..."
+                    self.statusMessage = "写真素材をスキャン中..."
                 }
                 
-                // 端末ローカル写真の全件をスキャン（iCloud通信なし）
-                let photos = await scanner.scanAllLocalPhotos()
-                
-                await MainActor.run {
-                    self.statusMessage = "\(photos.count) 枚の写真からベストマッチを探索中..."
+                do {
+                    let photos = try await scanner.scanPhotos(source: selectedPhotoSource)
+                    
+                    await MainActor.run {
+                        self.statusMessage = "\(photos.count) 枚の写真からベストマッチを探索中..."
+                    }
+                    
+                    processedTiles = await Task.detached(priority: .userInitiated) {
+                        MosaicEngine.shared.matchTiles(
+                            tiles: tiles,
+                            availablePhotos: photos,
+                            allowDuplicates: false,
+                            passDistanceThreshold: 14.0
+                        )
+                    }.value
+                } catch let error as PhotoLibraryScannerError {
+                    if case .albumNotFound(let albumTitle) = error {
+                        await MainActor.run {
+                            self.isCreating = false
+                            self.albumNotFoundMessage = "指定されたアルバム「\(albumTitle)」が見つかりません。削除された可能性があります。"
+                            self.showAlbumNotFoundAlert = true
+                        }
+                        return
+                    }
+                } catch {
+                    // その他のエラー
                 }
-                
-                processedTiles = await Task.detached(priority: .userInitiated) {
-                    MosaicEngine.shared.matchTiles(
-                        tiles: tiles,
-                        availablePhotos: photos,
-                        allowDuplicates: false,
-                        passDistanceThreshold: 14.0
-                    )
-                }.value
             }
             
             // 3. 不足色ミッションの生成
@@ -231,6 +405,7 @@ public struct ProjectSetupView: View {
                 gridWidth: gridSize,
                 gridHeight: gridSize,
                 mode: mode,
+                photoSource: selectedPhotoSource,
                 tiles: processedTiles,
                 missions: missions,
                 isCompleted: processedTiles.allSatisfy { $0.isFilled }

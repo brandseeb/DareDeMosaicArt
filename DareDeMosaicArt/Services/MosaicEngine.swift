@@ -1,275 +1,310 @@
 import Foundation
 
-/// インデックス化された写真素材情報
-public struct IndexedPhoto: Identifiable, Codable, Equatable, Hashable, Sendable {
-    public let id: String // localIdentifier または ファイルパス
-    public let labColor: LabColor
-    public let signature: SpatialColorSignature?
-    public let thumbnailData: Data?
+#if canImport(UIKit)
+import UIKit
+#endif
+
+/// ピースの手動差し替え候補アイテム
+public struct PhotoMatchCandidate: Identifiable, Sendable, Equatable {
+    public var id: String { photo.id }
+    public let photo: IndexedPhoto
+    public let score: Float // 低いほど一致度が高い
+    public let matchRatio: Float // 0.0〜1.0 (パーセント表示用: 1.0が100%一致)
     
-    public init(
-        id: String,
-        labColor: LabColor,
-        signature: SpatialColorSignature? = nil,
-        thumbnailData: Data? = nil
-    ) {
-        self.id = id
-        self.labColor = labColor
-        self.signature = signature
-        self.thumbnailData = thumbnailData
+    public init(photo: IndexedPhoto, score: Float, matchRatio: Float) {
+        self.photo = photo
+        self.score = score
+        self.matchRatio = matchRatio
     }
 }
 
-/// モザイクアート構築・マッチングエンジン
+/// モザイクアートのピース割り当て・空間色探索・ミッション管理エンジン
 public final class MosaicEngine: Sendable {
     public static let shared = MosaicEngine()
     
-    public init() {}
+    private init() {}
     
-    // MARK: - ライブラリ写真による自動マッチング (ハイブリッドモード)
+    // MARK: - マッチングスコア共通計算式
+    public func matchScore(
+        targetColor: LabColor,
+        targetSignature: SpatialColorSignature?,
+        photo: IndexedPhoto
+    ) -> Float {
+        let labDist = targetColor.distance(to: photo.labColor)
+        guard let targetSig = targetSignature, let photoSig = photo.signature else {
+            return labDist
+        }
+        let spatialDist = targetSig.distance(to: photoSig)
+        // 平均色と空間シグネチャの加重平均
+        return labDist * 0.4 + spatialDist * 0.6
+    }
     
-    /// タイル配列と利用可能な写真インデックスからベストマッチを探索して割り当て（重複使用防止）
+    // MARK: - タイル自動マッチング
     public func matchTiles(
         tiles: [MosaicTile],
         availablePhotos: [IndexedPhoto],
         allowDuplicates: Bool = false,
-        passDistanceThreshold: Float = 14.0,
-        detailedDistanceThreshold: Float = 18.0,
-        coarseCandidateLimit: Int = 30
+        passDistanceThreshold: Float = 14.0
     ) -> [MosaicTile] {
         guard !availablePhotos.isEmpty else { return tiles }
         
         var updatedTiles = tiles
-        var usedPhotoIds = Set<String>()
+        var usedPhotoIDs = Set<String>()
         
-        // 既にロック・確定しているタイルが使っている写真IDを記録
-        for tile in updatedTiles where tile.isLocked {
-            if let pid = tile.placedPhotoIdentifier {
-                usedPhotoIds.insert(pid)
-            }
-        }
+        let buckets = ColorBuckets(photos: availablePhotos)
         
-        struct Candidate {
-            let photoIndex: Int
-            let score: Float
-        }
-
-        let limit = max(1, min(coarseCandidateLimit, availablePhotos.count))
-        var candidatesByTile = [[Candidate]](repeating: [], count: updatedTiles.count)
-
-        // Lab空間をしきい値幅の立方体に分け、全写真の総当たりを避ける。
-        struct LabBucketKey: Hashable {
-            let l: Int
-            let a: Int
-            let b: Int
-        }
-        let bucketWidth = max(1, passDistanceThreshold)
-        func bucketKey(for color: LabColor) -> LabBucketKey {
-            LabBucketKey(
-                l: Int(floor(color.l / bucketWidth)),
-                a: Int(floor(color.a / bucketWidth)),
-                b: Int(floor(color.b / bucketWidth))
-            )
-        }
-        var photoBuckets: [LabBucketKey: [Int]] = [:]
-        photoBuckets.reserveCapacity(min(availablePhotos.count, 2_048))
-        for (index, photo) in availablePhotos.enumerated() {
-            photoBuckets[bucketKey(for: photo.labColor), default: []].append(index)
-        }
-
-        // 第1段階: 平均色だけで上位候補に絞る。大きな全候補配列は保持しない。
-        for (tIdx, tile) in updatedTiles.enumerated() {
-            if tile.isLocked { continue }
-
-            let center = bucketKey(for: tile.targetLabColor)
-            var nearbyPhotoIndices: [Int] = []
-            for dl in -1...1 {
-                for da in -1...1 {
-                    for db in -1...1 {
-                        let key = LabBucketKey(l: center.l + dl, a: center.a + da, b: center.b + db)
-                        if let indices = photoBuckets[key] {
-                            nearbyPhotoIndices.append(contentsOf: indices)
-                        }
-                    }
+        for index in updatedTiles.indices {
+            let tile = updatedTiles[index]
+            if tile.isLocked && tile.isFilled {
+                if let photoId = tile.placedPhotoIdentifier {
+                    usedPhotoIDs.insert(photoId)
+                }
+                continue
+            }
+            
+            let candidates = buckets.candidates(for: tile.targetLabColor, maxRange: 28.0)
+            
+            var bestPhoto: IndexedPhoto? = nil
+            var bestScore: Float = Float.infinity
+            
+            for photo in candidates {
+                if !allowDuplicates && usedPhotoIDs.contains(photo.id) {
+                    continue
+                }
+                let score = matchScore(targetColor: tile.targetLabColor, targetSignature: tile.targetSignature, photo: photo)
+                if score < bestScore {
+                    bestScore = score
+                    bestPhoto = photo
                 }
             }
-
-            let coarse = nearbyPhotoIndices
-                .map { (photoIndex: $0, distance: tile.targetLabColor.distance(to: availablePhotos[$0].labColor)) }
-                .filter { $0.distance <= passDistanceThreshold }
-                .sorted { $0.distance < $1.distance }
-                .prefix(limit)
-
-            // 第2段階: 3×3 位置とコントラストを評価。旧データは平均色にフォールバック。
-            candidatesByTile[tIdx] = coarse.compactMap { item in
-                let photo = availablePhotos[item.photoIndex]
-                let score: Float
-                if let target = tile.targetSignature, let candidate = photo.signature {
-                    score = target.distance(to: candidate)
-                } else {
-                    score = item.distance
+            
+            if let best = bestPhoto, bestScore <= passDistanceThreshold {
+                updatedTiles[index].placedPhotoIdentifier = best.id
+                updatedTiles[index].placedLabColor = best.labColor
+                updatedTiles[index].placedSignature = best.signature
+                updatedTiles[index].thumbnailData = best.thumbnailData
+                updatedTiles[index].origin = .automatic
+                if !allowDuplicates {
+                    usedPhotoIDs.insert(best.id)
                 }
-                guard score <= detailedDistanceThreshold else { return nil }
-                return Candidate(photoIndex: item.photoIndex, score: score)
-            }
-            .sorted { $0.score < $1.score }
-        }
-
-        var assignedPhotoForTile = [Int?](repeating: nil, count: updatedTiles.count)
-
-        if allowDuplicates {
-            for tileIndex in updatedTiles.indices where !updatedTiles[tileIndex].isLocked {
-                assignedPhotoForTile[tileIndex] = candidatesByTile[tileIndex].first?.photoIndex
-            }
-        } else {
-            var photoToTile: [Int: Int] = [:]
-            let orderedTileIndices = updatedTiles.indices
-                .filter { !updatedTiles[$0].isLocked && !candidatesByTile[$0].isEmpty }
-                .sorted {
-                    let lhs = candidatesByTile[$0]
-                    let rhs = candidatesByTile[$1]
-                    if lhs.count != rhs.count { return lhs.count < rhs.count }
-                    let lhsRegret = lhs.count > 1 ? lhs[1].score - lhs[0].score : Float.greatestFiniteMagnitude
-                    let rhsRegret = rhs.count > 1 ? rhs[1].score - rhs[0].score : Float.greatestFiniteMagnitude
-                    return lhsRegret > rhsRegret
-                }
-
-            // 制約の強いマスから増加道を探し、貴重な写真を他マスが先取りしても再割当てする。
-            func assign(_ tileIndex: Int, visitedPhotos: inout Set<Int>, visitedTiles: inout Set<Int>) -> Bool {
-                guard visitedTiles.insert(tileIndex).inserted else { return false }
-                for candidate in candidatesByTile[tileIndex] {
-                    let photo = availablePhotos[candidate.photoIndex]
-                    guard !usedPhotoIds.contains(photo.id), visitedPhotos.insert(candidate.photoIndex).inserted else { continue }
-
-                    if let previousTile = photoToTile[candidate.photoIndex] {
-                        if assign(previousTile, visitedPhotos: &visitedPhotos, visitedTiles: &visitedTiles) {
-                            photoToTile[candidate.photoIndex] = tileIndex
-                            assignedPhotoForTile[tileIndex] = candidate.photoIndex
-                            return true
-                        }
-                    } else {
-                        photoToTile[candidate.photoIndex] = tileIndex
-                        assignedPhotoForTile[tileIndex] = candidate.photoIndex
-                        return true
-                    }
-                }
-                return false
-            }
-
-            for tileIndex in orderedTileIndices {
-                var visitedPhotos = Set<Int>()
-                var visitedTiles = Set<Int>()
-                _ = assign(tileIndex, visitedPhotos: &visitedPhotos, visitedTiles: &visitedTiles)
-            }
-        }
-
-        for i in updatedTiles.indices where !updatedTiles[i].isLocked {
-            if let photoIndex = assignedPhotoForTile[i] {
-                let photo = availablePhotos[photoIndex]
-                updatedTiles[i].placedPhotoIdentifier = photo.id
-                updatedTiles[i].placedLabColor = photo.labColor
-                updatedTiles[i].placedSignature = photo.signature
-                updatedTiles[i].thumbnailData = photo.thumbnailData
-            } else {
-                updatedTiles[i].placedPhotoIdentifier = nil
-                updatedTiles[i].placedLabColor = nil
-                updatedTiles[i].placedSignature = nil
-                updatedTiles[i].thumbnailData = nil
             }
         }
         
         return updatedTiles
     }
     
-    // MARK: - 不足色のミッション生成 (クラスタリング)
-    
-    /// 未充足タイルから「撮影ミッション」のリストを生成
-    public func generateMissions(from tiles: [MosaicTile], clusterDistance: Float = 15.0) -> [ColorMission] {
-        let unfilledTiles = tiles.filter { !$0.isFilled }
-        guard !unfilledTiles.isEmpty else { return [] }
+    // MARK: - 手動差し替え用の類似色候補探索（二段階探索）
+    public func findBestMatchCandidates(
+        for tile: MosaicTile,
+        from photos: [IndexedPhoto],
+        excluding usedPhotoIDs: Set<String> = [],
+        topK: Int = 8
+    ) -> [PhotoMatchCandidate] {
+        guard !photos.isEmpty else { return [] }
         
-        // 色相・明度が近いタイルをグループ化
-        var clusters: [(representative: LabColor, signature: SpatialColorSignature?, tileIds: [UUID])] = []
-        
-        for tile in unfilledTiles {
-            var matchedClusterIndex: Int? = nil
-            
-            for (idx, cluster) in clusters.enumerated() {
-                if tile.targetLabColor.distance(to: cluster.representative) <= clusterDistance {
-                    matchedClusterIndex = idx
-                    break
-                }
-            }
-            
-            if let idx = matchedClusterIndex {
-                clusters[idx].tileIds.append(tile.id)
-            } else {
-                clusters.append((representative: tile.targetLabColor, signature: tile.targetSignature, tileIds: [tile.id]))
-            }
+        let buckets = ColorBuckets(photos: photos)
+        // 1. まず平均色が近い30〜60枚を高速粗抽出
+        var coarseCandidates = buckets.candidates(for: tile.targetLabColor, maxRange: 45.0)
+        if coarseCandidates.count < topK {
+            coarseCandidates = photos
         }
         
-        // 要求数が多い順にソートしてミッション化
-        let sortedClusters = clusters.sorted { $0.tileIds.count > $1.tileIds.count }
+        // 2. 3x3空間シグネチャによる詳細評価（使用中写真の完全除外）
+        var scoredList: [(IndexedPhoto, Float)] = []
+        scoredList.reserveCapacity(coarseCandidates.count)
         
-        return sortedClusters.map { cluster in
-            ColorMission(
-                targetColor: cluster.representative,
-                targetSignature: cluster.signature,
-                targetTileIds: cluster.tileIds
-            )
+        for photo in coarseCandidates {
+            if usedPhotoIDs.contains(photo.id) {
+                continue
+            }
+            let score = matchScore(targetColor: tile.targetLabColor, targetSignature: tile.targetSignature, photo: photo)
+            scoredList.append((photo, score))
+        }
+        
+        // スコア昇順（一致度が高い順）にソート
+        scoredList.sort { $0.1 < $1.1 }
+        let topSlice = scoredList.prefix(topK)
+        
+        return topSlice.map { photo, score in
+            let ratio = max(0.0, min(1.0, 1.0 - (score / 100.0)))
+            return PhotoMatchCandidate(photo: photo, score: score, matchRatio: ratio)
         }
     }
     
-    // MARK: - 撮影された写真のフィッティング検証 & ピース当てはめ
-    
-    /// 新たに撮影した写真が、ミッションまたは未充足タイルに適合するか検証して配置
-    public func tryFitCapturedPhoto(
-        capturedPhoto: IndexedPhoto,
+    // MARK: - ピースのアトミック差し替え
+    public func replacePhoto(
         in project: inout MosaicProject,
-        targetMission: ColorMission? = nil
-    ) -> (success: Bool, fittedTileCount: Int, message: String) {
-        var bestTileIndex: Int? = nil
-        var minDistance: Float = Float.greatestFiniteMagnitude
-        
-        // 優先度1: 指定されたミッションの対象タイル
-        var candidateTileIds = targetMission?.targetTileIds ?? []
-        
-        // 指定がない場合はすべての未充足タイルを候補にする
-        if candidateTileIds.isEmpty {
-            candidateTileIds = project.tiles.filter { !$0.isFilled }.map { $0.id }
+        tileID: UUID,
+        with photo: IndexedPhoto
+    ) -> Bool {
+        guard let tileIndex = project.tiles.firstIndex(where: { $0.id == tileID }) else {
+            return false
         }
         
-        // 1. 対象タイルの探索（明示的な指定がある場合は配置済みマスの再撮影・差し替えも許可）
-        for tileId in candidateTileIds {
-            if let index = project.tiles.firstIndex(where: { $0.id == tileId }) {
-                // targetMission が特定タイルを指定している場合は再撮影（isFilled問わず）、それ以外は未充足マスのみ
-                if targetMission != nil || !project.tiles[index].isFilled {
-                    let targetColor = project.tiles[index].targetLabColor
-                    let distance = targetColor.distance(to: capturedPhoto.labColor)
-                    
-                    // 撮影写真フィッティング（色差 24.0 以下でスムーズに合格）
-                    if distance <= 24.0 && distance < minDistance {
-                        minDistance = distance
-                        bestTileIndex = index
+        // 他のタイルですでに使われている写真IDの場合は重複拒否
+        let isAlreadyUsedByOther = project.tiles.contains { tile in
+            tile.id != tileID && tile.placedPhotoIdentifier == photo.id
+        }
+        guard !isAlreadyUsedByOther else {
+            return false
+        }
+        
+        // タイルの更新
+        project.tiles[tileIndex].placedPhotoIdentifier = photo.id
+        project.tiles[tileIndex].placedLabColor = photo.labColor
+        project.tiles[tileIndex].placedSignature = photo.signature
+        project.tiles[tileIndex].thumbnailData = photo.thumbnailData
+        project.tiles[tileIndex].isLocked = true
+        project.tiles[tileIndex].origin = .manuallySelected
+        
+        // ミッション再計算
+        project.missions = generateMissions(from: project.tiles)
+        project.isCompleted = project.tiles.allSatisfy { $0.isFilled }
+        project.updatedAt = Date()
+        
+        return true
+    }
+    
+    // MARK: - 撮影ピースの当てはめ
+    public func fitCapturedPhoto(
+        project: MosaicProject,
+        photoData: Data,
+        photoLabColor: LabColor,
+        photoSignature: SpatialColorSignature? = nil,
+        preferredTileID: UUID? = nil,
+        passDistanceThreshold: Float = 16.0
+    ) -> (updatedProject: MosaicProject, matchedTile: MosaicTile?, message: String) {
+        var updatedProject = project
+        
+        // 1. ユーザーが特定マスを選択して撮り直した場合はそのマスに最優先で当てはめる
+        if let targetID = preferredTileID,
+           let index = updatedProject.tiles.firstIndex(where: { $0.id == targetID }) {
+            let tile = updatedProject.tiles[index]
+            let score = matchScore(targetColor: tile.targetLabColor, targetSignature: tile.targetSignature, photo: IndexedPhoto(id: "camera", labColor: photoLabColor, signature: photoSignature))
+            
+            if score <= passDistanceThreshold + 10.0 {
+                var updatedTile = tile
+                updatedTile.thumbnailData = photoData
+                updatedTile.placedLabColor = photoLabColor
+                updatedTile.placedSignature = photoSignature
+                updatedTile.isLocked = true
+                updatedTile.origin = .captured
+                updatedProject.tiles[index] = updatedTile
+                
+                updatedProject.missions = generateMissions(from: updatedProject.tiles)
+                updatedProject.isCompleted = updatedProject.tiles.allSatisfy { $0.isFilled }
+                updatedProject.updatedAt = Date()
+                
+                return (updatedProject, updatedTile, "ナイスショット！ピースを撮り直しました！")
+            }
+        }
+        
+        // 2. 未埋めタイルの中から最も合致するタイルを探す
+        var bestIndex: Int? = nil
+        var bestScore: Float = Float.infinity
+        
+        for (index, tile) in updatedProject.tiles.enumerated() {
+            if tile.isFilled { continue }
+            let score = matchScore(targetColor: tile.targetLabColor, targetSignature: tile.targetSignature, photo: IndexedPhoto(id: "camera", labColor: photoLabColor, signature: photoSignature))
+            if score < bestScore {
+                bestScore = score
+                bestIndex = index
+            }
+        }
+        
+        if let index = bestIndex, bestScore <= passDistanceThreshold {
+            var matchedTile = updatedProject.tiles[index]
+            matchedTile.thumbnailData = photoData
+            matchedTile.placedLabColor = photoLabColor
+            matchedTile.placedSignature = photoSignature
+            matchedTile.isLocked = true
+            matchedTile.origin = .captured
+            updatedProject.tiles[index] = matchedTile
+            
+            updatedProject.missions = generateMissions(from: updatedProject.tiles)
+            updatedProject.isCompleted = updatedProject.tiles.allSatisfy { $0.isFilled }
+            updatedProject.updatedAt = Date()
+            
+            let remaining = updatedProject.tiles.filter { !$0.isFilled }.count
+            let msg = remaining == 0 ? "🎉 おめでとうございます！すべてが埋まりました！" : "ナイスショット！ピースが1つハマりました！ (残り\(remaining)マス)"
+            return (updatedProject, matchedTile, msg)
+        }
+        
+        return (updatedProject, nil, "惜しい！ぴったりのマスが見つかりませんでした。レティクルの中心に色を捉えてもう一度撮影してみよう！")
+    }
+    
+    // MARK: - ミッション自動生成
+    public func generateMissions(from tiles: [MosaicTile]) -> [ColorMission] {
+        let unfilledTiles = tiles.filter { !$0.isFilled }
+        guard !unfilledTiles.isEmpty else { return [] }
+        
+        var clusters: [(representative: LabColor, tiles: [MosaicTile])] = []
+        let clusterThreshold: Float = 16.0
+        
+        for tile in unfilledTiles {
+            var merged = false
+            for i in clusters.indices {
+                if clusters[i].representative.distance(to: tile.targetLabColor) < clusterThreshold {
+                    clusters[i].tiles.append(tile)
+                    merged = true
+                    break
+                }
+            }
+            if !merged {
+                clusters.append((representative: tile.targetLabColor, tiles: [tile]))
+            }
+        }
+        
+        clusters.sort { $0.tiles.count > $1.tiles.count }
+        
+        return clusters.prefix(6).map { cluster in
+            ColorMission(
+                targetColor: cluster.representative,
+                targetSignature: nil,
+                targetTileIds: cluster.tiles.map(\.id)
+            )
+        }
+    }
+}
+
+/// 色探索バケットインデックス
+private struct ColorBuckets {
+    private var buckets: [Int: [IndexedPhoto]] = [:]
+    
+    init(photos: [IndexedPhoto]) {
+        for photo in photos {
+            let key = bucketKey(for: photo.labColor)
+            buckets[key, default: []].append(photo)
+        }
+    }
+    
+    func candidates(for targetColor: LabColor, maxRange: Float) -> [IndexedPhoto] {
+        let targetKey = bucketKey(for: targetColor)
+        var results: [IndexedPhoto] = []
+        
+        for dL in -1...1 {
+            for da in -1...1 {
+                for db in -1...1 {
+                    let neighborKey = targetKey + dL * 10000 + da * 100 + db
+                    if let bucketPhotos = buckets[neighborKey] {
+                        results.append(contentsOf: bucketPhotos)
                     }
                 }
             }
         }
         
-        if let index = bestTileIndex {
-            project.tiles[index].placedPhotoIdentifier = capturedPhoto.id
-            project.tiles[index].placedLabColor = capturedPhoto.labColor
-            project.tiles[index].placedSignature = capturedPhoto.signature
-            project.tiles[index].thumbnailData = capturedPhoto.thumbnailData
-            project.tiles[index].isLocked = true // 撮影ピースは確定ロック
-            
-            // ミッション一覧を再計算
-            project.missions = generateMissions(from: project.tiles)
-            project.isCompleted = project.tiles.allSatisfy { $0.isFilled }
-            project.updatedAt = Date()
-            return (true, 1, "ナイスショット！ピースが1つハマりました！")
-        } else {
-            return (false, 0, "惜しい！求めている色味と少し違うようです。もう一度挑戦してみましょう。")
+        if results.isEmpty {
+            for (_, list) in buckets {
+                results.append(contentsOf: list.prefix(5))
+            }
         }
+        return results
+    }
+    
+    private func bucketKey(for color: LabColor) -> Int {
+        let lIndex = Int(color.l / 20.0)
+        let aIndex = Int((color.a + 128.0) / 25.0)
+        let bIndex = Int((color.b + 128.0) / 25.0)
+        return lIndex * 10000 + aIndex * 100 + bIndex
     }
 }

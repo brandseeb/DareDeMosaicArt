@@ -27,6 +27,7 @@
 		F78F4DD3EDC54AD4A3272BAF /* PhotoPickerSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = BE1EFD8C760149F7A906A5CD /* PhotoPickerSheet.swift */; };
 		A1B2C3D4E5F60718293A4B5C /* StoreKitManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1C2D3E4F5A60718293B4C5D /* StoreKitManager.swift */; };
 		C1D2E3F4A5B60718293C4D5E /* ProPaywallView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1E2F3A4B5C60718293D4E5F /* ProPaywallView.swift */; };
+		B2C3D4E5F6A70718293E4F6A /* IndexedPhoto.swift in Sources */ = {isa = PBXBuildFile; fileRef = C2D3E4F5A6B70718293F4A6B /* IndexedPhoto.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -53,6 +54,7 @@
 		B1C2D3E4F5A60718293B4C5D /* StoreKitManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StoreKitManager.swift; sourceTree = "<group>"; };
 		D1E2F3A4B5C60718293D4E5F /* ProPaywallView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProPaywallView.swift; sourceTree = "<group>"; };
 		E1F2A3B4C5D60718293E4F5A /* DareDeMosaicArt.storekit */ = {isa = PBXFileReference; lastKnownFileType = text; path = DareDeMosaicArt.storekit; sourceTree = "<group>"; };
+		C2D3E4F5A6B70718293F4A6B /* IndexedPhoto.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IndexedPhoto.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -70,6 +72,7 @@
 			isa = PBXGroup;
 			children = (
 				D1765F55AD4448BDB62F246B /* LabColor.swift */,
+				C2D3E4F5A6B70718293F4A6B /* IndexedPhoto.swift */,
 				8B963E4E9D3E42B39B1E03D3 /* MosaicTile.swift */,
 				B858C29533BE47ACB221DDFE /* ColorMission.swift */,
 				A2C8CEBC40494F08A3C3166F /* MosaicProject.swift */,
@@ -271,6 +274,7 @@
 				6096610D434A49ADAA6EC204 /* ImageUtils.swift in Sources */,
 				A1B2C3D4E5F60718293A4B5C /* StoreKitManager.swift in Sources */,
 				C1D2E3F4A5B60718293C4D5E /* ProPaywallView.swift in Sources */,
+				B2C3D4E5F6A70718293E4F6A /* IndexedPhoto.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

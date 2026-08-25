@@ -5,7 +5,22 @@ import Photos
 import UIKit
 #endif
 
-/// 写真ライブラリのスキャン & カラーパレット化サービス（端末ローカル全写真対応・キャッシュ付き）
+/// 写真スキャナーのエラー
+public enum PhotoLibraryScannerError: LocalizedError, Sendable {
+    case permissionDenied
+    case albumNotFound(String)
+    
+    public var errorDescription: String? {
+        switch self {
+        case .permissionDenied:
+            return "写真ライブラリへのアクセスが許可されていません。"
+        case .albumNotFound(let title):
+            return "指定されたアルバム「\(title)」が見つかりません。削除された可能性があります。"
+        }
+    }
+}
+
+/// 写真ライブラリのスキャン & カラーパレット化サービス（アルバム指定・差分キャッシュ対応）
 @MainActor
 public final class PhotoLibraryScanner: ObservableObject {
     public static let shared = PhotoLibraryScanner()
@@ -34,12 +49,38 @@ public final class PhotoLibraryScanner: ObservableObject {
         return status == .authorized || status == .limited
     }
     
-    /// 端末ローカルに保存されている写真の「全件」を高速スキャンしてインデックス化
-    public func scanAllLocalPhotos() async -> [IndexedPhoto] {
+    // MARK: - ユーザーアルバム一覧の取得
+    public func fetchUserAlbums() -> [PhotoAlbumItem] {
+        guard authorizationStatus == .authorized else { return [] }
+        
+        let userAlbums = PHAssetCollection.fetchAssetCollections(
+            with: .album,
+            subtype: .any,
+            options: nil
+        )
+        
+        var items: [PhotoAlbumItem] = []
+        userAlbums.enumerateObjects { collection, _, _ in
+            let fetchOptions = PHFetchOptions()
+            fetchOptions.predicate = NSPredicate(format: "mediaType == %d", PHAssetMediaType.image.rawValue)
+            let assets = PHAsset.fetchAssets(in: collection, options: fetchOptions)
+            if assets.count > 0 {
+                items.append(PhotoAlbumItem(
+                    id: collection.localIdentifier,
+                    title: collection.localizedTitle ?? "無題のアルバム",
+                    assetCount: assets.count
+                ))
+            }
+        }
+        return items
+    }
+    
+    // MARK: - 写真ソースからのスキャン
+    public func scanPhotos(source: PhotoSource = .allLocalPhotos) async throws -> [IndexedPhoto] {
         guard authorizationStatus == .authorized || authorizationStatus == .limited else {
             let granted = await requestPermission()
-            guard granted else { return [] }
-            return await scanAllLocalPhotos()
+            guard granted else { throw PhotoLibraryScannerError.permissionDenied }
+            return try await scanPhotos(source: source)
         }
         
         isScanning = true
@@ -47,15 +88,27 @@ public final class PhotoLibraryScanner: ObservableObject {
         processedCount = 0
         localAvailableCount = 0
         
-        let cachedEntries = PhotoColorIndexCache.load()
-        var refreshedCacheEntries: [CachedPhotoIndexEntry] = []
-        
-        // 1. 写真ライブラリから画像アセットを全件取得（fetchLimitなし）
         let fetchOptions = PHFetchOptions()
         fetchOptions.sortDescriptors = [NSSortDescriptor(key: "creationDate", ascending: false)]
         fetchOptions.predicate = NSPredicate(format: "mediaType == %d", PHAssetMediaType.image.rawValue)
         
-        let assets = PHAsset.fetchAssets(with: fetchOptions)
+        let assets: PHFetchResult<PHAsset>
+        switch source {
+        case .allLocalPhotos:
+            assets = PHAsset.fetchAssets(with: fetchOptions)
+            
+        case .album(let localIdentifier, let title):
+            let collections = PHAssetCollection.fetchAssetCollections(
+                withLocalIdentifiers: [localIdentifier],
+                options: nil
+            )
+            guard let collection = collections.firstObject else {
+                self.isScanning = false
+                throw PhotoLibraryScannerError.albumNotFound(title)
+            }
+            assets = PHAsset.fetchAssets(in: collection, options: fetchOptions)
+        }
+        
         let totalCount = assets.count
         self.totalPhotoCount = totalCount
         
@@ -64,14 +117,16 @@ public final class PhotoLibraryScanner: ObservableObject {
             return []
         }
         
+        // 既存キャッシュを読み込み
+        let cachedEntries = PhotoColorIndexCache.load()
+        var newlyProcessedEntries: [CachedPhotoIndexEntry] = []
         var results: [IndexedPhoto] = []
         results.reserveCapacity(totalCount)
-        refreshedCacheEntries.reserveCapacity(totalCount)
+        newlyProcessedEntries.reserveCapacity(totalCount)
         
         let imageManager = PHCachingImageManager.default()
-        let targetSize = CGSize(width: 48, height: 48) // 高速化・省メモリのため48x48の極小サムネイル
+        let targetSize = CGSize(width: 48, height: 48)
         
-        // 2. メモリ効率と並列性を両立するため、50件ずつのバッチで処理
         let batchSize = 50
         for batchStart in stride(from: 0, to: totalCount, by: batchSize) {
             let batchEnd = min(batchStart + batchSize, totalCount)
@@ -90,7 +145,7 @@ public final class PhotoLibraryScanner: ObservableObject {
                         requestOptions.isSynchronous = false
                         requestOptions.deliveryMode = .fastFormat
                         requestOptions.resizeMode = .fast
-                        requestOptions.isNetworkAccessAllowed = false // iCloud通信は行わず、端末ローカル写真のみ対象
+                        requestOptions.isNetworkAccessAllowed = false // 端末保存写真のみ対象
 
                         return await withCheckedContinuation { continuation in
                             let gate = PhotoRequestContinuationGate(continuation)
@@ -140,7 +195,7 @@ public final class PhotoLibraryScanner: ObservableObject {
                 return items
             }
             
-            refreshedCacheEntries.append(contentsOf: batchResults)
+            newlyProcessedEntries.append(contentsOf: batchResults)
             results.append(contentsOf: batchResults.map(\.photo))
             await Task.yield()
         }
@@ -148,21 +203,32 @@ public final class PhotoLibraryScanner: ObservableObject {
         self.scannedPhotos = results
         self.isScanning = false
 
-        let cacheSnapshot = refreshedCacheEntries
+        // キャッシュに差分マージ（他写真のキャッシュを消さない）
+        let newEntries = newlyProcessedEntries
         Task {
-            PhotoColorIndexCache.save(cacheSnapshot)
+            PhotoColorIndexCache.merge(newEntries)
         }
         return results
     }
+    
+    /// ソースに該当する写真群をキャッシュまたは再取得から取得
+    public func photos(for source: PhotoSource) async throws -> [IndexedPhoto] {
+        return try await scanPhotos(source: source)
+    }
 }
 
-private struct CachedPhotoIndexEntry: Codable, Sendable {
-    let id: String
-    let modificationDate: Date?
-    let photo: IndexedPhoto
+public struct CachedPhotoIndexEntry: Codable, Sendable {
+    public let id: String
+    public let modificationDate: Date?
+    public let photo: IndexedPhoto
+    
+    public init(id: String, modificationDate: Date?, photo: IndexedPhoto) {
+        self.id = id
+        self.modificationDate = modificationDate
+        self.photo = photo
+    }
 }
 
-/// PhotoKitの結果ハンドラが複数回呼ばれても、continuationは必ず1回だけ完了させる。
 private final class PhotoRequestContinuationGate: @unchecked Sendable {
     private let lock = NSLock()
     private var continuation: CheckedContinuation<CachedPhotoIndexEntry?, Never>?
@@ -180,15 +246,15 @@ private final class PhotoRequestContinuationGate: @unchecked Sendable {
     }
 }
 
-/// 前回の色解析結果をCaches領域にバイナリProperty Listとして保存する。（Swift 6 準拠）
-private enum PhotoColorIndexCache {
+/// 前回の色解析結果をCaches領域にバイナリProperty Listとして保存・マージする。
+public enum PhotoColorIndexCache {
     private static var fileURL: URL? {
         FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first?
             .appendingPathComponent("DareDeMosaicArt", isDirectory: true)
             .appendingPathComponent("photo-color-index-v1.plist")
     }
 
-    static func load() -> [String: CachedPhotoIndexEntry] {
+    public static func load() -> [String: CachedPhotoIndexEntry] {
         guard let fileURL,
               let data = try? Data(contentsOf: fileURL),
               let entries = try? PropertyListDecoder().decode([CachedPhotoIndexEntry].self, from: data) else {
@@ -197,7 +263,7 @@ private enum PhotoColorIndexCache {
         return Dictionary(uniqueKeysWithValues: entries.map { ($0.id, $0) })
     }
 
-    static func save(_ entries: [CachedPhotoIndexEntry]) {
+    public static func save(_ entries: [CachedPhotoIndexEntry]) {
         guard let fileURL else { return }
         do {
             try FileManager.default.createDirectory(
@@ -209,7 +275,25 @@ private enum PhotoColorIndexCache {
             let data = try encoder.encode(entries)
             try data.write(to: fileURL, options: .atomic)
         } catch {
-            // キャッシュなので、保存失敗時は次回フル解析にフォールバックする。
+            // キャッシュ保存失敗時は次回フル解析にフォールバック
+        }
+    }
+
+    /// 差分マージ（既存の全写真キャッシュを消さずに追記更新）
+    public static func merge(_ newEntries: [CachedPhotoIndexEntry]) {
+        var current = load()
+        for entry in newEntries {
+            current[entry.id] = entry
+        }
+        save(Array(current.values))
+    }
+
+    /// 端末ライブラリから削除された写真のエントリを除去
+    public static func removeUnavailableEntries(validIDs: Set<String>) {
+        let current = load()
+        let filtered = current.values.filter { validIDs.contains($0.id) }
+        if filtered.count != current.count {
+            save(Array(filtered))
         }
     }
 }

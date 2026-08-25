@@ -1,31 +1,31 @@
 import Foundation
 
-/// モザイクアートを構成する1つのマス（タイル）
-public struct MosaicTile: Identifiable, Codable, Equatable, Hashable, Sendable {
+#if canImport(UIKit)
+import UIKit
+#endif
+
+/// ピースの配置元種別
+public enum PlacementOrigin: String, Codable, Sendable {
+    case automatic          // ライブラリからの自動マッチング
+    case captured           // カメラによるミッション撮影
+    case manuallySelected   // 類似色候補からの手動選択（再マッチングで上書きされない）
+}
+
+/// モザイクアートを構成する1マス（タイル）の情報
+public struct MosaicTile: Identifiable, Codable, Sendable, Equatable {
     public let id: UUID
     public let gridX: Int
     public let gridY: Int
-    
-    /// このマスが求めている目標色
     public let targetLabColor: LabColor
-
-    /// 目標マス内の 3×3 空間色特徴。旧データとの互換性のため optional。
-    public let targetSignature: SpatialColorSignature?
+    public var targetSignature: SpatialColorSignature?
     
-    /// 配置された写真の識別子 (PHAsset localIdentifier または 保存ファイルパス)
+    // はめ込まれた写真の情報
     public var placedPhotoIdentifier: String?
-    
-    /// 配置された写真の実測代表色
     public var placedLabColor: LabColor?
-
-    /// 配置された写真の 3×3 空間色特徴。
     public var placedSignature: SpatialColorSignature?
-    
-    /// 写真のサムネイルデータ (軽量キャッシュ用)
     public var thumbnailData: Data?
-    
-    /// 写真が撮影または確定されてロックされた状態か
     public var isLocked: Bool
+    public var origin: PlacementOrigin
     
     public init(
         id: UUID = UUID(),
@@ -37,7 +37,8 @@ public struct MosaicTile: Identifiable, Codable, Equatable, Hashable, Sendable {
         placedLabColor: LabColor? = nil,
         placedSignature: SpatialColorSignature? = nil,
         thumbnailData: Data? = nil,
-        isLocked: Bool = false
+        isLocked: Bool = false,
+        origin: PlacementOrigin = .automatic
     ) {
         self.id = id
         self.gridX = gridX
@@ -49,28 +50,39 @@ public struct MosaicTile: Identifiable, Codable, Equatable, Hashable, Sendable {
         self.placedSignature = placedSignature
         self.thumbnailData = thumbnailData
         self.isLocked = isLocked
+        self.origin = isLocked ? (origin == .automatic ? .captured : origin) : origin
     }
     
-    /// 写真がすでに配置されているか
     public var isFilled: Bool {
-        return placedPhotoIdentifier != nil
+        placedPhotoIdentifier != nil || thumbnailData != nil
     }
     
-    /// 配置された写真と目標色の一致度 (0.0 〜 1.0)
-    public var currentMatchRatio: Float {
-        if let targetSignature, let placedSignature {
-            return targetSignature.matchRatio(to: placedSignature)
-        }
-        guard let placed = placedLabColor else { return 0.0 }
-        return targetLabColor.matchRatio(to: placed)
+    // MARK: - Codable（旧データ後方互換性）
+    enum CodingKeys: String, CodingKey {
+        case id, gridX, gridY, targetLabColor, targetSignature
+        case placedPhotoIdentifier, placedLabColor, placedSignature
+        case thumbnailData, isLocked, origin
     }
     
-    /// 許容誤差範囲（ΔE <= 15.0）に収まっているか
-    public var isSufficient: Bool {
-        if let targetSignature, let placedSignature {
-            return targetSignature.distance(to: placedSignature) <= 18.0
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.id = try container.decode(UUID.self, forKey: .id)
+        self.gridX = try container.decode(Int.self, forKey: .gridX)
+        self.gridY = try container.decode(Int.self, forKey: .gridY)
+        self.targetLabColor = try container.decode(LabColor.self, forKey: .targetLabColor)
+        self.targetSignature = try container.decodeIfPresent(SpatialColorSignature.self, forKey: .targetSignature)
+        self.placedPhotoIdentifier = try container.decodeIfPresent(String.self, forKey: .placedPhotoIdentifier)
+        self.placedLabColor = try container.decodeIfPresent(LabColor.self, forKey: .placedLabColor)
+        self.placedSignature = try container.decodeIfPresent(SpatialColorSignature.self, forKey: .placedSignature)
+        self.thumbnailData = try container.decodeIfPresent(Data.self, forKey: .thumbnailData)
+        let locked = try container.decodeIfPresent(Bool.self, forKey: .isLocked) ?? false
+        self.isLocked = locked
+        
+        // 旧データ移行: origin が無ければ isLocked から判定
+        if let decodedOrigin = try container.decodeIfPresent(PlacementOrigin.self, forKey: .origin) {
+            self.origin = decodedOrigin
+        } else {
+            self.origin = locked ? .captured : .automatic
         }
-        guard let placed = placedLabColor else { return false }
-        return targetLabColor.distance(to: placed) <= 15.0
     }
 }
