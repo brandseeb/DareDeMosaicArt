@@ -1,0 +1,97 @@
+{
+  "appPolicies" : {
+    "eula" : "https://www.apple.com/legal/internet-services/itunes/dev/stdeula/",
+    "policies" : [
+      {
+        "locale" : "ja",
+        "policyText" : "購入はお使いの Apple ID に請求されます。買い切りアイテムのため自動更新や継続課金は一切ありません。"
+      }
+    ],
+    "privacyPolicy" : "https://brandseeb.github.io/DareDeMosaicArt/privacy.html"
+  },
+  "identifier" : "DareDeMosaicArtStoreKit",
+  "nonRenewingSubscriptions" : [
+
+  ],
+  "products" : [
+    {
+      "displayPrice" : "600",
+      "familyShareable" : true,
+      "internalID" : "10000001",
+      "localizations" : [
+        {
+          "description" : "4K超高画質・超大作グリッド・作品無制限・透かしなしを永久解除",
+          "displayName" : "誰でモザイクアート Pro",
+          "locale" : "ja"
+        },
+        {
+          "description" : "Unlock 4K Export, Huge Grids, Unlimited Projects & No Watermark",
+          "displayName" : "DareDeMosaic Pro",
+          "locale" : "en_US"
+        }
+      ],
+      "productID" : "com.daredemosaic.app.pro",
+      "referenceName" : "Pro Upgrade (Non-Consumable)",
+      "type" : "NonConsumable"
+    }
+  ],
+  "settings" : {
+    "_failTransactionsEnabled" : false,
+    "_locale" : "ja",
+    "_storefront" : "JPN",
+    "_storeKitErrors" : [
+      {
+        "current" : null,
+        "enabled" : false,
+        "name" : "Load Products"
+      },
+      {
+        "current" : null,
+        "enabled" : false,
+        "name" : "Purchase"
+      },
+      {
+        "current" : null,
+        "enabled" : false,
+        "name" : "Verification"
+      },
+      {
+        "current" : null,
+        "enabled" : false,
+        "name" : "App Store Sync"
+      },
+      {
+        "current" : null,
+        "enabled" : false,
+        "name" : "Subscription Status"
+      },
+      {
+        "current" : null,
+        "enabled" : false,
+        "name" : "App Transaction"
+      },
+      {
+        "current" : null,
+        "enabled" : false,
+        "name" : "Manage Subscriptions Sheet"
+      },
+      {
+        "current" : null,
+        "enabled" : false,
+        "name" : "Refund Request Sheet"
+      },
+      {
+        "current" : null,
+        "enabled" : false,
+        "name" : "Offer Code Redeem Sheet"
+      }
+    ]
+  },
+  "subscriptionGroups" : [
+
+  ],
+  "version" : {
+    "major" : 4,
+    "minor" : 0
+  }
+}

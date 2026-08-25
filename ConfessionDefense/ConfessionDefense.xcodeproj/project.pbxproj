@@ -1,0 +1,362 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 56;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		A10000012C68000100000001 /* ConfessionDefenseApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000012C68000000000001 /* ConfessionDefenseApp.swift */; };
+		A10000012C68000100000002 /* GridPosition.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000012C68000000000002 /* GridPosition.swift */; };
+		A10000012C68000100000003 /* CellType.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000012C68000000000003 /* CellType.swift */; };
+		A10000012C68000100000004 /* Classmate.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000012C68000000000004 /* Classmate.swift */; };
+		A10000012C68000100000005 /* Enemy.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000012C68000000000005 /* Enemy.swift */; };
+		A10000012C68000100000006 /* FriendshipCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000012C68000000000006 /* FriendshipCard.swift */; };
+		A10000012C68000100000007 /* PathFinder.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000012C68000000000007 /* PathFinder.swift */; };
+		A10000012C68000100000008 /* GameManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000012C68000000000008 /* GameManager.swift */; };
+		A10000012C68000100000009 /* GameScene.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000012C68000000000009 /* GameScene.swift */; };
+		A10000012C6800010000000A /* MainMenuView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000012C6800000000000A /* MainMenuView.swift */; };
+		A10000012C6800010000000B /* GameView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000012C6800000000000B /* GameView.swift */; };
+		A10000012C6800010000000C /* GameHUDView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000012C6800000000000C /* GameHUDView.swift */; };
+		A10000012C6800010000000D /* GameToolbarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000012C6800000000000D /* GameToolbarView.swift */; };
+		A10000012C6800010000000E /* ClassmateSelectionModal.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000012C6800000000000E /* ClassmateSelectionModal.swift */; };
+		A10000012C6800010000000F /* UpgradeModal.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000012C6800000000000F /* UpgradeModal.swift */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+		A10000002C68000000000001 /* ConfessionDefense.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = ConfessionDefense.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		A10000012C68000000000001 /* ConfessionDefenseApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConfessionDefenseApp.swift; sourceTree = "<group>"; };
+		A10000012C68000000000002 /* GridPosition.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GridPosition.swift; sourceTree = "<group>"; };
+		A10000012C68000000000003 /* CellType.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CellType.swift; sourceTree = "<group>"; };
+		A10000012C68000000000004 /* Classmate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Classmate.swift; sourceTree = "<group>"; };
+		A10000012C68000000000005 /* Enemy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Enemy.swift; sourceTree = "<group>"; };
+		A10000012C68000000000006 /* FriendshipCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FriendshipCard.swift; sourceTree = "<group>"; };
+		A10000012C68000000000007 /* PathFinder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PathFinder.swift; sourceTree = "<group>"; };
+		A10000012C68000000000008 /* GameManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GameManager.swift; sourceTree = "<group>"; };
+		A10000012C68000000000009 /* GameScene.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GameScene.swift; sourceTree = "<group>"; };
+		A10000012C6800000000000A /* MainMenuView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainMenuView.swift; sourceTree = "<group>"; };
+		A10000012C6800000000000B /* GameView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GameView.swift; sourceTree = "<group>"; };
+		A10000012C6800000000000C /* GameHUDView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GameHUDView.swift; sourceTree = "<group>"; };
+		A10000012C6800000000000D /* GameToolbarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GameToolbarView.swift; sourceTree = "<group>"; };
+		A10000012C6800000000000E /* ClassmateSelectionModal.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClassmateSelectionModal.swift; sourceTree = "<group>"; };
+		A10000012C6800000000000F /* UpgradeModal.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UpgradeModal.swift; sourceTree = "<group>"; };
+		A10000012C68000000000010 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		A10000022C68000000000001 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		A10000032C68000000000001 = {
+			isa = PBXGroup;
+			children = (
+				A10000032C68000000000002 /* Sources */,
+				A10000012C68000000000010 /* Info.plist */,
+				A10000002C68000000000001 /* ConfessionDefense.app */,
+			);
+			sourceTree = "<group>";
+		};
+		A10000032C68000000000002 /* Sources */ = {
+			isa = PBXGroup;
+			children = (
+				A10000032C68000000000003 /* App */,
+				A10000032C68000000000004 /* Models */,
+				A10000032C68000000000005 /* Systems */,
+				A10000032C68000000000006 /* Scenes */,
+				A10000032C68000000000007 /* Views */,
+			);
+			path = Sources;
+			sourceTree = "<group>";
+		};
+		A10000032C68000000000003 /* App */ = {
+			isa = PBXGroup;
+			children = (
+				A10000012C68000000000001 /* ConfessionDefenseApp.swift */,
+			);
+			path = App;
+			sourceTree = "<group>";
+		};
+		A10000032C68000000000004 /* Models */ = {
+			isa = PBXGroup;
+			children = (
+				A10000012C68000000000002 /* GridPosition.swift */,
+				A10000012C68000000000003 /* CellType.swift */,
+				A10000012C68000000000004 /* Classmate.swift */,
+				A10000012C68000000000005 /* Enemy.swift */,
+				A10000012C68000000000006 /* FriendshipCard.swift */,
+			);
+			path = Models;
+			sourceTree = "<group>";
+		};
+		A10000032C68000000000005 /* Systems */ = {
+			isa = PBXGroup;
+			children = (
+				A10000012C68000000000007 /* PathFinder.swift */,
+				A10000012C68000000000008 /* GameManager.swift */,
+			);
+			path = Systems;
+			sourceTree = "<group>";
+		};
+		A10000032C68000000000006 /* Scenes */ = {
+			isa = PBXGroup;
+			children = (
+				A10000012C68000000000009 /* GameScene.swift */,
+			);
+			path = Scenes;
+			sourceTree = "<group>";
+		};
+		A10000032C68000000000007 /* Views */ = {
+			isa = PBXGroup;
+			children = (
+				A10000012C6800000000000A /* MainMenuView.swift */,
+				A10000012C6800000000000B /* GameView.swift */,
+				A10000012C6800000000000C /* GameHUDView.swift */,
+				A10000012C6800000000000D /* GameToolbarView.swift */,
+				A10000012C6800000000000E /* ClassmateSelectionModal.swift */,
+				A10000012C6800000000000F /* UpgradeModal.swift */,
+			);
+			path = Views;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		A10000042C68000000000001 /* ConfessionDefense */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = A10000052C68000000000001 /* Build configuration list for PBXNativeTarget "ConfessionDefense" */;
+			buildPhases = (
+				A10000062C68000000000001 /* Sources */,
+				A10000022C68000000000001 /* Frameworks */,
+				A10000072C68000000000001 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = ConfessionDefense;
+			productName = ConfessionDefense;
+			productReference = A10000002C68000000000001 /* ConfessionDefense.app */;
+			productType = "com.apple.product-type.application";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		A10000082C68000000000001 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = 1;
+				LastSwiftUpdateCheck = 1500;
+				LastUpgradeCheck = 1500;
+				TargetAttributes = {
+					A10000042C68000000000001 = {
+						CreatedOnToolsVersion = 15.0;
+					};
+				};
+			};
+			buildConfigurationList = A10000092C68000000000001 /* Build configuration list for PBXProject "ConfessionDefense" */;
+			compatibilityVersion = "Xcode 14.0";
+			developmentRegion = ja;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				ja,
+				Base,
+			);
+			mainGroup = A10000032C68000000000001;
+			productRefGroup = A10000032C68000000000001;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				A10000042C68000000000001 /* ConfessionDefense */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		A10000072C68000000000001 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		A10000062C68000000000001 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A10000012C68000100000001 /* ConfessionDefenseApp.swift in Sources */,
+				A10000012C68000100000002 /* GridPosition.swift in Sources */,
+				A10000012C68000100000003 /* CellType.swift in Sources */,
+				A10000012C68000100000004 /* Classmate.swift in Sources */,
+				A10000012C68000100000005 /* Enemy.swift in Sources */,
+				A10000012C68000100000006 /* FriendshipCard.swift in Sources */,
+				A10000012C68000100000007 /* PathFinder.swift in Sources */,
+				A10000012C68000100000008 /* GameManager.swift in Sources */,
+				A10000012C68000100000009 /* GameScene.swift in Sources */,
+				A10000012C6800010000000A /* MainMenuView.swift in Sources */,
+				A10000012C6800010000000B /* GameView.swift in Sources */,
+				A10000012C6800010000000C /* GameHUDView.swift in Sources */,
+				A10000012C6800010000000D /* GameToolbarView.swift in Sources */,
+				A10000012C6800010000000E /* ClassmateSelectionModal.swift in Sources */,
+				A10000012C6800010000000F /* UpgradeModal.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		A100000A2C68000000000001 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				SDKROOT = iphoneos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+			};
+			name = Debug;
+		};
+		A100000A2C68000000000002 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				SDKROOT = iphoneos;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				VALIDATE_PRODUCT = YES;
+			};
+			name = Release;
+		};
+		A100000B2C68000000000001 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = T9BBQN2J96;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = Info.plist;
+				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
+				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations = UIInterfaceOrientationPortrait;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.example.ConfessionDefense;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Debug;
+		};
+		A100000B2C68000000000002 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = T9BBQN2J96;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = Info.plist;
+				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
+				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations = UIInterfaceOrientationPortrait;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.example.ConfessionDefense;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		A10000052C68000000000001 /* Build configuration list for PBXNativeTarget "ConfessionDefense" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				A100000B2C68000000000001 /* Debug */,
+				A100000B2C68000000000002 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		A10000092C68000000000001 /* Build configuration list for PBXProject "ConfessionDefense" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				A100000A2C68000000000001 /* Debug */,
+				A100000A2C68000000000002 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = A10000082C68000000000001 /* Project object */;
+}
