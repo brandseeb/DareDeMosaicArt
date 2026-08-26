@@ -15,6 +15,7 @@ public struct TimelapseExportView: View {
     @State private var renderProgress: Float = 0.0
     @State private var renderError: String? = nil
     @State private var videoURL: URL? = nil
+    @State private var includeAudio: Bool = true
     
     // AVQueuePlayer ＋ AVPlayerLooper による完全シームレスループ再生
     @State private var player: AVQueuePlayer? = nil
@@ -22,12 +23,15 @@ public struct TimelapseExportView: View {
     
     @State private var isSaving: Bool = false
     @State private var saveSuccess: Bool = false
-    @State private var showShareSheet: Bool = false
+    @State private var saveError: String? = nil
+    @State private var shareItem: TimelapseShareItem? = nil
     
     @State private var renderTask: Task<Void, Never>? = nil
+    private let onClose: (() -> Void)?
     
-    public init(project: MosaicProject) {
+    public init(project: MosaicProject, onClose: (() -> Void)? = nil) {
         self.project = project
+        self.onClose = onClose
     }
     
     public var body: some View {
@@ -57,6 +61,21 @@ public struct TimelapseExportView: View {
             .onDisappear {
                 cleanupPlayerAndTask()
             }
+            .alert("動画を保存できません", isPresented: Binding(
+                get: { saveError != nil },
+                set: { if !$0 { saveError = nil } }
+            )) {
+                Button("OK", role: .cancel) {}
+                Button("設定を開く") {
+                    openAppSettings()
+                }
+            } message: {
+                Text(saveError ?? "写真への追加アクセスを確認してください。")
+            }
+            .sheet(item: $shareItem) { item in
+                ActivityShareSheet(activityItems: [item.url])
+                    .ignoresSafeArea()
+            }
         }
     }
     
@@ -84,7 +103,7 @@ public struct TimelapseExportView: View {
             VStack(spacing: 6) {
                 Text("制作ショート動画をレンダリング中...")
                     .font(.headline)
-                Text("写真ピースの配置アニメーションと刻印を合成しています")
+                Text("写真ピースの物理落下・立体影・効果音を合成しています")
                     .font(.caption)
                     .foregroundColor(.secondary)
             }
@@ -112,18 +131,19 @@ public struct TimelapseExportView: View {
                 .font(.headline)
             
             Text(message)
-                .font(.caption)
+                .font(.subheadline)
                 .foregroundColor(.secondary)
                 .multilineTextAlignment(.center)
+                .padding(.horizontal)
             
-            Button("もう一度試す") {
+            Button("再試行する") {
                 startRendering()
             }
             .font(.headline)
-            .foregroundColor(.white)
             .padding(.horizontal, 24)
-            .padding(.vertical, 10)
+            .padding(.vertical, 12)
             .background(Color.accentColor)
+            .foregroundColor(.white)
             .cornerRadius(10)
             
             Spacer()
@@ -132,13 +152,34 @@ public struct TimelapseExportView: View {
     
     // MARK: - プレビュー＆保存・共有セクション
     private func videoPreviewSection(player: AVQueuePlayer) -> some View {
-        VStack(spacing: 16) {
+        VStack(spacing: 14) {
             // ループ再生 VideoPlayer (正方形)
             VideoPlayer(player: player)
                 .aspectRatio(1.0, contentMode: .fit)
                 .cornerRadius(12)
                 .shadow(color: .black.opacity(0.15), radius: 8, x: 0, y: 4)
-                .frame(maxHeight: 340)
+                .frame(maxHeight: 320)
+                .allowsHitTesting(false)
+            
+            // 効果音 ON / OFF 切替バー
+            HStack {
+                HStack(spacing: 4) {
+                    Image(systemName: includeAudio ? "speaker.wave.2.fill" : "speaker.slash.fill")
+                        .foregroundColor(includeAudio ? .accentColor : .secondary)
+                    Text("パズル効果音 (SE)")
+                        .font(.subheadline.bold())
+                }
+                Spacer()
+                Toggle("", isOn: $includeAudio)
+                    .labelsHidden()
+                    .onChange(of: includeAudio) { _, _ in
+                        startRendering()
+                    }
+            }
+            .padding(.horizontal, 14)
+            .padding(.vertical, 8)
+            .background(Color(.secondarySystemBackground))
+            .cornerRadius(10)
             
             HStack(spacing: 4) {
                 Image(systemName: "repeat")
@@ -153,7 +194,10 @@ public struct TimelapseExportView: View {
             // アクションボタン
             VStack(spacing: 10) {
                 Button {
-                    shareVideo()
+                    if let videoURL,
+                       FileManager.default.fileExists(atPath: videoURL.path) {
+                        shareItem = TimelapseShareItem(url: videoURL)
+                    }
                 } label: {
                     HStack {
                         Image(systemName: "square.and.arrow.up")
@@ -166,7 +210,8 @@ public struct TimelapseExportView: View {
                     .background(Color.accentColor)
                     .cornerRadius(12)
                 }
-                
+                .disabled(videoURL == nil)
+
                 Button {
                     saveVideoToPhotos()
                 } label: {
@@ -199,15 +244,21 @@ public struct TimelapseExportView: View {
         saveSuccess = false
         
         renderTask?.cancel()
+        let projectSnapshot = project
+        let audioFlag = includeAudio
+        
         renderTask = Task {
             do {
-                let url = try await TimelapseExportService.shared.exportTimelapse(
-                    project: project
-                ) { progress in
-                    Task { @MainActor in
-                        self.renderProgress = progress
+                let url = try await Task.detached(priority: .userInitiated) {
+                    try await TimelapseExportService.shared.exportTimelapse(
+                        project: projectSnapshot,
+                        includeAudio: audioFlag
+                    ) { progress in
+                        Task { @MainActor in
+                            self.renderProgress = progress
+                        }
                     }
-                }
+                }.value
                 
                 if Task.isCancelled {
                     try? FileManager.default.removeItem(at: url)
@@ -246,6 +297,31 @@ public struct TimelapseExportView: View {
         guard let url = videoURL, !isSaving else { return }
         isSaving = true
         
+        let status = PHPhotoLibrary.authorizationStatus(for: .addOnly)
+        switch status {
+        case .authorized, .limited:
+            performPhotoSave(url: url)
+        case .notDetermined:
+            PHPhotoLibrary.requestAuthorization(for: .addOnly) { newStatus in
+                Task { @MainActor in
+                    if newStatus == .authorized || newStatus == .limited {
+                        self.performPhotoSave(url: url)
+                    } else {
+                        self.isSaving = false
+                        self.saveError = "写真へのアクセスが許可されていないため、動画を保存できませんでした。"
+                    }
+                }
+            }
+        case .denied, .restricted:
+            isSaving = false
+            saveError = "設定アプリで「誰でモザイクアート」の写真アクセスを許可してください。"
+        @unknown default:
+            isSaving = false
+            saveError = "予期しない写真アクセス状態です。"
+        }
+    }
+    
+    private func performPhotoSave(url: URL) {
         PHPhotoLibrary.shared().performChanges({
             PHAssetChangeRequest.creationRequestForAssetFromVideo(atFileURL: url)
         }) { success, error in
@@ -253,24 +329,28 @@ public struct TimelapseExportView: View {
                 self.isSaving = false
                 if success {
                     self.saveSuccess = true
+                } else {
+                    self.saveError = error?.localizedDescription ?? "動画の保存に失敗しました。"
                 }
             }
         }
     }
     
-    // MARK: - SNS共有
-    private func shareVideo() {
-        guard let url = videoURL else { return }
-        let av = UIActivityViewController(activityItems: [url], applicationActivities: nil)
-        if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
-           let rootVC = windowScene.windows.first?.rootViewController {
-            rootVC.present(av, animated: true)
+    private func openAppSettings() {
+        #if canImport(UIKit)
+        if let url = URL(string: UIApplication.openSettingsURLString) {
+            UIApplication.shared.open(url)
         }
+        #endif
     }
     
     private func cancelAndDismiss() {
         cleanupPlayerAndTask()
-        dismiss()
+        if let onClose = onClose {
+            onClose()
+        } else {
+            dismiss()
+        }
     }
     
     private func cleanupPlayerAndTask() {
@@ -283,9 +363,8 @@ public struct TimelapseExportView: View {
             let targetURL = url
             self.videoURL = nil
             if isSaving {
-                // 写真保存処理が走っている最中は、取り込み完了を待ってからバックグラウンドで安全削除
                 Task.detached(priority: .background) {
-                    try? await Task.sleep(nanoseconds: 8_000_000_000) // 8秒待機後に安全消去
+                    try? await Task.sleep(nanoseconds: 8_000_000_000)
                     try? FileManager.default.removeItem(at: targetURL)
                 }
             } else {
@@ -294,3 +373,21 @@ public struct TimelapseExportView: View {
         }
     }
 }
+
+public struct TimelapseShareItem: Identifiable {
+    public let id = UUID()
+    public let url: URL
+}
+
+#if canImport(UIKit)
+public struct ActivityShareSheet: UIViewControllerRepresentable {
+    public let activityItems: [Any]
+    public let applicationActivities: [UIActivity]? = nil
+
+    public func makeUIViewController(context: Context) -> UIActivityViewController {
+        UIActivityViewController(activityItems: activityItems, applicationActivities: applicationActivities)
+    }
+
+    public func updateUIViewController(_ uiViewController: UIActivityViewController, context: Context) {}
+}
+#endif

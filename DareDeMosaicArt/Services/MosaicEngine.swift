@@ -189,7 +189,13 @@ public final class MosaicEngine: Sendable {
         var usedPhotoIndices = Set<Int>()
         var nextSeq = (updatedTiles.compactMap(\.placementSequence).max() ?? -1) + 1
         
-        let deterministicTileIndices = assignableIndices.sorted()
+        let deterministicTileIndices = assignableIndices.sorted { lhs, rhs in
+            let left = updatedTiles[lhs]
+            let right = updatedTiles[rhs]
+            if left.gridY != right.gridY { return left.gridY < right.gridY }
+            if left.gridX != right.gridX { return left.gridX < right.gridX }
+            return left.id.uuidString < right.id.uuidString
+        }
         for tileIdx in deterministicTileIndices {
             guard let photoIdx = matchTtoP[tileIdx], !usedPhotoIndices.contains(photoIdx) else { continue }
             usedPhotoIndices.insert(photoIdx)

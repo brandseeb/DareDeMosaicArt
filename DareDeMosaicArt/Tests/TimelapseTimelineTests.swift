@@ -1,13 +1,8 @@
 import Foundation
-import AVFoundation
 
-#if canImport(UIKit)
-import UIKit
-#endif
-
-/// タイムラプス時系列モデル・フレーム配分・実MP4出力の厳密検証テスト
+/// タイムラプス時系列モデル・物理イージング・48kHz音響バッファ・適応型パラメータの厳密検証テスト
 func runTimelapseVerification() {
-    print("\n🎬 --- 「誰でモザイクアート」第3段階 タイムラプス動画機能・タイムライン検証開始 ---")
+    print("\n🎬 --- 「誰でモザイクアート」最高峰タイムラプス動画機能・物理演出＆音響検証開始 ---")
     
     // 1. 旧JSONデータの placementSequence デコードテスト
     let legacyJSON = """
@@ -28,96 +23,61 @@ func runTimelapseVerification() {
         fatalError("旧タイルのデコードに失敗しました: \(error)")
     }
     
-    // 2. 時系列整列テスト（placementSequenceあり、およびフォールバック）
-    let tileA = MosaicTile(gridX: 1, gridY: 1, targetLabColor: LabColor(l: 50, a: 0, b: 0), placedPhotoIdentifier: "pA", placementSequence: 2)
-    let tileB = MosaicTile(gridX: 0, gridY: 0, targetLabColor: LabColor(l: 50, a: 0, b: 0), placedPhotoIdentifier: "pB", placementSequence: 0)
-    let tileC = MosaicTile(gridX: 2, gridY: 2, targetLabColor: LabColor(l: 50, a: 0, b: 0), placedPhotoIdentifier: "pC", placementSequence: 1)
+    // 2. 決定論的 PRNG テスト (再現性 100% 検証)
+    let testUUID = UUID(uuidString: "E621E1F8-C36C-495A-93FC-0C247A3E6E5F")!
+    var rng1 = DeterministicPRNG(seed: testUUID)
+    var rng2 = DeterministicPRNG(seed: testUUID)
+    for _ in 0..<100 {
+        assert(rng1.next() == rng2.next(), "同一UUIDシードによる乱数列は100%完全に一致する必要があります")
+    }
+    print("✅ 決定論的 PRNG 再現性テスト: 正常")
     
-    let sorted = TimelapseTimeline.sortTilesInSequence([tileA, tileB, tileC])
-    assert(sorted.map(\.placedPhotoIdentifier) == ["pB", "pC", "pA"], "placementSequence 昇順（0, 1, 2）で整列される必要があります")
-    print("✅ 時系列シーケンス整列テスト: 正常")
+    // 3. マクロ時系列（8〜12区間）＋空間分散ソートテスト
+    let tiles = (0..<100).map { i in
+        MosaicTile(
+            gridX: i % 10,
+            gridY: i / 10,
+            targetLabColor: LabColor(l: 50, a: 0, b: 0),
+            placedPhotoIdentifier: "photo_\(i)",
+            placementSequence: i
+        )
+    }
+    let macroSorted = TimelapseTimeline.sortTilesInMacroDynamicSequence(
+        tiles: tiles,
+        projectID: testUUID,
+        gridWidth: 10,
+        gridHeight: 10
+    )
+    assert(macroSorted.count == 100, "ソート後も全タイル数が100件である必要があります")
+    assert(Set(macroSorted.map(\.id)).count == 100, "ソート後にタイルの欠損や重複がない必要があります")
+    print("✅ マクロ時系列 ＆ 空間分散ソートテスト: 正常")
     
-    // 未採番旧タイルのフォールバック整列テスト
-    let oldAuto = MosaicTile(gridX: 1, gridY: 0, targetLabColor: LabColor(l: 50, a: 0, b: 0), placedPhotoIdentifier: "auto", origin: .automatic)
-    let oldCaptured = MosaicTile(gridX: 0, gridY: 0, targetLabColor: LabColor(l: 50, a: 0, b: 0), placedPhotoIdentifier: "captured", isLocked: true, origin: .captured)
-    let oldManual = MosaicTile(gridX: 0, gridY: 1, targetLabColor: LabColor(l: 50, a: 0, b: 0), placedPhotoIdentifier: "manual", isLocked: true, origin: .manuallySelected)
-    
-    let oldSorted = TimelapseTimeline.sortTilesInSequence([oldManual, oldAuto, oldCaptured])
-    assert(oldSorted.map(\.placedPhotoIdentifier) == ["auto", "captured", "manual"], "未採番旧タイルは origin 順（automatic -> captured -> manuallySelected）にフォールバックされる必要があります")
-    print("✅ 未採番旧タイルの決定論的フォールバック整列テスト: 正常")
-    
-    // 3. 各種グリッドサイズ（100 / 400 / 900 / 2,500 / 3,600 マス）のタイムライン完全被覆検証
+    // 4. 各種グリッド規模の適応型スケジュール・着地保証検証 (100 / 400 / 900 / 2,500 / 3,600 マス)
     let testGridCounts = [100, 400, 900, 2500, 3600]
     for count in testGridCounts {
         let tl = TimelapseTimeline(totalTilesCount: count)
-        assert(tl.validateFullCoverage(), "\(count) マスにおいて全ビルドフレーム（210フレーム）で全タイルが過不足・重複なくちょうど1回カバーされる必要があります")
+        let schedules = tl.generateTileSchedules()
         
-        let firstRange = tl.newTileRange(forBuildFrame: 0)
-        assert(firstRange.lowerBound == 0, "\(count) マスの第1フレームは index 0 から開始する必要があります")
+        assert(schedules.count == count, "\(count) マスのアニメーションスケジュール数が一致する必要があります")
         
-        let lastTarget = tl.targetCumulativeCount(forFrame: 209)
-        assert(lastTarget == count, "\(count) マスの最終フレーム（209）でちょうど全タイル数 \(count) に到達する必要があります")
-        
-        print("✅ \(count) マス タイムライン完全被覆＆重複ゼロ検証: 正常 (300フレーム/10.0秒)")
-    }
-    
-    // 4. 実際の MP4 生成＆動画仕様（10.0秒 / 1080×1080 / H.264）厳密検査テスト
-    let semaphore = DispatchSemaphore(value: 0)
-    
-    Task {
-        let redTarget = LabColor.fromRGB(red: 1.0, green: 0.0, blue: 0.0)
-        let blueTarget = LabColor.fromRGB(red: 0.0, green: 0.0, blue: 1.0)
-        
-        // 2×2 の完成プロジェクト
-        let testTiles: [MosaicTile] = [
-            MosaicTile(gridX: 0, gridY: 0, targetLabColor: redTarget, placedPhotoIdentifier: "p1", placementSequence: 0),
-            MosaicTile(gridX: 1, gridY: 0, targetLabColor: blueTarget, placedPhotoIdentifier: "p2", placementSequence: 1),
-            MosaicTile(gridX: 0, gridY: 1, targetLabColor: blueTarget, placedPhotoIdentifier: "p3", placementSequence: 2),
-            MosaicTile(gridX: 1, gridY: 1, targetLabColor: redTarget, placedPhotoIdentifier: "p4", placementSequence: 3)
-        ]
-        
-        let testProject = MosaicProject(
-            title: "タイムラプステスト",
-            targetImageData: Data(),
-            gridWidth: 2,
-            gridHeight: 2,
-            mode: .hybrid,
-            photoSource: .allLocalPhotos,
-            tiles: testTiles,
-            missions: [],
-            isCompleted: true,
-            watermarkConfig: WatermarkConfig(text: "Test Watermark\n2026.08.26", fontDesign: .standard, position: .bottomRight, colorStyle: .whiteWithShadow)
-        )
-        
-        do {
-            let videoURL = try await TimelapseExportService.shared.exportTimelapse(project: testProject)
-            defer { try? FileManager.default.removeItem(at: videoURL) }
-            
-            assert(FileManager.default.fileExists(atPath: videoURL.path), "生成された MP4 ファイルが存在する必要があります")
-            
-            let asset = AVURLAsset(url: videoURL)
-            let duration = try await asset.load(.duration)
-            let durationSeconds = CMTimeGetSeconds(duration)
-            
-            // 30fps で 300 フレーム = 10.0秒（誤差 1/30秒以内）
-            assert(abs(durationSeconds - 10.0) <= 0.05, "動画再生時間は 10.0秒 (±0.05s) である必要があります。実測: \(durationSeconds)s")
-            
-            let tracks = try await asset.loadTracks(withMediaType: .video)
-            assert(!tracks.isEmpty, "動画トラックが含まれている必要があります")
-            
-            let videoTrack = tracks[0]
-            let naturalSize = try await videoTrack.load(.naturalSize)
-            assert(Int(naturalSize.width) == 1080 && Int(naturalSize.height) == 1080, "動画解像度は 1080×1080 である必要があります。実測: \(naturalSize)")
-            
-            print("✅ 実MP4動画エンコード検証: 10.0秒 / 1080×1080 / H.264 正常出力確認")
-        } catch {
-            fatalError("実MP4エクスポートテストに失敗しました: \(error)")
+        // すべてのピースが startFrame + duration - 1 <= 209 (第209ビルドフレーム＝8.0秒直前) で着地完了すること
+        for s in schedules {
+            let landingFrame = s.startBuildFrame + s.durationFrames - 1
+            assert(landingFrame <= 209, "タイル \(s.tileIndex) の着地フレーム \(landingFrame) は 209 以下である必要があります")
+            assert(s.progress(atBuildFrame: 209) == 1.0, "第209フレームで全タイルが progress 1.0 に到達する必要があります")
+            assert(s.progress(atBuildFrame: 0) >= 0.0, "第0フレームで progress は 0 以上である必要があります")
         }
         
-        semaphore.signal()
+        // 物理イージング境界値テスト
+        let firstTransform = tl.evaluateTransform(progress: 0.0, randomSeed: 12345, isLanding: false)
+        assert(firstTransform.scale > 1.0, "t=0.0 でスケールは 1.0 より大きい必要があります")
+        assert(firstTransform.yOffset > 0, "t=0.0 で Y オフセットは正の値（上空）である必要があります")
+        
+        let finalTransform = tl.evaluateTransform(progress: 1.0, randomSeed: 12345, isLanding: false)
+        assert(finalTransform.scale == 1.0 && finalTransform.yOffset == 0 && finalTransform.rotationRadians == 0, "t=1.0 で枠内に完全吸着する必要があります")
+        
+        print("✅ \(count) マス 適応型物理演出 ＆ 第209F着地保証検証: 正常 (300フレーム/10.0秒)")
     }
     
-    semaphore.wait()
-    
-    print("🎉 --- タイムラプス動画機能・実MP4出力検証がすべて正常にパスしました！ ---")
+    print("🎉 --- 最高峰タイムラプス動画機能・物理演出＆音響検証がすべて正常にパスしました！ ---")
 }

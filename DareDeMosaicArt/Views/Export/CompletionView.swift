@@ -18,6 +18,7 @@ public struct CompletionView: View {
     @State private var showPaywall: Bool = false
     @State private var showWatermarkEditor: Bool = false
     @State private var showTimelapseSheet: Bool = false
+    @State private var imageShareItem: MosaicImageShareItem? = nil
     
     // 一時編集用 WatermarkConfig
     @State private var draftWatermark: WatermarkConfig = WatermarkConfig()
@@ -211,7 +212,13 @@ public struct CompletionView: View {
                 watermarkEditorSheet
             }
             .sheet(isPresented: $showTimelapseSheet) {
-                TimelapseExportView(project: project)
+                TimelapseExportView(project: project) {
+                    showTimelapseSheet = false
+                }
+            }
+            .sheet(item: $imageShareItem) { item in
+                MosaicImageActivityShareSheet(activityItems: [item.image])
+                    .ignoresSafeArea()
             }
             .onAppear {
                 if let saved = project.watermarkConfig {
@@ -413,11 +420,7 @@ public struct CompletionView: View {
             if let finalImage = await generateFinalExportImage() {
                 await MainActor.run {
                     self.isExporting = false
-                    let av = UIActivityViewController(activityItems: [finalImage], applicationActivities: nil)
-                    if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
-                       let rootVC = windowScene.windows.first?.rootViewController {
-                        rootVC.present(av, animated: true)
-                    }
+                    self.imageShareItem = MosaicImageShareItem(image: finalImage)
                 }
             } else {
                 await MainActor.run { self.isExporting = false }
@@ -702,6 +705,23 @@ public struct CompletionView: View {
         }
     }
 }
+
+private struct MosaicImageShareItem: Identifiable {
+    let id = UUID()
+    let image: UIImage
+}
+
+#if canImport(UIKit)
+private struct MosaicImageActivityShareSheet: UIViewControllerRepresentable {
+    let activityItems: [Any]
+
+    func makeUIViewController(context: Context) -> UIActivityViewController {
+        UIActivityViewController(activityItems: activityItems, applicationActivities: nil)
+    }
+
+    func updateUIViewController(_ uiViewController: UIActivityViewController, context: Context) {}
+}
+#endif
 
 /// 刻印テキストの文字数（最大60文字）および行数（最大2行）制限
 private func sanitizeWatermarkText(_ rawText: String) -> String {
