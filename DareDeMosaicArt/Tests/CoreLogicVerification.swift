@@ -167,6 +167,11 @@ func runPerformanceVerification(photoCount: Int = 3_000) {
     let result = MosaicEngine.shared.matchTiles(tiles: tiles, availablePhotos: photos)
     let elapsed = Date().timeIntervalSince(start)
     let filledCount = result.filter(\.isFilled).count
-    print("✅ 50×50 / \(photoCount)写真計測: \(String(format: "%.2f", elapsed))秒、配置 \(filledCount) / 2500")
+    let placedIDs = result.compactMap(\.placedPhotoIdentifier)
+    let uniqueCount = Set(placedIDs).count
+    let duplicateCount = placedIDs.count - uniqueCount
+    
+    print("✅ 50×50 / \(photoCount)写真計測: \(String(format: "%.2f", elapsed))秒、配置 \(filledCount) / 2500, ユニーク数 \(uniqueCount) / \(filledCount) (重複: \(duplicateCount)件)")
     assert(filledCount > 2_000, "十分な候補がある計測データで配置数が少なすぎます")
+    assert(duplicateCount == 0, "マッチング結果に重複した写真IDが含まれてはなりません")
 }

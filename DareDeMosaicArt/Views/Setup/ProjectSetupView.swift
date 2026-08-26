@@ -332,13 +332,37 @@ public struct ProjectSetupView: View {
             return
         }
         
-        if scanner.authorizationStatus == .limited {
-            showLimitedAccessAlert = true
-            return
-        }
+        scanner.checkPermission()
         
-        self.userAlbums = scanner.fetchUserAlbums()
-        showAlbumPickerSheet = true
+        switch scanner.authorizationStatus {
+        case .authorized:
+            self.userAlbums = scanner.fetchUserAlbums()
+            showAlbumPickerSheet = true
+            
+        case .limited:
+            showLimitedAccessAlert = true
+            
+        case .denied, .restricted:
+            showPermissionDeniedAlert = true
+            
+        case .notDetermined:
+            Task {
+                let granted = await scanner.requestPermission()
+                if granted {
+                    if scanner.authorizationStatus == .authorized {
+                        self.userAlbums = scanner.fetchUserAlbums()
+                        showAlbumPickerSheet = true
+                    } else if scanner.authorizationStatus == .limited {
+                        showLimitedAccessAlert = true
+                    }
+                } else {
+                    showPermissionDeniedAlert = true
+                }
+            }
+            
+        @unknown default:
+            showPermissionDeniedAlert = true
+        }
     }
     
     private func handleStartButtonTapped() {

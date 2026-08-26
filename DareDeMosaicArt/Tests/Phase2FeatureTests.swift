@@ -1,6 +1,6 @@
 import Foundation
 
-/// 第2段階（アルバム指定・空間色差し替え・カスタム刻印・旧データ互換性・Maximum Cardinality Matching）の網羅的テスト
+/// 第2段階（アルバム指定・空間色差し替え・カスタム刻印・旧データ互換性・Maximum Cardinality Matching・局所スワップ）の網羅的テスト
 func runPhase2Verification() {
     print("\n🌟 --- 「誰でモザイクアート」第2段階 厳密仕様・互換性テスト開始 ---")
     
@@ -139,7 +139,7 @@ func runPhase2Verification() {
     assert(candidates[0].score < candidates[1].score, "空間配置が一致する候補のスコアがより低く（高評価）になる必要があります")
     print("✅ 3×3空間シグネチャ詳細順位＆自タイル写真除外テスト: 正常")
     
-    // 4. 疎グラフ上での Maximum Cardinality Matching & スワップ不整合防止テスト
+    // 4. 疎グラフ上での Maximum Cardinality Matching 検証テスト
     let flexibleColor = LabColor(l: 50, a: 0, b: 0)
     let constrainedColor = LabColor(l: 50, a: 5, b: 0)
     let scarceColor = LabColor(l: 50, a: 3, b: 0)
@@ -164,11 +164,35 @@ func runPhase2Verification() {
     assert(allocatedTiles.allSatisfy { $0.isFilled }, "疎グラフ上の Maximum Cardinality Matching により両方のタイルが埋まる必要があります")
     assert(allocatedTiles[1].placedPhotoIdentifier == "photo_scarce", "選択肢が1つしかないタイル1に希少写真が割り当てられる必要があります")
     assert(allocatedTiles[0].placedPhotoIdentifier == "photo_common", "タイル0には photo_common が割り当てられる必要があります")
+    print("✅ Maximum Cardinality Matching テスト: 正常")
     
-    // 重複写真IDの完全不在検証
-    let placedIDs = allocatedTiles.compactMap(\.placedPhotoIdentifier)
-    assert(Set(placedIDs).count == placedIDs.count, "マッチング結果に重複した写真IDが一切含まれてはなりません")
-    print("✅ Maximum Cardinality Matching & スワップ重複防止テスト: 正常")
+    // 5. 局所スワップ（2-opt Break-and-Restart）による交差解消＆重複ゼロ回帰テスト
+    // タイル0: 赤 (a: 20), タイル1: 青 (a: -20)
+    // 写真0: 赤 (a: 20, photo_red), 写真1: 青 (a: -20, photo_blue)
+    // 閾値: 45.0 (両写真とも両タイルにエッジを持つ)
+    let swapTile0 = MosaicTile(gridX: 0, gridY: 0, targetLabColor: LabColor(l: 50, a: 20, b: 0))
+    let swapTile1 = MosaicTile(gridX: 1, gridY: 0, targetLabColor: LabColor(l: 50, a: -20, b: 0))
+    
+    // 初期マッチングで交差が起きやすいよう、写真リストの順序をあえて逆に配置
+    let swapPhotos = [
+        IndexedPhoto(id: "photo_blue", labColor: LabColor(l: 50, a: -20, b: 0)),
+        IndexedPhoto(id: "photo_red", labColor: LabColor(l: 50, a: 20, b: 0))
+    ]
+    
+    let swapResult = MosaicEngine.shared.matchTiles(
+        tiles: [swapTile0, swapTile1],
+        availablePhotos: swapPhotos,
+        allowDuplicates: false,
+        passDistanceThreshold: 45.0
+    )
+    
+    assert(swapResult.allSatisfy { $0.isFilled }, "すべてのタイルが埋まる必要があります")
+    assert(swapResult[0].placedPhotoIdentifier == "photo_red", "局所スワップによりタイル0には赤色の写真が最適配置される必要があります")
+    assert(swapResult[1].placedPhotoIdentifier == "photo_blue", "局所スワップによりタイル1には青色の写真が最適配置される必要があります")
+    
+    let swapPlacedIDs = swapResult.compactMap(\.placedPhotoIdentifier)
+    assert(Set(swapPlacedIDs).count == swapPlacedIDs.count, "スワップ後も重複写真IDはゼロである必要があります")
+    print("✅ 局所スワップ（2-opt Break-and-Restart）交差解消＆重複ゼロテスト: 正常")
     
     print("🎉 --- 第2段階 厳密仕様・互換性テストがすべて正常にパスしました！ ---")
 }
