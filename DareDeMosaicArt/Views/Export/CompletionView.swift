@@ -17,6 +17,7 @@ public struct CompletionView: View {
     @State private var saveSuccess: Bool = false
     @State private var showPaywall: Bool = false
     @State private var showWatermarkEditor: Bool = false
+    @State private var showTimelapseSheet: Bool = false
     
     // 一時編集用 WatermarkConfig
     @State private var draftWatermark: WatermarkConfig = WatermarkConfig()
@@ -117,6 +118,38 @@ public struct CompletionView: View {
                     // アクションボタン
                     VStack(spacing: 12) {
                         if baseRenderedImage != nil {
+                            // 🎬 制作タイムラプス動画作成ボタン (Pro機能)
+                            Button {
+                                if !project.isCompleted {
+                                    // 未完成時は案内のみ
+                                } else if !storeKit.isProUser {
+                                    showPaywall = true
+                                } else {
+                                    showTimelapseSheet = true
+                                }
+                            } label: {
+                                HStack {
+                                    Image(systemName: "film.stack.fill")
+                                        .foregroundColor(.yellow)
+                                    Text(project.isCompleted ? "🎬 制作タイムラプス動画を作成" : "ピースがすべて埋まると動画を作成できます")
+                                    if !storeKit.isProUser && project.isCompleted {
+                                        Text("PRO")
+                                            .font(.system(size: 10, weight: .bold))
+                                            .padding(.horizontal, 5)
+                                            .padding(.vertical, 2)
+                                            .background(Color.yellow.opacity(0.3))
+                                            .cornerRadius(4)
+                                    }
+                                }
+                                .font(.headline)
+                                .foregroundColor(.white)
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 14)
+                                .background(project.isCompleted ? Color.purple : Color.gray.opacity(0.5))
+                                .cornerRadius(12)
+                            }
+                            .disabled(!project.isCompleted || isExporting || storeKit.proStatus == .loading)
+                            
                             Button {
                                 exportAndShare()
                             } label: {
@@ -176,6 +209,9 @@ public struct CompletionView: View {
             }
             .sheet(isPresented: $showWatermarkEditor) {
                 watermarkEditorSheet
+            }
+            .sheet(isPresented: $showTimelapseSheet) {
+                TimelapseExportView(project: project)
             }
             .onAppear {
                 if let saved = project.watermarkConfig {

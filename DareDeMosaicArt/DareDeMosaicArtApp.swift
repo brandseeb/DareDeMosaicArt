@@ -34,6 +34,9 @@ final class ProjectStore: ObservableObject {
     private var saveRevision = 0
     
     init() {
+        // 起動時に古い一時タイムラプス動画ファイルを自動清掃
+        TimelapseExportService.cleanupOldTemporaryFiles()
+        
         let diskProjects = ProjectDiskStore.load()
         if !diskProjects.isEmpty {
             projects = diskProjects

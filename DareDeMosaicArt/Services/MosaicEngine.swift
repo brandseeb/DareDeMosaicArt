@@ -185,8 +185,10 @@ public final class MosaicEngine: Sendable {
             }
         }
         
-        // 4. 重複安全確認 ＆ タイルへの反映
+        // 4. 重複安全確認 ＆ タイルへの反映（時系列順序の採番）
         var usedPhotoIndices = Set<Int>()
+        var nextSeq = (updatedTiles.compactMap(\.placementSequence).max() ?? -1) + 1
+        
         for (tileIdx, photoIdx) in matchTtoP {
             guard !usedPhotoIndices.contains(photoIdx) else { continue }
             usedPhotoIndices.insert(photoIdx)
@@ -197,6 +199,10 @@ public final class MosaicEngine: Sendable {
             updatedTiles[tileIdx].placedSignature = photo.signature
             updatedTiles[tileIdx].thumbnailData = photo.thumbnailData
             updatedTiles[tileIdx].origin = .automatic
+            if updatedTiles[tileIdx].placementSequence == nil {
+                updatedTiles[tileIdx].placementSequence = nextSeq
+                nextSeq += 1
+            }
         }
         
         return updatedTiles
@@ -269,13 +275,15 @@ public final class MosaicEngine: Sendable {
             return false
         }
         
-        // タイルの更新
+        // タイルの更新（最新連番を採番）
+        let nextSeq = (project.tiles.compactMap(\.placementSequence).max() ?? -1) + 1
         project.tiles[tileIndex].placedPhotoIdentifier = photo.id
         project.tiles[tileIndex].placedLabColor = photo.labColor
         project.tiles[tileIndex].placedSignature = photo.signature
         project.tiles[tileIndex].thumbnailData = photo.thumbnailData
         project.tiles[tileIndex].isLocked = true
         project.tiles[tileIndex].origin = .manuallySelected
+        project.tiles[tileIndex].placementSequence = nextSeq
         
         // ミッション再計算
         project.missions = generateMissions(from: project.tiles)
@@ -295,6 +303,7 @@ public final class MosaicEngine: Sendable {
         passDistanceThreshold: Float = 16.0
     ) -> (updatedProject: MosaicProject, matchedTile: MosaicTile?, message: String) {
         var updatedProject = project
+        let nextSeq = (updatedProject.tiles.compactMap(\.placementSequence).max() ?? -1) + 1
         
         // 1. ユーザーが特定マスを選択して撮り直した場合はそのマスに最優先で当てはめる
         if let targetID = preferredTileID,
@@ -309,6 +318,7 @@ public final class MosaicEngine: Sendable {
                 updatedTile.placedSignature = photoSignature
                 updatedTile.isLocked = true
                 updatedTile.origin = .captured
+                updatedTile.placementSequence = nextSeq
                 updatedProject.tiles[index] = updatedTile
                 
                 updatedProject.missions = generateMissions(from: updatedProject.tiles)
@@ -339,6 +349,7 @@ public final class MosaicEngine: Sendable {
             matchedTile.placedSignature = photoSignature
             matchedTile.isLocked = true
             matchedTile.origin = .captured
+            matchedTile.placementSequence = nextSeq
             updatedProject.tiles[index] = matchedTile
             
             updatedProject.missions = generateMissions(from: updatedProject.tiles)

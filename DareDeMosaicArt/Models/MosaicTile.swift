@@ -26,6 +26,7 @@ public struct MosaicTile: Identifiable, Codable, Sendable, Equatable {
     public var thumbnailData: Data?
     public var isLocked: Bool
     public var origin: PlacementOrigin
+    public var placementSequence: Int? // タイムラプス用時系列制作順（0から採番）
     
     public init(
         id: UUID = UUID(),
@@ -38,7 +39,8 @@ public struct MosaicTile: Identifiable, Codable, Sendable, Equatable {
         placedSignature: SpatialColorSignature? = nil,
         thumbnailData: Data? = nil,
         isLocked: Bool = false,
-        origin: PlacementOrigin = .automatic
+        origin: PlacementOrigin = .automatic,
+        placementSequence: Int? = nil
     ) {
         self.id = id
         self.gridX = gridX
@@ -51,6 +53,7 @@ public struct MosaicTile: Identifiable, Codable, Sendable, Equatable {
         self.thumbnailData = thumbnailData
         self.isLocked = isLocked
         self.origin = isLocked ? (origin == .automatic ? .captured : origin) : origin
+        self.placementSequence = placementSequence
     }
     
     public var isFilled: Bool {
@@ -61,7 +64,7 @@ public struct MosaicTile: Identifiable, Codable, Sendable, Equatable {
     enum CodingKeys: String, CodingKey {
         case id, gridX, gridY, targetLabColor, targetSignature
         case placedPhotoIdentifier, placedLabColor, placedSignature
-        case thumbnailData, isLocked, origin
+        case thumbnailData, isLocked, origin, placementSequence
     }
     
     public init(from decoder: Decoder) throws {
@@ -77,6 +80,7 @@ public struct MosaicTile: Identifiable, Codable, Sendable, Equatable {
         self.thumbnailData = try container.decodeIfPresent(Data.self, forKey: .thumbnailData)
         let locked = try container.decodeIfPresent(Bool.self, forKey: .isLocked) ?? false
         self.isLocked = locked
+        self.placementSequence = try container.decodeIfPresent(Int.self, forKey: .placementSequence)
         
         // 旧データ移行: origin が無ければ isLocked から判定
         if let decodedOrigin = try container.decodeIfPresent(PlacementOrigin.self, forKey: .origin) {

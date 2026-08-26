@@ -4,6 +4,7 @@ import Foundation
 runVerification()
 runStoreKitVerification()
 runPhase2Verification()
+runTimelapseVerification()
 if CommandLine.arguments.contains("--large-benchmark") {
     runPerformanceVerification(photoCount: 50_000)
 } else if CommandLine.arguments.contains("--benchmark") {

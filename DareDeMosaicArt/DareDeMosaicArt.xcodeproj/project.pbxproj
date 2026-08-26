@@ -28,6 +28,9 @@
 		A1B2C3D4E5F60718293A4B5C /* StoreKitManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1C2D3E4F5A60718293B4C5D /* StoreKitManager.swift */; };
 		C1D2E3F4A5B60718293C4D5E /* ProPaywallView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1E2F3A4B5C60718293D4E5F /* ProPaywallView.swift */; };
 		B2C3D4E5F6A70718293E4F6A /* IndexedPhoto.swift in Sources */ = {isa = PBXBuildFile; fileRef = C2D3E4F5A6B70718293F4A6B /* IndexedPhoto.swift */; };
+		E1A2B3C4D5E60718293A4B5C /* TimelapseTimeline.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1A2B3C4D5E60718293A4B5D /* TimelapseTimeline.swift */; };
+		E2A2B3C4D5E60718293A4B5E /* TimelapseExportService.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2A2B3C4D5E60718293A4B5F /* TimelapseExportService.swift */; };
+		E3A2B3C4D5E60718293A4B60 /* TimelapseExportView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F3A2B3C4D5E60718293A4B61 /* TimelapseExportView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -55,6 +58,9 @@
 		D1E2F3A4B5C60718293D4E5F /* ProPaywallView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProPaywallView.swift; sourceTree = "<group>"; };
 		E1F2A3B4C5D60718293E4F5A /* DareDeMosaicArt.storekit */ = {isa = PBXFileReference; lastKnownFileType = text; path = DareDeMosaicArt.storekit; sourceTree = "<group>"; };
 		C2D3E4F5A6B70718293F4A6B /* IndexedPhoto.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IndexedPhoto.swift; sourceTree = "<group>"; };
+		F1A2B3C4D5E60718293A4B5D /* TimelapseTimeline.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TimelapseTimeline.swift; sourceTree = "<group>"; };
+		F2A2B3C4D5E60718293A4B5F /* TimelapseExportService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TimelapseExportService.swift; sourceTree = "<group>"; };
+		F3A2B3C4D5E60718293A4B61 /* TimelapseExportView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TimelapseExportView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -76,6 +82,7 @@
 				8B963E4E9D3E42B39B1E03D3 /* MosaicTile.swift */,
 				B858C29533BE47ACB221DDFE /* ColorMission.swift */,
 				A2C8CEBC40494F08A3C3166F /* MosaicProject.swift */,
+				F1A2B3C4D5E60718293A4B5D /* TimelapseTimeline.swift */,
 			);
 			path = Models;
 			sourceTree = "<group>";
@@ -162,6 +169,7 @@
 			isa = PBXGroup;
 			children = (
 				F7D6302B058C4E26A777421A /* CompletionView.swift */,
+				F3A2B3C4D5E60718293A4B61 /* TimelapseExportView.swift */,
 			);
 			path = Export;
 			sourceTree = "<group>";
@@ -182,6 +190,7 @@
 				5C6DA243AAE249D997D5550E /* PhotoLibraryScanner.swift */,
 				53D8C646E0624282A67483E7 /* CameraManager.swift */,
 				B1C2D3E4F5A60718293B4C5D /* StoreKitManager.swift */,
+				F2A2B3C4D5E60718293A4B5F /* TimelapseExportService.swift */,
 			);
 			path = Services;
 			sourceTree = "<group>";
@@ -275,6 +284,9 @@
 				A1B2C3D4E5F60718293A4B5C /* StoreKitManager.swift in Sources */,
 				C1D2E3F4A5B60718293C4D5E /* ProPaywallView.swift in Sources */,
 				B2C3D4E5F6A70718293E4F6A /* IndexedPhoto.swift in Sources */,
+				E1A2B3C4D5E60718293A4B5C /* TimelapseTimeline.swift in Sources */,
+				E2A2B3C4D5E60718293A4B5E /* TimelapseExportService.swift in Sources */,
+				E3A2B3C4D5E60718293A4B60 /* TimelapseExportView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
