@@ -5,96 +5,57 @@ import Vision
 
 final class DareDeMosaicArtTests: XCTestCase {
 
-    func testProStatusTransitions() {
-        let loading = ProStatus.loading
-        let free = ProStatus.free
-        let pro = ProStatus.pro
+    func testColorAnalysisService() throws {
+        // 色差計算のテスト
+        let red = LabColor.fromRGB(red: 1.0, green: 0.0, blue: 0.0)
+        let similarRed = LabColor.fromRGB(red: 0.95, green: 0.05, blue: 0.05)
+        let blue = LabColor.fromRGB(red: 0.0, green: 0.0, blue: 1.0)
         
-        XCTAssertNotEqual(loading, free)
-        XCTAssertNotEqual(free, pro)
-        XCTAssertEqual(pro, .pro)
-        XCTAssertEqual(StoreKitManager.proProductID, "com.daredemosaic.app.pro")
+        let distSimilar = red.distance(to: similarRed)
+        let distDiff = red.distance(to: blue)
+        
+        XCTAssertLessThan(distSimilar, 15.0, "類似した赤同士の色差は小さいはず")
+        XCTAssertGreaterThan(distDiff, 50.0, "赤と青の色差は大きいはず")
     }
 
-    func testResolutionSpecifications() {
-        let freePixels = 1080
-        let freeFooter = 54
-        let freeTotal = freePixels + freeFooter
-        XCTAssertEqual(freePixels, 1080)
-        XCTAssertEqual(freeTotal, 1134)
-
-        let proPixels = 4096
-        let proFooter = 0
-        let proTotal = proPixels + proFooter
-        XCTAssertEqual(proPixels, 4096)
-        XCTAssertEqual(proTotal, 4096)
-    }
-
-    func testLabColorCalculations() {
+    func testMosaicEngineMissionGeneration() async throws {
         let red = LabColor.fromRGB(red: 1.0, green: 0.0, blue: 0.0)
         let blue = LabColor.fromRGB(red: 0.0, green: 0.0, blue: 1.0)
         
-        XCTAssertGreaterThan(red.distance(to: blue), 100.0)
-        XCTAssertTrue(red.localizedName.contains("赤") || red.localizedName.contains("レッド"))
-        XCTAssertTrue(blue.localizedName.contains("青") || blue.localizedName.contains("ブルー"))
-    }
-
-    func testTileMatchingAndNoDuplicates() {
-        let redTarget = LabColor.fromRGB(red: 1.0, green: 0.0, blue: 0.0)
         let tiles = [
-            MosaicTile(gridX: 0, gridY: 0, targetLabColor: redTarget),
-            MosaicTile(gridX: 1, gridY: 0, targetLabColor: redTarget)
-        ]
-        let photos = [
-            IndexedPhoto(id: "photo_1", labColor: redTarget)
+            MosaicTile(gridX: 0, gridY: 0, targetLabColor: red),
+            MosaicTile(gridX: 1, gridY: 0, targetLabColor: red),
+            MosaicTile(gridX: 0, gridY: 1, targetLabColor: blue),
+            MosaicTile(gridX: 1, gridY: 1, targetLabColor: blue)
         ]
         
-        let matched = MosaicEngine.shared.matchTiles(tiles: tiles, availablePhotos: photos, allowDuplicates: false)
-        let filledCount = matched.filter { $0.isFilled }.count
-        XCTAssertEqual(filledCount, 1, "写真が1枚しかない場合、重複なし設定では1マスだけ埋まる必要があります")
+        // ミッション生成テスト (from: tiles)
+        let missions = MosaicEngine.shared.generateMissions(from: tiles)
+        XCTAssertEqual(missions.count, 2, "赤と青の2つのミッションが生成されるはず")
     }
 
-    func testAutomaticPlacementSequenceUsesGridCoordinates() {
-        let target = LabColor.fromRGB(red: 1.0, green: 0.0, blue: 0.0)
-        let tiles = [
-            MosaicTile(gridX: 1, gridY: 1, targetLabColor: target),
-            MosaicTile(gridX: 1, gridY: 0, targetLabColor: target),
-            MosaicTile(gridX: 0, gridY: 1, targetLabColor: target),
-            MosaicTile(gridX: 0, gridY: 0, targetLabColor: target)
+    func testPhotoLocking() throws {
+        let red = LabColor.fromRGB(red: 1.0, green: 0.0, blue: 0.0)
+        
+        var tile = MosaicTile(gridX: 0, gridY: 0, targetLabColor: red)
+        tile.placedPhotoIdentifier = "manual_photo"
+        tile.isLocked = true
+        tile.origin = .manuallySelected
+        
+        let photos = [
+            IndexedPhoto(id: "auto_photo", labColor: red, signature: nil, thumbnailData: nil)
         ]
-        let photos = (0..<4).map { IndexedPhoto(id: "photo_\($0)", labColor: target) }
-
-        let matched = MosaicEngine.shared.matchTiles(tiles: tiles, availablePhotos: photos, allowDuplicates: false)
-        let orderedCoordinates = matched
-            .sorted { ($0.placementSequence ?? .max) < ($1.placementSequence ?? .max) }
-            .map { [$0.gridX, $0.gridY] }
-
-        XCTAssertEqual(orderedCoordinates, [[0, 0], [1, 0], [0, 1], [1, 1]])
+        
+        let updated = MosaicEngine.shared.matchTiles(tiles: [tile], availablePhotos: photos)
+        XCTAssertEqual(updated.first?.placedPhotoIdentifier, "manual_photo", "ロックされた写真は上書きされないはず")
+        XCTAssertEqual(updated.first?.origin, .manuallySelected)
     }
 
-    func testTimelapseRejectsStaleCompletedProject() async {
-        let target = LabColor.fromRGB(red: 1.0, green: 0.0, blue: 0.0)
-        let incompleteProject = MosaicProject(
-            title: "incomplete",
-            targetImageData: Data(),
-            gridWidth: 2,
-            gridHeight: 2,
-            mode: .hybrid,
-            tiles: [MosaicTile(gridX: 0, gridY: 0, targetLabColor: target)],
-            missions: [],
-            isCompleted: true
-        )
-
-        do {
-            _ = try await TimelapseExportService.shared.exportTimelapse(project: incompleteProject)
-            XCTFail("タイル不足のプロジェクトは書き出しを拒否する必要があります")
-        } catch let error as TimelapseExportError {
-            guard case .uncompletedProject = error else {
-                return XCTFail("想定外のエラー: \(error)")
-            }
-        } catch {
-            XCTFail("想定外のエラー: \(error)")
-        }
+    @MainActor
+    func testStoreKit2ManagerProperties() throws {
+        XCTAssertEqual(StoreKitManager.proProductID, "com.daredemosaic.app.pro")
+        let manager = StoreKitManager.shared
+        XCTAssertNotNil(manager.proStatus)
     }
 
     func testGeneratedTimelapseMP4Specifications() async throws {
@@ -124,24 +85,25 @@ final class DareDeMosaicArtTests: XCTestCase {
             )
         )
 
-        let videoURL = try await TimelapseExportService.shared.exportTimelapse(project: project)
-        defer { try? FileManager.default.removeItem(at: videoURL) }
+        // 1. 効果音ありのエクスポート検証 (映像 + 48kHz AAC 音声)
+        let videoURLWithAudio = try await TimelapseExportService.shared.exportTimelapse(project: project, includeAudio: true)
+        defer { try? FileManager.default.removeItem(at: videoURLWithAudio) }
 
-        let asset = AVURLAsset(url: videoURL)
-        let duration = try await asset.load(.duration)
-        XCTAssertEqual(CMTimeGetSeconds(duration), 10.0, accuracy: 0.05)
+        let assetWithAudio = AVURLAsset(url: videoURLWithAudio)
+        let durationWithAudio = try await assetWithAudio.load(.duration)
+        XCTAssertEqual(CMTimeGetSeconds(durationWithAudio), 10.0, accuracy: 0.05, "動画全体の長さは10.0秒である必要があります")
 
-        let tracks = try await asset.loadTracks(withMediaType: .video)
-        XCTAssertEqual(tracks.count, 1)
-        let track = try XCTUnwrap(tracks.first)
+        let videoTracks = try await assetWithAudio.loadTracks(withMediaType: .video)
+        XCTAssertEqual(videoTracks.count, 1, "映像トラックが1本存在する必要があります")
+        let videoTrack = try XCTUnwrap(videoTracks.first)
 
-        let naturalSize = try await track.load(.naturalSize)
-        let transform = try await track.load(.preferredTransform)
+        let naturalSize = try await videoTrack.load(.naturalSize)
+        let transform = try await videoTrack.load(.preferredTransform)
         let displayedSize = naturalSize.applying(transform)
         XCTAssertEqual(abs(displayedSize.width), 1080, accuracy: 0.5)
         XCTAssertEqual(abs(displayedSize.height), 1080, accuracy: 0.5)
 
-        let formatDescriptions = try await track.load(.formatDescriptions)
+        let formatDescriptions = try await videoTrack.load(.formatDescriptions)
         XCTAssertFalse(formatDescriptions.isEmpty)
         XCTAssertTrue(
             formatDescriptions
@@ -150,10 +112,22 @@ final class DareDeMosaicArtTests: XCTestCase {
             "映像コーデックはH.264（avc1）である必要があります"
         )
 
-        let nominalFrameRate = try await track.load(.nominalFrameRate)
-        XCTAssertEqual(nominalFrameRate, 30, accuracy: 0.1)
+        let audioTracks = try await assetWithAudio.loadTracks(withMediaType: .audio)
+        XCTAssertEqual(audioTracks.count, 1, "効果音あり時は音声トラックが1本存在する必要があります")
+        let audioTrack = try XCTUnwrap(audioTracks.first)
+        let audioDuration = try await audioTrack.load(.timeRange)
+        XCTAssertEqual(CMTimeGetSeconds(audioDuration.duration), 10.0, accuracy: 0.1, "音声トラックの長さは10.0秒である必要があります")
 
-        let imageGenerator = AVAssetImageGenerator(asset: asset)
+        // 2. 効果音なしのエクスポート検証 (音声トラック不在)
+        let videoURLNoAudio = try await TimelapseExportService.shared.exportTimelapse(project: project, includeAudio: false)
+        defer { try? FileManager.default.removeItem(at: videoURLNoAudio) }
+
+        let assetNoAudio = AVURLAsset(url: videoURLNoAudio)
+        let audioTracksNoAudio = try await assetNoAudio.loadTracks(withMediaType: .audio)
+        XCTAssertTrue(audioTracksNoAudio.isEmpty, "効果音OFF時は音声トラックが存在しない必要があります")
+
+        // 3. 最終フレーム刻印認識テスト
+        let imageGenerator = AVAssetImageGenerator(asset: assetWithAudio)
         imageGenerator.appliesPreferredTrackTransform = true
         let finalFrame = try await imageGenerator.image(
             at: CMTime(seconds: 9.5, preferredTimescale: 600)

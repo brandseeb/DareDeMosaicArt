@@ -27,7 +27,7 @@ public struct TimelapseTimeline: Sendable {
         public let maxRotationDegrees: CGFloat
         public let maxScale: CGFloat
         public let sCurveDriftPixels: CGFloat
-        public let shadowComplexity: Int // 0: 簡略 (大グリッド), 1: 標準 (中グリッド), 2: 高品質 (小グリッド)
+        public let shadowComplexity: Int
         public let enableRimFlash: Bool
         
         public static func forTileCount(_ count: Int) -> AdaptiveAnimationConfig {
@@ -62,7 +62,7 @@ public struct TimelapseTimeline: Sendable {
                     maxScale: 1.06,
                     sCurveDriftPixels: 4.0,
                     shadowComplexity: 0,
-                    enableRimFlash: false // 大グリッドはチカチカ防止のためOFF
+                    enableRimFlash: false
                 )
             }
         }
@@ -81,7 +81,7 @@ public struct TimelapseTimeline: Sendable {
         public let startBuildFrame: Int // 0..<210
         public let durationFrames: Int
         
-        /// 指定されたビルドフレーム（0..<210）における進行度 t (0.0: 上空出現 〜 1.0: 完全着地)
+        /// 指定されたビルドフレームにおける進行度 t (0.0: 上空出現 〜 1.0: 完全着地)
         public func progress(atBuildFrame frame: Int) -> CGFloat {
             if frame < startBuildFrame { return 0.0 }
             if frame >= startBuildFrame + durationFrames - 1 { return 1.0 }
@@ -95,9 +95,14 @@ public struct TimelapseTimeline: Sendable {
             return frame == (startBuildFrame + durationFrames - 1)
         }
         
-        /// フレームにおけるアクティブ状態 (0 <= t < 1.0 または 着地フレーム)
+        /// フレームにおけるアクティブ状態 (出現中〜着地フレームまで)
         public func isActive(atBuildFrame frame: Int) -> Bool {
             return frame >= startBuildFrame && frame <= (startBuildFrame + durationFrames - 1)
+        }
+        
+        /// 完全定着済み（次のフレーム以降でベースレイヤーへ焼き込み可能）
+        public func isFullyLandedAndSettled(atBuildFrame frame: Int) -> Bool {
+            return frame > (startBuildFrame + durationFrames - 1)
         }
     }
     
@@ -107,8 +112,6 @@ public struct TimelapseTimeline: Sendable {
         schedules.reserveCapacity(totalTilesCount)
         
         let dur = config.dropDurationFrames
-        // ビルドフェーズは 0..<210 フレーム。最終ピースの着地フレームは 209 (8.0秒直前)。
-        // startFrame + dur - 1 <= 209 より、startFrame の最大許容値は 210 - dur
         let maxStartFrame = max(0, 210 - dur)
         
         for i in 0..<totalTilesCount {
@@ -124,7 +127,7 @@ public struct TimelapseTimeline: Sendable {
         return schedules
     }
     
-    // MARK: - 物理イージング（Yオフセット・スケール・S字Xオフセット・回転・影）
+    // MARK: - 物理イージング（Yオフセット・スケール・真のS字Xオフセット・回転・影）
     public struct TileTransform: Sendable {
         public let xOffset: CGFloat
         public let yOffset: CGFloat
@@ -137,7 +140,7 @@ public struct TimelapseTimeline: Sendable {
     }
     
     public func evaluateTransform(progress t: CGFloat, randomSeed: UInt64, isLanding: Bool) -> TileTransform {
-        if t >= 1.0 {
+        if t >= 1.0 && !isLanding {
             return TileTransform(
                 xOffset: 0,
                 yOffset: 0,
@@ -150,12 +153,10 @@ public struct TimelapseTimeline: Sendable {
             )
         }
         
-        // 1. 高さ (Y Offset): 上空から枠へ急降下
-        // easeInQuad 加速落下 (1 - t)^2
+        // 1. 高さ (Y Offset): 上空から枠へ急降下 (easeInQuad)
         let yDist = config.dropDistancePixels * pow(1.0 - t, 2.0)
         
-        // 2. S字軌道 (X Offset): sin(2πt) * (1 - t)
-        // 乱数で左右の初期振れ幅を決定 (+ or -)
+        // 2. 真のS字軌道 (X Offset): sin(2πt) * (1 - t)
         let driftDir: CGFloat = (randomSeed % 2 == 0) ? 1.0 : -1.0
         let xDrift = config.sCurveDriftPixels * driftDir * sin(2.0 * .pi * t) * (1.0 - t)
         
@@ -165,12 +166,10 @@ public struct TimelapseTimeline: Sendable {
             let localT = t / 0.7
             scale = config.maxScale - (config.maxScale - 1.0) * localT
         } else if t < 0.85 {
-            // 着地押し込み 1.0 -> 0.92 (大グリッドはマイルドに 0.98)
             let minScale: CGFloat = (totalTilesCount > 1600) ? 0.98 : 0.92
             let localT = (t - 0.7) / 0.15
             scale = 1.0 - (1.0 - minScale) * sin(.pi * localT)
         } else {
-            // リバウンド 1.04 -> 1.0
             let maxBounce: CGFloat = (totalTilesCount > 1600) ? 1.01 : 1.04
             let localT = (t - 0.85) / 0.15
             scale = 1.0 + (maxBounce - 1.0) * sin(.pi * localT)
@@ -180,7 +179,7 @@ public struct TimelapseTimeline: Sendable {
         let rotDeg = config.maxRotationDegrees * driftDir * pow(1.0 - t, 1.5)
         let rotRad = rotDeg * .pi / 180.0
         
-        // 5. 影 (Shadow): 上空は薄く・広く・下方に大きく落ちる -> 着地直前は濃く小さく
+        // 5. 影 (Shadow): 上空は薄く広く -> 着地直前は濃く小さく
         let shadowAlpha = (0.2 + 0.4 * t) * (1.0 - pow(t, 4.0))
         let shadowBlur = (16.0 - 12.0 * t) * (config.dropDistancePixels / 140.0)
         let shadowY = (24.0 - 20.0 * t) * (config.dropDistancePixels / 140.0)
@@ -197,7 +196,7 @@ public struct TimelapseTimeline: Sendable {
         )
     }
     
-    // MARK: - 制作時系列マクロ分割 ＆ 制御された3幕構成ソート
+    // MARK: - 制作時系列マクロ分割（8〜12ブロック） ＆ 3幕構成（散布 -> スパイラル・波 -> 重要部）
     public static func sortTilesInMacroDynamicSequence(
         tiles: [MosaicTile],
         projectID: UUID,
@@ -206,12 +205,11 @@ public struct TimelapseTimeline: Sendable {
     ) -> [MosaicTile] {
         guard !tiles.isEmpty else { return [] }
         
-        // 1. まず基本的な時系列（placementSequence / origin / 座標）で安定ソート
         let baseSorted = sortTilesInSequence(tiles)
         let total = baseSorted.count
         
-        // 2. 8〜12個のマクロブロックに分割（制作時系列の文脈を維持）
-        let macroBlockCount = max(4, min(12, total / 20))
+        // 8〜12個のマクロブロックに厳密分割
+        let macroBlockCount = max(8, min(12, max(8, total / 15)))
         let blockSize = Int(ceil(Double(total) / Double(macroBlockCount)))
         
         var rng = DeterministicPRNG(seed: projectID)
@@ -224,11 +222,14 @@ public struct TimelapseTimeline: Sendable {
             let end = min(start + blockSize, total)
             let chunk = Array(baseSorted[start..<end])
             
-            // 各マクロブロック内で「制御されたランダム（近接回避・分散）」を適用
-            let sortedChunk = orderChunkWithSpatialDispersion(
+            // 3幕構成の進行度 (0.0: 序盤 〜 1.0: 終盤)
+            let blockProgress = Double(blockIdx) / Double(max(1, macroBlockCount - 1))
+            
+            let sortedChunk = orderChunkWithThreeActFlow(
                 chunk: chunk,
                 gridWidth: gridWidth,
                 gridHeight: gridHeight,
+                blockProgress: blockProgress,
                 rng: &rng
             )
             resultTiles.append(contentsOf: sortedChunk)
@@ -237,44 +238,74 @@ public struct TimelapseTimeline: Sendable {
         return resultTiles
     }
     
-    /// チャンク内のタイルを空間的に分散させて隣接連続を防止する
-    private static func orderChunkWithSpatialDispersion(
+    /// 3幕構成（序盤：均等散布、中盤：スパイラル・波、終盤：重要・中央領域）
+    private static func orderChunkWithThreeActFlow(
         chunk: [MosaicTile],
         gridWidth: Int,
         gridHeight: Int,
+        blockProgress: Double,
         rng: inout DeterministicPRNG
     ) -> [MosaicTile] {
         guard chunk.count > 2 else { return chunk }
         
-        var pool = chunk
-        var ordered: [MosaicTile] = []
-        ordered.reserveCapacity(chunk.count)
+        let centerX = Float(gridWidth - 1) / 2.0
+        let centerY = Float(gridHeight - 1) / 2.0
+        let maxRadius = max(1.0, sqrt(centerX * centerX + centerY * centerY))
         
-        // 最初の1枚をランダム選択
-        let firstIdx = rng.nextInt(upperBound: pool.count)
-        ordered.append(pool.remove(at: firstIdx))
-        
-        while !pool.isEmpty {
-            let last = ordered.last!
-            // 直前のタイルから最も遠い上位候補（複数）の中からランダムに選択（近接回避）
-            var candidatesWithDist: [(index: Int, dist: Float)] = []
-            for (idx, tile) in pool.enumerated() {
-                let dx = Float(tile.gridX - last.gridX)
-                let dy = Float(tile.gridY - last.gridY)
-                let dist = sqrt(dx * dx + dy * dy)
-                candidatesWithDist.append((index: idx, dist: dist))
+        if blockProgress < 0.30 {
+            // 第1幕: 序盤 (0〜30%) - 空間均等散布（直前配置から最大距離の候補を選択）
+            var pool = chunk
+            var ordered: [MosaicTile] = []
+            ordered.reserveCapacity(chunk.count)
+            let firstIdx = rng.nextInt(upperBound: pool.count)
+            ordered.append(pool.remove(at: firstIdx))
+            
+            while !pool.isEmpty {
+                let last = ordered.last!
+                var candidates: [(idx: Int, dist: Float)] = []
+                for (i, t) in pool.enumerated() {
+                    let dx = Float(t.gridX - last.gridX)
+                    let dy = Float(t.gridY - last.gridY)
+                    candidates.append((i, sqrt(dx * dx + dy * dy)))
+                }
+                candidates.sort { $0.dist > $1.dist }
+                let topCount = max(1, min(3, candidates.count))
+                let pick = rng.nextInt(upperBound: topCount)
+                ordered.append(pool.remove(at: candidates[pick].idx))
             }
+            return ordered
             
-            // 距離が大きい順にソート
-            candidatesWithDist.sort { $0.dist > $1.dist }
-            let topCandidateCount = max(1, min(4, candidatesWithDist.count))
-            let pickChoice = rng.nextInt(upperBound: topCandidateCount)
-            let pickedOriginalIdx = candidatesWithDist[pickChoice].index
-            
-            ordered.append(pool.remove(at: pickedOriginalIdx))
+        } else if blockProgress < 0.85 {
+            // 第2幕: 中盤 (30〜85%) - スパイラル・波状の角度・半径順フロー
+            return chunk.sorted { a, b in
+                let daX = Float(a.gridX) - centerX
+                let daY = Float(a.gridY) - centerY
+                let dbX = Float(b.gridX) - centerX
+                let dbY = Float(b.gridY) - centerY
+                
+                let angleA = atan2(daY, daX)
+                let angleB = atan2(dbY, dbX)
+                let rA = sqrt(daX * daX + daY * daY)
+                let rB = sqrt(dbX * dbX + dbY * dbY)
+                
+                // スパイラル値 (角度 + 半径の重み)
+                let spiralA = angleA + (rA / maxRadius) * Float.pi * 2.0
+                let spiralB = angleB + (rB / maxRadius) * Float.pi * 2.0
+                return spiralA < spiralB
+            }
+        } else {
+            // 第3幕: 終盤 (85〜100%) - 重要度領域（中心からの距離が近い順・高密度順）を最後に着地
+            return chunk.sorted { a, b in
+                let daX = Float(a.gridX) - centerX
+                let daY = Float(a.gridY) - centerY
+                let dbX = Float(b.gridX) - centerX
+                let dbY = Float(b.gridY) - centerY
+                
+                let distA = sqrt(daX * daX + daY * daY)
+                let distB = sqrt(dbX * dbX + dbY * dbY)
+                return distA > distB // 外側から埋めていき、最後に中央・重要部がピタッと着地
+            }
         }
-        
-        return ordered
     }
     
     // MARK: - 基本時系列ソート（旧作フォールバック）
@@ -305,12 +336,11 @@ public struct TimelapseTimeline: Sendable {
     }
 }
 
-/// プロジェクトUUIDに基づく決定論的疑似乱数生成器 (LCG / PCG 互換)
+/// プロジェクトUUIDに基づく決定論的疑似乱数生成器 (LCG)
 public struct DeterministicPRNG {
     private var state: UInt64
     
     public init(seed: UUID) {
-        // UUID の 16 バイトから 64bit シードを合成
         let uuidBytes = seed.uuid
         var s: UInt64 = 0
         withUnsafeBytes(of: uuidBytes) { ptr in
@@ -322,7 +352,6 @@ public struct DeterministicPRNG {
     }
     
     public mutating func next() -> UInt64 {
-        // 64-bit LCG
         state = state &* 6364136223846793005 &+ 1442695040888963407
         return state
     }

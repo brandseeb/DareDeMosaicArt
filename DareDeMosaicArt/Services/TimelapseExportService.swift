@@ -18,6 +18,8 @@ public enum TimelapseExportError: LocalizedError, Sendable {
     case encodingFailed(String)
     case contextCreationFailed
     case audioEncodingFailed(String)
+    case photoLibraryAccessDenied
+    case outputFileMissing
     
     public var errorDescription: String? {
         switch self {
@@ -33,11 +35,15 @@ public enum TimelapseExportError: LocalizedError, Sendable {
             return "描画コンテキストの作成に失敗しました。"
         case .audioEncodingFailed(let msg):
             return "音声のエンコードに失敗しました: \(msg)"
+        case .photoLibraryAccessDenied:
+            return "写真ライブラリへのアクセスが許可されていません。"
+        case .outputFileMissing:
+            return "生成された動画ファイルが見つかりません。"
         }
     }
 }
 
-/// タイムラプス動画生成サービス（適応型物理アニメーション・角丸影キャッシュ・48kHz AAC音響合成）
+/// タイムラプス動画生成サービス（適応型物理アニメーション・角丸矩形影キャッシュ・48kHz AAC音響合成・着地フチ発光）
 public final class TimelapseExportService: Sendable {
     public static let shared = TimelapseExportService()
     
@@ -57,6 +63,25 @@ public final class TimelapseExportService: Sendable {
                let creationDate = attrs[.creationDate] as? Date,
                creationDate < thresholdDate {
                 try? FileManager.default.removeItem(at: file)
+            }
+        }
+    }
+    
+    // MARK: - 写真ライブラリへの保存（テスト・外部共有用）
+    public func saveVideoToPhotoLibrary(at url: URL) async throws {
+        guard FileManager.default.fileExists(atPath: url.path) else {
+            throw TimelapseExportError.outputFileMissing
+        }
+        
+        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
+            PHPhotoLibrary.shared().performChanges({
+                PHAssetChangeRequest.creationRequestForAssetFromVideo(atFileURL: url)
+            }) { success, error in
+                if success {
+                    continuation.resume()
+                } else {
+                    continuation.resume(throwing: error ?? TimelapseExportError.photoLibraryAccessDenied)
+                }
             }
         }
     }
@@ -104,7 +129,7 @@ public final class TimelapseExportService: Sendable {
     ) async throws {
         let dimension = Self.videoDimension
         
-        // 1. マクロ時系列（8〜12区間）＋空間分散による制御された配置シーケンス
+        // 1. マクロ時系列（8〜12区間）＋3幕構成（散布 -> スパイラル・波 -> 重要部）
         let sortedTiles = TimelapseTimeline.sortTilesInMacroDynamicSequence(
             tiles: project.tiles,
             projectID: project.id,
@@ -156,8 +181,8 @@ public final class TimelapseExportService: Sendable {
         }
         #endif
         
-        // 3. 角丸矩形シャドウ画像の事前レンダリングキャッシュ
-        let shadowCache = PrecomputedShadowCache.createCache(complexity: timeline.config.shadowComplexity)
+        // 3. 真の角丸矩形シャドウ画像の事前レンダリングキャッシュ
+        let shadowCache = PrecomputedRoundedRectShadowCache.createCache(complexity: timeline.config.shadowComplexity)
         
         // 4. 48kHz PCM オーディオバッファの事前生成 (約 1.92MB)
         let audioPcmHelper: AudioPcmHelper?
@@ -297,14 +322,14 @@ public final class TimelapseExportService: Sendable {
         bakedTiles.reserveCapacity(totalTiles)
         
         // -------------------------------------------------------------
-        // 全300フレームの完全同期レンダリングループ (映像 + 音声 1フレームずつ供給)
+        // 全300フレームの完全同期レンダリングループ
         // -------------------------------------------------------------
         for f in 0..<totalFramesCount {
             if Task.isCancelled { throw TimelapseExportError.cancelled }
             
-            // A. 音声サンプルバッファ（1,600 サンプル）を同期追加
+            // A. 音声サンプルバッファ（1,600 サンプル）を同期追加（バックプレッシャー待機付き）
             if let helper = audioPcmHelper, let aInput = audioInput {
-                try helper.appendFrameAudio(
+                try await helper.appendFrameAudio(
                     frameIndex: f,
                     samplesPerFrame: samplesPerFrame,
                     audioInput: aInput
@@ -325,10 +350,9 @@ public final class TimelapseExportService: Sendable {
                 // フェーズ2: ビルドフェーズ (30..<240F / buildFrame: 0..<210)
                 let buildFrame = f - TimelapseTimeline.openingFrames
                 
-                // 1. 完全着地 (progress >= 1.0) したタイルをベースコンテキストへ焼き込み
+                // 1. 完全定着済み（着地フレームを終えた次のフレーム以降）のタイルをベースコンテキストへ焼き込み
                 for schedule in tileSchedules {
-                    let p = schedule.progress(atBuildFrame: buildFrame)
-                    if p >= 1.0 && !bakedTiles.contains(schedule.tileIndex) {
+                    if schedule.isFullyLandedAndSettled(atBuildFrame: buildFrame) && !bakedTiles.contains(schedule.tileIndex) {
                         bakedTiles.insert(schedule.tileIndex)
                         let tile = sortedTiles[schedule.tileIndex]
                         let targetRect = CGRect(
@@ -357,7 +381,7 @@ public final class TimelapseExportService: Sendable {
                 }
                 frameContext.draw(baseSnapshot, in: CGRect(x: 0, y: 0, width: dimension, height: dimension))
                 
-                // 3. アクティブピースを固定深度順で描画
+                // 3. アクティブピース（落下中および着地フレームのフチ発光対象）を固定深度順で描画
                 let activeSchedules = tileSchedules.filter {
                     $0.isActive(atBuildFrame: buildFrame) && !bakedTiles.contains($0.tileIndex)
                 }.sorted {
@@ -411,10 +435,10 @@ public final class TimelapseExportService: Sendable {
                         frameContext.restoreGState()
                     }
                     
-                    // ③ 着地瞬間のフチ発光
+                    // ③ 着地瞬間のフチ発光 (Rim Highlight: 着地フレームで確実に描画)
                     if transform.isLanding {
-                        frameContext.setStrokeColor(red: 1.0, green: 1.0, blue: 1.0, alpha: 0.6)
-                        frameContext.setLineWidth(max(1.5, tilePixelWidth * 0.08))
+                        frameContext.setStrokeColor(red: 1.0, green: 1.0, blue: 1.0, alpha: 0.75)
+                        frameContext.setLineWidth(max(2.0, tilePixelWidth * 0.10))
                         frameContext.stroke(drawRect)
                     }
                     
@@ -485,7 +509,7 @@ public final class TimelapseExportService: Sendable {
             onProgress?(Float(globalFrame) / Float(totalFramesCount))
         }
         
-        // 7. エンコードの完了待機（映像・音声ともに終了確認）
+        // 7. エンコードの完了待機
         videoInput.markAsFinished()
         audioInput?.markAsFinished()
         
@@ -555,8 +579,16 @@ public final class TimelapseExportService: Sendable {
         dimension: CGFloat,
         alpha: CGFloat
     ) {
+        context.saveGState()
+        // CGContext（原点左下）を UIKit 座標系（原点左上）へフリップ
+        context.translateBy(x: 0, y: dimension)
+        context.scaleBy(x: 1.0, y: -1.0)
+        
         UIGraphicsPushContext(context)
-        defer { UIGraphicsPopContext() }
+        defer {
+            UIGraphicsPopContext()
+            context.restoreGState()
+        }
         
         let text = sanitizeWatermarkText(config.text)
         let fontSize: CGFloat = dimension * 0.024
@@ -769,10 +801,15 @@ private final class AudioPcmHelper: Sendable {
         frameIndex: Int,
         samplesPerFrame: Int,
         audioInput: AVAssetWriterInput
-    ) throws {
+    ) async throws {
         let sampleOffset = frameIndex * samplesPerFrame
         let byteCount = samplesPerFrame * 4
         guard (sampleOffset + samplesPerFrame) * 2 <= int16StereoBuffer.count else { return }
+        
+        while !audioInput.isReadyForMoreMediaData {
+            if Task.isCancelled { throw TimelapseExportError.cancelled }
+            try await Task.sleep(nanoseconds: 5_000_000)
+        }
         
         var blockBufferOut: CMBlockBuffer? = nil
         let bStatus = CMBlockBufferCreateWithMemoryBlock(
@@ -816,18 +853,16 @@ private final class AudioPcmHelper: Sendable {
         )
         
         if sbufStatus == noErr, let sampleBuffer = sampleBufferOut {
-            if audioInput.isReadyForMoreMediaData {
-                audioInput.append(sampleBuffer)
-            }
+            audioInput.append(sampleBuffer)
         }
     }
 }
 
-// MARK: - 角丸矩形シャドウのプリレンダリング画像キャッシュ
-private struct PrecomputedShadowCache: Sendable {
+// MARK: - 真の角丸矩形シャドウのプリレンダリング画像キャッシュ
+private struct PrecomputedRoundedRectShadowCache: Sendable {
     let shadowImage: CGImage?
     
-    static func createCache(complexity: Int) -> PrecomputedShadowCache {
+    static func createCache(complexity: Int) -> PrecomputedRoundedRectShadowCache {
         let size = 128
         guard let colorSpace = CGColorSpace(name: CGColorSpace.sRGB),
               let ctx = CGContext(
@@ -839,21 +874,21 @@ private struct PrecomputedShadowCache: Sendable {
                 space: colorSpace,
                 bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
               ) else {
-            return PrecomputedShadowCache(shadowImage: nil)
+            return PrecomputedRoundedRectShadowCache(shadowImage: nil)
         }
         
-        let center = CGPoint(x: size / 2, y: size / 2)
-        let radius = CGFloat(size / 2)
-        let colors = [
-            CGColor(srgbRed: 0, green: 0, blue: 0, alpha: 0.65),
-            CGColor(srgbRed: 0, green: 0, blue: 0, alpha: 0.0)
-        ] as CFArray
+        let rect = CGRect(x: 20, y: 20, width: 88, height: 88)
+        let cornerRadius: CGFloat = 16.0
+        let path = CGPath(roundedRect: rect, cornerWidth: cornerRadius, cornerHeight: cornerRadius, transform: nil)
         
-        if let gradient = CGGradient(colorsSpace: colorSpace, colors: colors, locations: [0.0, 1.0]) {
-            ctx.drawRadialGradient(gradient, startCenter: center, startRadius: radius * 0.35, endCenter: center, endRadius: radius, options: .drawsAfterEndLocation)
-        }
+        ctx.saveGState()
+        ctx.setShadow(offset: CGSize(width: 0, height: 4), blur: 16.0, color: CGColor(srgbRed: 0, green: 0, blue: 0, alpha: 0.65))
+        ctx.setFillColor(CGColor(srgbRed: 0, green: 0, blue: 0, alpha: 0.8))
+        ctx.addPath(path)
+        ctx.fillPath()
+        ctx.restoreGState()
         
-        return PrecomputedShadowCache(shadowImage: ctx.makeImage())
+        return PrecomputedRoundedRectShadowCache(shadowImage: ctx.makeImage())
     }
 }
 
