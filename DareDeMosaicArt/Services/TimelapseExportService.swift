@@ -129,7 +129,7 @@ public final class TimelapseExportService: Sendable {
     ) async throws {
         let dimension = Self.videoDimension
         
-        // 1. マクロ時系列（8〜12区間）＋3幕構成（散布 -> スパイラル・波 -> エッジ密度・重要領域）
+        // 1. マクロ時系列（8〜12区間）＋3幕構成（散布 -> スパイラル・波 -> 3×3空間色分散コントラスト重要度領域）
         let sortedTiles = TimelapseTimeline.sortTilesInMacroDynamicSequence(
             tiles: project.tiles,
             projectID: project.id,
@@ -152,8 +152,8 @@ public final class TimelapseExportService: Sendable {
         let tilePixelWidth = CGFloat(dimension) / CGFloat(max(1, project.gridWidth))
         let tilePixelHeight = CGFloat(dimension) / CGFloat(max(1, project.gridHeight))
         
-        var cachedTileCGImages: [UUID: CGImage] = [:]
-        cachedTileCGImages.reserveCapacity(sortedTiles.count)
+        var tileImagesMap: [UUID: CGImage] = [:]
+        tileImagesMap.reserveCapacity(sortedTiles.count)
         
         #if canImport(UIKit)
         let identifiers = sortedTiles.compactMap(\.placedPhotoIdentifier)
@@ -176,10 +176,11 @@ public final class TimelapseExportService: Sendable {
             }
             
             if let tileImage, let cg = ImageUtils.normalizeOrientationAndFit(image: tileImage, maxDimension: CGFloat(max(tilePixelWidth, tilePixelHeight) * 1.5)).cgImage {
-                cachedTileCGImages[tile.id] = cg
+                tileImagesMap[tile.id] = cg
             }
         }
         #endif
+        let cachedTileCGImages = tileImagesMap // 不変 let 定数
         
         // 3. 真の角丸矩形シャドウ画像の事前レンダリングキャッシュ
         let shadowCache = PrecomputedRoundedRectShadowCache.createCache(complexity: timeline.config.shadowComplexity)
@@ -230,7 +231,7 @@ public final class TimelapseExportService: Sendable {
         }
         writer.add(videoInput)
         
-        var audioInput: AVAssetWriterInput? = nil
+        let audioInput: AVAssetWriterInput?
         if let _ = audioPcmHelper {
             let audioSettings: [String: Any] = [
                 AVFormatIDKey: kAudioFormatMPEG4AAC,
@@ -243,7 +244,11 @@ public final class TimelapseExportService: Sendable {
             if writer.canAdd(aInput) {
                 writer.add(aInput)
                 audioInput = aInput
+            } else {
+                audioInput = nil
             }
+        } else {
+            audioInput = nil
         }
         
         guard writer.startWriting() else {
@@ -308,7 +313,6 @@ public final class TimelapseExportService: Sendable {
         
         let fps = TimelapseTimeline.fps
         let timescale: Int32 = 600
-        let frameDuration = CMTime(value: Int64(timescale) / Int64(fps), timescale: timescale)
         
         let totalFramesCount = TimelapseTimeline.totalFrames
         var prng = DeterministicPRNG(seed: project.id)
@@ -321,26 +325,28 @@ public final class TimelapseExportService: Sendable {
         let audioQueue = DispatchQueue(label: "com.daredemosaic.timelapse.audio", qos: .userInitiated)
         
         let dispatchGroup = DispatchGroup()
-        
-        final class RenderState: @unchecked Sendable {
-            var currentFrame: Int = 0
-            var bakedTiles = Set<Int>()
-            var error: Error? = nil
-            var audioSampleOffset: Int = 0
-        }
-        let state = RenderState()
+        let renderContext = RenderContext(
+            writer: writer,
+            videoInput: videoInput,
+            audioInput: audioInput,
+            dispatchGroup: dispatchGroup
+        )
         
         // A. 映像トラックの供給
         dispatchGroup.enter()
-        videoInput.requestMediaDataWhenReady(on: videoQueue) {
-            while videoInput.isReadyForMoreMediaData {
-                if state.currentFrame >= totalFramesCount {
-                    videoInput.markAsFinished()
-                    dispatchGroup.leave()
+        videoInput.requestMediaDataWhenReady(on: videoQueue) { [renderContext] in
+            while renderContext.videoInput.isReadyForMoreMediaData {
+                if renderContext.shouldStop() {
+                    renderContext.finishVideo()
                     break
                 }
                 
-                let f = state.currentFrame
+                let f = renderContext.currentFrame
+                if f >= totalFramesCount {
+                    renderContext.finishVideo()
+                    break
+                }
+                
                 let presentationTime = CMTime(value: Int64(f * (Int(timescale) / fps)), timescale: timescale)
                 
                 do {
@@ -352,8 +358,8 @@ public final class TimelapseExportService: Sendable {
                         let buildFrame = f - TimelapseTimeline.openingFrames
                         
                         for schedule in tileSchedules {
-                            if schedule.isFullyLandedAndSettled(atBuildFrame: buildFrame) && !state.bakedTiles.contains(schedule.tileIndex) {
-                                state.bakedTiles.insert(schedule.tileIndex)
+                            if schedule.isFullyLandedAndSettled(atBuildFrame: buildFrame) && !renderContext.bakedTiles.contains(schedule.tileIndex) {
+                                renderContext.bakedTiles.insert(schedule.tileIndex)
                                 let tile = sortedTiles[schedule.tileIndex]
                                 let targetRect = CGRect(
                                     x: CGFloat(tile.gridX) * tilePixelWidth,
@@ -381,7 +387,7 @@ public final class TimelapseExportService: Sendable {
                         frameContext.draw(baseSnapshot, in: CGRect(x: 0, y: 0, width: dimension, height: dimension))
                         
                         let activeSchedules = tileSchedules.filter {
-                            $0.isActive(atBuildFrame: buildFrame) && !state.bakedTiles.contains($0.tileIndex)
+                            $0.isActive(atBuildFrame: buildFrame) && !renderContext.bakedTiles.contains($0.tileIndex)
                         }.sorted {
                             let tileA = sortedTiles[$0.tileIndex]
                             let tileB = sortedTiles[$1.tileIndex]
@@ -484,12 +490,10 @@ public final class TimelapseExportService: Sendable {
                         try self.syncAppendFrame(context: frameContext, adaptor: adaptor, pool: pool, at: presentationTime)
                     }
                     
-                    state.currentFrame += 1
-                    onProgress?(Float(state.currentFrame) / Float(totalFramesCount))
+                    renderContext.currentFrame += 1
+                    onProgress?(Float(renderContext.currentFrame) / Float(totalFramesCount))
                 } catch {
-                    state.error = error
-                    videoInput.markAsFinished()
-                    dispatchGroup.leave()
+                    renderContext.setError(error)
                     break
                 }
             }
@@ -499,38 +503,48 @@ public final class TimelapseExportService: Sendable {
         if let helper = audioPcmHelper, let aInput = audioInput {
             dispatchGroup.enter()
             let chunkSize = 1024
-            aInput.requestMediaDataWhenReady(on: audioQueue) {
-                while aInput.isReadyForMoreMediaData {
-                    if state.audioSampleOffset >= helper.totalSamples {
-                        aInput.markAsFinished()
-                        dispatchGroup.leave()
+            aInput.requestMediaDataWhenReady(on: audioQueue) { [renderContext] in
+                while renderContext.audioInput?.isReadyForMoreMediaData == true {
+                    if renderContext.shouldStop() {
+                        renderContext.finishAudio()
                         break
                     }
                     
-                    let remaining = helper.totalSamples - state.audioSampleOffset
+                    if renderContext.audioSampleOffset >= helper.totalSamples {
+                        renderContext.finishAudio()
+                        break
+                    }
+                    
+                    let remaining = helper.totalSamples - renderContext.audioSampleOffset
                     let samplesThisChunk = min(chunkSize, remaining)
                     
                     do {
-                        try helper.appendChunk(sampleOffset: state.audioSampleOffset, count: samplesThisChunk, to: aInput)
-                        state.audioSampleOffset += samplesThisChunk
+                        try helper.appendChunk(sampleOffset: renderContext.audioSampleOffset, count: samplesThisChunk, to: aInput)
+                        renderContext.audioSampleOffset += samplesThisChunk
                     } catch {
-                        state.error = error
-                        aInput.markAsFinished()
-                        dispatchGroup.leave()
+                        renderContext.setError(error)
                         break
                     }
                 }
             }
         }
         
-        // 両方のトラックが書き込み完了するのを待機
-        await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
-            dispatchGroup.notify(queue: .global(qos: .userInitiated)) {
-                continuation.resume()
+        // 両方のトラックが書き込み完了するのを待機（Task キャンセルハンドラ連携）
+        await withTaskCancellationHandler {
+            await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
+                dispatchGroup.notify(queue: .global(qos: .userInitiated)) {
+                    continuation.resume()
+                }
             }
+        } onCancel: {
+            renderContext.cancel()
         }
         
-        if let err = state.error {
+        if renderContext.isCancelled {
+            throw TimelapseExportError.cancelled
+        }
+        
+        if let err = renderContext.error {
             throw err
         }
         
@@ -715,6 +729,88 @@ public final class TimelapseExportService: Sendable {
         }
     }
     #endif
+}
+
+// MARK: - スレッドセーフなエンコード状態管理コンテキスト
+private final class RenderContext: @unchecked Sendable {
+    let writer: AVAssetWriter
+    let videoInput: AVAssetWriterInput
+    let audioInput: AVAssetWriterInput?
+    let dispatchGroup: DispatchGroup
+    
+    private let lock = NSLock()
+    var currentFrame: Int = 0
+    var bakedTiles = Set<Int>()
+    var error: Error? = nil
+    var isCancelled: Bool = false
+    var audioSampleOffset: Int = 0
+    private var videoFinished: Bool = false
+    private var audioFinished: Bool = false
+    
+    init(writer: AVAssetWriter, videoInput: AVAssetWriterInput, audioInput: AVAssetWriterInput?, dispatchGroup: DispatchGroup) {
+        self.writer = writer
+        self.videoInput = videoInput
+        self.audioInput = audioInput
+        self.dispatchGroup = dispatchGroup
+    }
+    
+    func shouldStop() -> Bool {
+        lock.lock()
+        defer { lock.unlock() }
+        return error != nil || isCancelled
+    }
+    
+    func setError(_ err: Error) {
+        lock.lock()
+        defer { lock.unlock() }
+        if error == nil {
+            error = err
+        }
+        finishAll()
+    }
+    
+    func cancel() {
+        lock.lock()
+        defer { lock.unlock() }
+        isCancelled = true
+        finishAll()
+    }
+    
+    func finishVideo() {
+        lock.lock()
+        defer { lock.unlock() }
+        if !videoFinished {
+            videoFinished = true
+            videoInput.markAsFinished()
+            dispatchGroup.leave()
+        }
+    }
+    
+    func finishAudio() {
+        lock.lock()
+        defer { lock.unlock() }
+        if !audioFinished {
+            audioFinished = true
+            audioInput?.markAsFinished()
+            dispatchGroup.leave()
+        }
+    }
+    
+    private func finishAll() {
+        if !videoFinished {
+            videoFinished = true
+            videoInput.markAsFinished()
+            dispatchGroup.leave()
+        }
+        if audioInput != nil && !audioFinished {
+            audioFinished = true
+            audioInput?.markAsFinished()
+            dispatchGroup.leave()
+        }
+        if writer.status == .writing {
+            writer.cancelWriting()
+        }
+    }
 }
 
 // MARK: - 48kHz PCM オーディオシンセサイズヘルパー

@@ -303,7 +303,7 @@ public struct TimelapseTimeline: Sendable {
         }
     }
     
-    /// タイルのエッジ密度・コントラスト・彩度・中心性を統合した重要度スコア計算
+    /// タイルの3×3空間色分散（コントラスト重要度）・中心性・彩度を統合した重要度スコア計算
     private static func computeTileImportanceScore(
         _ tile: MosaicTile,
         centerX: Float,
@@ -316,8 +316,8 @@ public struct TimelapseTimeline: Sendable {
         let dist = sqrt(dx * dx + dy * dy)
         let centrality: Float = 1.0 - min(1.0, dist / maxRadius)
         
-        // 2. エッジ密度 / 空間シグネチャのコントラスト分散
-        var edgeContrast: Float = 0.0
+        // 2. 3×3セルの空間色分散（Spatial Color Variance: 各セルの平均色からの二乗偏差平均）
+        var spatialColorVariance: Float = 0.0
         if let sig = tile.targetSignature, !sig.cells.isEmpty {
             let avgL = Float(sig.average.l)
             let avgA = Float(sig.average.a)
@@ -330,7 +330,7 @@ public struct TimelapseTimeline: Sendable {
                 sumDev += (dL * dL + da * da + db * db)
             }
             let meanDev = sumDev / Float(sig.cells.count)
-            edgeContrast = min(1.0, sqrt(meanDev) / 30.0)
+            spatialColorVariance = min(1.0, sqrt(meanDev) / 30.0)
         }
         
         // 3. 彩度 (Chroma: a^2 + b^2)
@@ -339,8 +339,8 @@ public struct TimelapseTimeline: Sendable {
         let chroma = sqrt(aVal * aVal + bVal * bVal)
         let chromaScore: Float = min(1.0, chroma / 60.0)
         
-        // 総合重要度: エッジコントラスト(40%) + 中心性(35%) + 彩度(25%)
-        return edgeContrast * 0.40 + centrality * 0.35 + chromaScore * 0.25
+        // 総合重要度: 3×3空間色分散・コントラスト(40%) + 中心性(35%) + 彩度(25%)
+        return spatialColorVariance * 0.40 + centrality * 0.35 + chromaScore * 0.25
     }
     
     // MARK: - 基本時系列ソート（旧作フォールバック）
