@@ -1,9 +1,12 @@
 import Foundation
 import AVFoundation
 import Photos
+import CoreGraphics
 
 #if canImport(UIKit)
 import UIKit
+#elseif canImport(AppKit)
+import AppKit
 #endif
 
 /// タイムラプス動画エクスポートのエラー
@@ -65,11 +68,15 @@ public final class TimelapseExportService: Sendable {
         let outputURL = FileManager.default.temporaryDirectory
             .appendingPathComponent("timelapse-\(UUID().uuidString).mp4")
         
-        // 生成中にキャンセルや例外が発生した場合は一時ファイルを確実に削除
+        let writerBox = WriterBox()
+        
         do {
-            try await renderVideo(project: project, outputURL: outputURL, onProgress: onProgress)
+            try await renderVideo(project: project, outputURL: outputURL, writerBox: writerBox, onProgress: onProgress)
             return outputURL
         } catch {
+            if let writer = writerBox.writer, writer.status == .writing {
+                writer.cancelWriting()
+            }
             try? FileManager.default.removeItem(at: outputURL)
             throw error
         }
@@ -78,26 +85,32 @@ public final class TimelapseExportService: Sendable {
     private func renderVideo(
         project: MosaicProject,
         outputURL: URL,
+        writerBox: WriterBox,
         onProgress: (@Sendable (Float) -> Void)?
     ) async throws {
         let dimension = Self.videoDimension
-        let totalTiles = project.tiles.count
-        let timeline = TimelapseTimeline(totalTilesCount: totalTiles)
         let sortedTiles = TimelapseTimeline.sortTilesInSequence(project.tiles)
+        guard !sortedTiles.isEmpty else {
+            throw TimelapseExportError.uncompletedProject
+        }
+        
+        let totalTiles = sortedTiles.count
+        let timeline = TimelapseTimeline(totalTilesCount: totalTiles)
         
         // 1. 各タイル画像を 1080p の 1 マス分に事前リサイズ・キャッシュ (O(N) で1回のみ)
         let tilePixelWidth = CGFloat(dimension) / CGFloat(max(1, project.gridWidth))
         let tilePixelHeight = CGFloat(dimension) / CGFloat(max(1, project.gridHeight))
         
+        var cachedTileCGImages: [UUID: CGImage] = [:]
+        cachedTileCGImages.reserveCapacity(sortedTiles.count)
+        
+        #if canImport(UIKit)
         let identifiers = sortedTiles.compactMap(\.placedPhotoIdentifier)
         let fetchedAssets = PHAsset.fetchAssets(withLocalIdentifiers: identifiers, options: nil)
         var assetsByIdentifier: [String: PHAsset] = [:]
         fetchedAssets.enumerateObjects { asset, _, _ in
             assetsByIdentifier[asset.localIdentifier] = asset
         }
-        
-        var cachedTileCGImages: [UUID: CGImage] = [:]
-        cachedTileCGImages.reserveCapacity(sortedTiles.count)
         
         for tile in sortedTiles {
             if Task.isCancelled { throw TimelapseExportError.cancelled }
@@ -115,11 +128,13 @@ public final class TimelapseExportService: Sendable {
                 cachedTileCGImages[tile.id] = cg
             }
         }
+        #endif
         
         // 2. AVAssetWriter のセットアップ
         let writer: AVAssetWriter
         do {
             writer = try AVAssetWriter(outputURL: outputURL, fileType: .mp4)
+            writerBox.writer = writer
         } catch {
             throw TimelapseExportError.writerCreationFailed(error.localizedDescription)
         }
@@ -129,7 +144,7 @@ public final class TimelapseExportService: Sendable {
             AVVideoWidthKey: dimension,
             AVVideoHeightKey: dimension,
             AVVideoCompressionPropertiesKey: [
-                AVVideoAverageBitRateKey: 8_000_000, // 8 Mbps 高画質
+                AVVideoAverageBitRateKey: 8_000_000,
                 AVVideoProfileLevelKey: AVVideoProfileLevelH264HighAutoLevel
             ]
         ]
@@ -174,20 +189,21 @@ public final class TimelapseExportService: Sendable {
             throw TimelapseExportError.contextCreationFailed
         }
         
-        // 背景を薄いグレーで初期化
-        baseContext.setFillColor(UIColor(white: 0.15, alpha: 1.0).cgColor)
+        // 背景を濃いグレーで初期化
+        baseContext.setFillColor(red: 0.15, green: 0.15, blue: 0.15, alpha: 1.0)
         baseContext.fill(CGRect(x: 0, y: 0, width: dimension, height: dimension))
         
-        // ガイド元画像をうっすら背景に描画
+        #if canImport(UIKit)
         if !project.targetImageData.isEmpty, let targetUI = UIImage(data: project.targetImageData), let targetCG = targetUI.cgImage {
             baseContext.saveGState()
             baseContext.setAlpha(0.12)
             baseContext.draw(targetCG, in: CGRect(x: 0, y: 0, width: dimension, height: dimension))
             baseContext.restoreGState()
         }
+        #endif
         
         // グリッド線の描画
-        baseContext.setStrokeColor(UIColor(white: 0.25, alpha: 0.5).cgColor)
+        baseContext.setStrokeColor(red: 0.25, green: 0.25, blue: 0.25, alpha: 0.5)
         baseContext.setLineWidth(1.0)
         for x in 0...project.gridWidth {
             let px = CGFloat(x) * tilePixelWidth
@@ -240,6 +256,7 @@ public final class TimelapseExportService: Sendable {
             let range = timeline.newTileRange(forBuildFrame: buildFrame)
             if !range.isEmpty {
                 for tileIndex in range {
+                    guard tileIndex < sortedTiles.count else { continue }
                     let tile = sortedTiles[tileIndex]
                     let rect = CGRect(
                         x: CGFloat(tile.gridX) * tilePixelWidth,
@@ -248,8 +265,9 @@ public final class TimelapseExportService: Sendable {
                         height: tilePixelHeight
                     )
                     
-                    // タイル色塗り
-                    baseContext.setFillColor(tile.targetLabColor.uiColor.cgColor)
+                    // タイル色塗り (RGB変換)
+                    let rgb = tile.targetLabColor.toRGB()
+                    baseContext.setFillColor(red: CGFloat(rgb.red), green: CGFloat(rgb.green), blue: CGFloat(rgb.blue), alpha: 1.0)
                     baseContext.fill(rect)
                     
                     // タイル写真描画
@@ -276,7 +294,6 @@ public final class TimelapseExportService: Sendable {
         
         // -------------------------------------------------------------
         // フェーズ3: フィナーレ (60フレーム = 2.0秒)
-        // 最初の30フレームで刻印がフェードイン、後半30フレームで完成静止
         // -------------------------------------------------------------
         let watermarkConfig = project.watermarkConfig
         
@@ -290,7 +307,7 @@ public final class TimelapseExportService: Sendable {
                 watermarkAlpha = 1.0
             }
             
-            // 刻印がある場合は一時コンテキストにコピーして重ね合わせ
+            #if canImport(UIKit)
             if let watermarkConfig, !watermarkConfig.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                 guard let finaleContext = CGContext(
                     data: nil,
@@ -323,6 +340,15 @@ public final class TimelapseExportService: Sendable {
                     at: currentPresentationTime
                 )
             }
+            #else
+            try await appendFrame(
+                context: baseContext,
+                adaptor: adaptor,
+                input: writerInput,
+                pool: pool,
+                at: currentPresentationTime
+            )
+            #endif
             
             currentPresentationTime = CMTimeAdd(currentPresentationTime, frameDuration)
             globalFrame += 1
@@ -352,7 +378,7 @@ public final class TimelapseExportService: Sendable {
     ) async throws {
         while !input.isReadyForMoreMediaData {
             if Task.isCancelled { throw TimelapseExportError.cancelled }
-            try await Task.sleep(nanoseconds: 10_000_000) // 10ms待機
+            try await Task.sleep(nanoseconds: 10_000_000)
         }
         
         var pixelBufferOut: CVPixelBuffer? = nil
@@ -389,6 +415,7 @@ public final class TimelapseExportService: Sendable {
         }
     }
     
+    #if canImport(UIKit)
     // MARK: - 刻印オーバーレイ描画
     private func drawWatermarkOverlay(
         context: CGContext,
@@ -507,6 +534,11 @@ public final class TimelapseExportService: Sendable {
             }
         }
     }
+    #endif
+}
+
+private final class WriterBox: @unchecked Sendable {
+    var writer: AVAssetWriter? = nil
 }
 
 private func sanitizeWatermarkText(_ rawText: String) -> String {
@@ -519,6 +551,7 @@ private func sanitizeWatermarkText(_ rawText: String) -> String {
     return joined
 }
 
+#if canImport(UIKit)
 private final class TimelapseImageGate: @unchecked Sendable {
     private let lock = NSLock()
     private var continuation: CheckedContinuation<UIImage?, Never>?
@@ -535,3 +568,4 @@ private final class TimelapseImageGate: @unchecked Sendable {
         value?.resume(returning: image)
     }
 }
+#endif

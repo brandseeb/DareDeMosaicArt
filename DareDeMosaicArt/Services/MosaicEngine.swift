@@ -185,12 +185,13 @@ public final class MosaicEngine: Sendable {
             }
         }
         
-        // 4. 重複安全確認 ＆ タイルへの反映（時系列順序の採番）
+        // 4. 重複安全確認 ＆ タイルへの反映（幾何学的・決定論的順序での採番）
         var usedPhotoIndices = Set<Int>()
         var nextSeq = (updatedTiles.compactMap(\.placementSequence).max() ?? -1) + 1
         
-        for (tileIdx, photoIdx) in matchTtoP {
-            guard !usedPhotoIndices.contains(photoIdx) else { continue }
+        let deterministicTileIndices = assignableIndices.sorted()
+        for tileIdx in deterministicTileIndices {
+            guard let photoIdx = matchTtoP[tileIdx], !usedPhotoIndices.contains(photoIdx) else { continue }
             usedPhotoIndices.insert(photoIdx)
             
             let photo = usablePhotos[photoIdx]

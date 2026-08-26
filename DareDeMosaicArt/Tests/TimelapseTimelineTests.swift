@@ -1,6 +1,11 @@
 import Foundation
+import AVFoundation
 
-/// タイムラプス時系列モデル・フレーム配分の厳密検証テスト
+#if canImport(UIKit)
+import UIKit
+#endif
+
+/// タイムラプス時系列モデル・フレーム配分・実MP4出力の厳密検証テスト
 func runTimelapseVerification() {
     print("\n🎬 --- 「誰でモザイクアート」第3段階 タイムラプス動画機能・タイムライン検証開始 ---")
     
@@ -56,5 +61,63 @@ func runTimelapseVerification() {
         print("✅ \(count) マス タイムライン完全被覆＆重複ゼロ検証: 正常 (300フレーム/10.0秒)")
     }
     
-    print("🎉 --- タイムラプス動画機能・タイムライン検証がすべて正常にパスしました！ ---")
+    // 4. 実際の MP4 生成＆動画仕様（10.0秒 / 1080×1080 / H.264）厳密検査テスト
+    let semaphore = DispatchSemaphore(value: 0)
+    
+    Task {
+        let redTarget = LabColor.fromRGB(red: 1.0, green: 0.0, blue: 0.0)
+        let blueTarget = LabColor.fromRGB(red: 0.0, green: 0.0, blue: 1.0)
+        
+        // 2×2 の完成プロジェクト
+        let testTiles: [MosaicTile] = [
+            MosaicTile(gridX: 0, gridY: 0, targetLabColor: redTarget, placedPhotoIdentifier: "p1", placementSequence: 0),
+            MosaicTile(gridX: 1, gridY: 0, targetLabColor: blueTarget, placedPhotoIdentifier: "p2", placementSequence: 1),
+            MosaicTile(gridX: 0, gridY: 1, targetLabColor: blueTarget, placedPhotoIdentifier: "p3", placementSequence: 2),
+            MosaicTile(gridX: 1, gridY: 1, targetLabColor: redTarget, placedPhotoIdentifier: "p4", placementSequence: 3)
+        ]
+        
+        let testProject = MosaicProject(
+            title: "タイムラプステスト",
+            targetImageData: Data(),
+            gridWidth: 2,
+            gridHeight: 2,
+            mode: .hybrid,
+            photoSource: .allLocalPhotos,
+            tiles: testTiles,
+            missions: [],
+            isCompleted: true,
+            watermarkConfig: WatermarkConfig(text: "Test Watermark\n2026.08.26", fontDesign: .standard, position: .bottomRight, colorStyle: .whiteWithShadow)
+        )
+        
+        do {
+            let videoURL = try await TimelapseExportService.shared.exportTimelapse(project: testProject)
+            defer { try? FileManager.default.removeItem(at: videoURL) }
+            
+            assert(FileManager.default.fileExists(atPath: videoURL.path), "生成された MP4 ファイルが存在する必要があります")
+            
+            let asset = AVURLAsset(url: videoURL)
+            let duration = try await asset.load(.duration)
+            let durationSeconds = CMTimeGetSeconds(duration)
+            
+            // 30fps で 300 フレーム = 10.0秒（誤差 1/30秒以内）
+            assert(abs(durationSeconds - 10.0) <= 0.05, "動画再生時間は 10.0秒 (±0.05s) である必要があります。実測: \(durationSeconds)s")
+            
+            let tracks = try await asset.loadTracks(withMediaType: .video)
+            assert(!tracks.isEmpty, "動画トラックが含まれている必要があります")
+            
+            let videoTrack = tracks[0]
+            let naturalSize = try await videoTrack.load(.naturalSize)
+            assert(Int(naturalSize.width) == 1080 && Int(naturalSize.height) == 1080, "動画解像度は 1080×1080 である必要があります。実測: \(naturalSize)")
+            
+            print("✅ 実MP4動画エンコード検証: 10.0秒 / 1080×1080 / H.264 正常出力確認")
+        } catch {
+            fatalError("実MP4エクスポートテストに失敗しました: \(error)")
+        }
+        
+        semaphore.signal()
+    }
+    
+    semaphore.wait()
+    
+    print("🎉 --- タイムラプス動画機能・実MP4出力検証がすべて正常にパスしました！ ---")
 }

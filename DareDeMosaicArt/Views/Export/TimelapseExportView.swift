@@ -280,8 +280,17 @@ public struct TimelapseExportView: View {
         player = nil
         playerLooper = nil
         if let url = videoURL {
-            try? FileManager.default.removeItem(at: url)
+            let targetURL = url
             self.videoURL = nil
+            if isSaving {
+                // 写真保存処理が走っている最中は、取り込み完了を待ってからバックグラウンドで安全削除
+                Task.detached(priority: .background) {
+                    try? await Task.sleep(nanoseconds: 8_000_000_000) // 8秒待機後に安全消去
+                    try? FileManager.default.removeItem(at: targetURL)
+                }
+            } else {
+                try? FileManager.default.removeItem(at: targetURL)
+            }
         }
     }
 }
