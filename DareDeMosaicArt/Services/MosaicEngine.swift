@@ -38,7 +38,7 @@ public final class MosaicEngine: Sendable {
         return labDist * 0.35 + spatialDist * 0.65
     }
     
-    // MARK: - タイル自動マッチング（疎グラフ上の最大二部マッチング＋スコア最適化）
+    // MARK: - タイル自動マッチング（疎グラフ上の Maximum Cardinality Matching ＋ 局所スワップ最適化）
     public func matchTiles(
         tiles: [MosaicTile],
         availablePhotos: [IndexedPhoto],
@@ -91,9 +91,11 @@ public final class MosaicEngine: Sendable {
             return updatedTiles
         }
         
-        // 重複不許可の場合: 疎グラフ構築 ＋ 最大二部マッチング (Augmenting Path)
+        // 重複不許可の場合: 疎グラフ構築 ＋ Kuhn's Maximum Cardinality Matching
         // 1. 各タイルごとに合格圏内（passDistanceThreshold以下）の上位候補エッジを抽出
         var adjList: [[(photoIdx: Int, score: Float)]] = Array(repeating: [], count: updatedTiles.count)
+        // O(1) スコア参照用のマップ: [タイルIndex: [写真Index: スコア]]
+        var edgeScoreMap: [Int: [Int: Float]] = [:]
         
         for tileIdx in assignableIndices {
             let tile = updatedTiles[tileIdx]
@@ -106,12 +108,13 @@ public final class MosaicEngine: Sendable {
                     validEdges.append((photoIdx: pIdx, score: score))
                 }
             }
-            // スコア順にソートして上位16候補に絞る（高速かつ十分な探索幅）
             validEdges.sort { $0.score < $1.score }
-            adjList[tileIdx] = Array(validEdges.prefix(16))
+            let topEdges = Array(validEdges.prefix(16))
+            adjList[tileIdx] = topEdges
+            edgeScoreMap[tileIdx] = Dictionary(uniqueKeysWithValues: topEdges.map { ($0.photoIdx, $0.score) })
         }
         
-        // 2. 最大二部マッチング（Kuhn's Augmenting Path Algorithm）
+        // 2. 最大二部マッチング（Kuhn's Augmenting Path Algorithm: 疎グラフ上での Maximum Cardinality Matching）
         var matchPtoT: [Int: Int] = [:] // 写真Index -> タイルIndex
         var matchTtoP: [Int: Int] = [:] // タイルIndex -> 写真Index
         
@@ -136,7 +139,6 @@ public final class MosaicEngine: Sendable {
             return false
         }
         
-        // 候補数が少ないタイル（制約が厳しいタイル）から優先してマッチングを試みる
         let sortedTileIndices = assignableIndices.sorted {
             let countA = adjList[$0].count
             let countB = adjList[$1].count
@@ -149,37 +151,46 @@ public final class MosaicEngine: Sendable {
             _ = dfs(tileIdx: tileIdx, visited: &visited)
         }
         
-        // 3. 局所スワップによるスコア改善（割り当て総数を維持したまま合計距離を最小化）
+        // 3. 局所スワップによるスコア改善（常に最新の 1 対 1 状態を参照し、不整合・重複を完全防止）
         var improved = true
         var passes = 0
         while improved && passes < 3 {
             improved = false
             passes += 1
             for t1 in assignableIndices {
+                // ループごとに最新の p1 を動的に取得
                 guard let p1 = matchTtoP[t1],
-                      let score1_1 = adjList[t1].first(where: { $0.photoIdx == p1 })?.score else { continue }
+                      let score1_1 = edgeScoreMap[t1]?[p1] else { continue }
                 
-                for t2 in assignableIndices where t1 < t2 {
-                    guard let p2 = matchTtoP[t2],
-                          let score2_2 = adjList[t2].first(where: { $0.photoIdx == p2 })?.score else { continue }
+                for t2 in assignableIndices where t1 != t2 {
+                    // ループごとに最新の p2 を動的に取得
+                    guard let p2 = matchTtoP[t2], p1 != p2,
+                          let score2_2 = edgeScoreMap[t2]?[p2] else { continue }
                     
-                    // t1にp2, t2にp1を入れ替え可能かチェック
-                    if let score1_2 = adjList[t1].first(where: { $0.photoIdx == p2 })?.score,
-                       let score2_1 = adjList[t2].first(where: { $0.photoIdx == p1 })?.score {
+                    // t1にp2、t2にp1がエッジとして存在するか確認
+                    if let score1_2 = edgeScoreMap[t1]?[p2],
+                       let score2_1 = edgeScoreMap[t2]?[p1] {
                         if (score1_2 + score2_1) < (score1_1 + score2_2) {
+                            // スワップ実行と 1 対 1 整合性の更新
                             matchTtoP[t1] = p2
                             matchTtoP[t2] = p1
                             matchPtoT[p1] = t2
                             matchPtoT[p2] = t1
                             improved = true
+                            // t1 の割り当てが変わったため、次の t2 へ進む前に inner ループを break して再評価
+                            break
                         }
                     }
                 }
             }
         }
         
-        // 4. マッチ結果をタイルへ反映
+        // 4. 重複安全確認 ＆ タイルへの反映
+        var usedPhotoIndices = Set<Int>()
         for (tileIdx, photoIdx) in matchTtoP {
+            guard !usedPhotoIndices.contains(photoIdx) else { continue }
+            usedPhotoIndices.insert(photoIdx)
+            
             let photo = usablePhotos[photoIdx]
             updatedTiles[tileIdx].placedPhotoIdentifier = photo.id
             updatedTiles[tileIdx].placedLabColor = photo.labColor
@@ -191,7 +202,7 @@ public final class MosaicEngine: Sendable {
         return updatedTiles
     }
     
-    // MARK: - 手動差し替え用の類似色候補探索（二段階探索: Labバケット粗探索 30〜60枚 -> 3×3空間評価）
+    // MARK: - 手動差し替え用の類似色候補探索（二段階探索: Labバケット粗探索 30〜50枚 -> 3×3空間評価）
     public func findBestMatchCandidates(
         for tile: MosaicTile,
         from photos: [IndexedPhoto],
