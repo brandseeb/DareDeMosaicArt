@@ -172,6 +172,7 @@ func runPerformanceVerification(photoCount: Int = 3_000) {
     let duplicateCount = placedIDs.count - uniqueCount
     
     print("✅ 50×50 / \(photoCount)写真計測: \(String(format: "%.2f", elapsed))秒、配置 \(filledCount) / 2500, ユニーク数 \(uniqueCount) / \(filledCount) (重複: \(duplicateCount)件)")
-    assert(filledCount > 2_000, "十分な候補がある計測データで配置数が少なすぎます")
+    assert(filledCount == 2_500, "標準ベンチマークでは2,500マスすべてが埋まる必要があります")
+    assert(uniqueCount == 2_500, "標準ベンチマークでは2,500枚すべてがユニークである必要があります")
     assert(duplicateCount == 0, "マッチング結果に重複した写真IDが含まれてはなりません")
 }

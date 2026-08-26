@@ -38,25 +38,45 @@ public struct HomeView: View {
             .toolbar {
                 // 左側: Pro アップグレードボタン
                 ToolbarItem(placement: .topBarLeading) {
-                    Button {
-                        showPaywall = true
-                    } label: {
-                        HStack(spacing: 4) {
-                            Image(systemName: "crown.fill")
-                                .foregroundColor(storeKit.isProUser ? .yellow : .orange)
-                            if storeKit.proStatus == .loading {
-                                ProgressView()
-                                    .scaleEffect(0.7)
-                            } else {
-                                Text(storeKit.isProUser ? "PRO" : "Pro")
-                                    .font(.caption.bold())
-                                    .foregroundColor(storeKit.isProUser ? .primary : .orange)
+                    HStack(spacing: 8) {
+                        Button {
+                            showPaywall = true
+                        } label: {
+                            HStack(spacing: 4) {
+                                Image(systemName: "crown.fill")
+                                    .foregroundColor(storeKit.isProUser ? .yellow : .orange)
+                                if storeKit.proStatus == .loading {
+                                    ProgressView()
+                                        .scaleEffect(0.7)
+                                } else {
+                                    Text(storeKit.isProUser ? "PRO" : "Pro")
+                                        .font(.caption.bold())
+                                        .foregroundColor(storeKit.isProUser ? .primary : .orange)
+                                }
                             }
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 4)
+                            .background(storeKit.isProUser ? Color(.systemGray5) : Color.orange.opacity(0.12))
+                            .cornerRadius(12)
                         }
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 4)
-                        .background(storeKit.isProUser ? Color(.systemGray5) : Color.orange.opacity(0.12))
-                        .cornerRadius(12)
+                        
+                        #if DEBUG
+                        // 開発・テスト用: ワンタップ Pro / Free トグルスイッチ
+                        Button {
+                            storeKit.toggleDebugPro()
+                        } label: {
+                            HStack(spacing: 2) {
+                                Image(systemName: storeKit.isProUser ? "checkmark.circle.fill" : "circle")
+                                Text(storeKit.isProUser ? "DEBUG: PRO" : "DEBUG: FREE")
+                            }
+                            .font(.system(size: 10, weight: .bold))
+                            .foregroundColor(.white)
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 3)
+                            .background(storeKit.isProUser ? Color.purple : Color.gray)
+                            .cornerRadius(8)
+                        }
+                        #endif
                     }
                 }
                 

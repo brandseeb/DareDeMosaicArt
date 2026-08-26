@@ -167,28 +167,28 @@ func runPhase2Verification() {
     print("✅ Maximum Cardinality Matching テスト: 正常")
     
     // 5. 局所スワップ（2-opt Break-and-Restart）による交差解消＆重複ゼロ回帰テスト
-    // タイル0: 赤 (a: 20), タイル1: 青 (a: -20)
-    // 写真0: 赤 (a: 20, photo_red), 写真1: 青 (a: -20, photo_blue)
-    // 閾値: 45.0 (両写真とも両タイルにエッジを持つ)
-    let swapTile0 = MosaicTile(gridX: 0, gridY: 0, targetLabColor: LabColor(l: 50, a: 20, b: 0))
-    let swapTile1 = MosaicTile(gridX: 1, gridY: 0, targetLabColor: LabColor(l: 50, a: -20, b: 0))
-    
-    // 初期マッチングで交差が起きやすいよう、写真リストの順序をあえて逆に配置
+    // タイル0(a:1): photo_A=1, photo_B=4
+    // タイル1(a:2): photo_A=2, photo_B=3
+    // Kuhn 初期解は tile0 -> photo_B, tile1 -> photo_A（合計6）になる。
+    // 2-opt 後は tile0 -> photo_A, tile1 -> photo_B（合計4）へ改善される必要がある。
+    let swapTile0 = MosaicTile(gridX: 0, gridY: 0, targetLabColor: LabColor(l: 50, a: 1, b: 0))
+    let swapTile1 = MosaicTile(gridX: 1, gridY: 0, targetLabColor: LabColor(l: 50, a: 2, b: 0))
+
     let swapPhotos = [
-        IndexedPhoto(id: "photo_blue", labColor: LabColor(l: 50, a: -20, b: 0)),
-        IndexedPhoto(id: "photo_red", labColor: LabColor(l: 50, a: 20, b: 0))
+        IndexedPhoto(id: "photo_A", labColor: LabColor(l: 50, a: 0, b: 0)),
+        IndexedPhoto(id: "photo_B", labColor: LabColor(l: 50, a: 5, b: 0))
     ]
     
     let swapResult = MosaicEngine.shared.matchTiles(
         tiles: [swapTile0, swapTile1],
         availablePhotos: swapPhotos,
         allowDuplicates: false,
-        passDistanceThreshold: 45.0
+        passDistanceThreshold: 4.0
     )
     
     assert(swapResult.allSatisfy { $0.isFilled }, "すべてのタイルが埋まる必要があります")
-    assert(swapResult[0].placedPhotoIdentifier == "photo_red", "局所スワップによりタイル0には赤色の写真が最適配置される必要があります")
-    assert(swapResult[1].placedPhotoIdentifier == "photo_blue", "局所スワップによりタイル1には青色の写真が最適配置される必要があります")
+    assert(swapResult[0].placedPhotoIdentifier == "photo_A", "2-opt によりタイル0は距離1の photo_A へ改善される必要があります")
+    assert(swapResult[1].placedPhotoIdentifier == "photo_B", "2-opt によりタイル1は距離3の photo_B へ改善される必要があります")
     
     let swapPlacedIDs = swapResult.compactMap(\.placedPhotoIdentifier)
     assert(Set(swapPlacedIDs).count == swapPlacedIDs.count, "スワップ後も重複写真IDはゼロである必要があります")

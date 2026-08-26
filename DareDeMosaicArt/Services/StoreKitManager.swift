@@ -22,10 +22,32 @@ public final class StoreKitManager: ObservableObject {
     @Published public private(set) var isRestoring: Bool = false
     @Published public var errorMessage: String? = nil
     
+    #if DEBUG
+    @Published public var debugIsProOverride: Bool? = nil
+    #endif
+    
     /// 便宜プロパティ（Pro判定）
     public var isProUser: Bool {
-        proStatus == .pro
+        #if DEBUG
+        if let override = debugIsProOverride {
+            return override
+        }
+        #endif
+        return proStatus == .pro
     }
+    
+    #if DEBUG
+    /// デバッグ用：ワンタップで Pro / Free を切り替える
+    public func toggleDebugPro() {
+        if isProUser {
+            debugIsProOverride = false
+            proStatus = .free
+        } else {
+            debugIsProOverride = true
+            proStatus = .pro
+        }
+    }
+    #endif
     
     /// 初回権利確認が完了したかどうか
     public var isInitialCheckCompleted: Bool {
