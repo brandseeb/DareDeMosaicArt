@@ -1,6 +1,6 @@
 import Foundation
 
-/// 第2段階（アルバム指定・空間色差し替え・カスタム刻印・旧データ互換性・制約優先マッチング）の網羅的テスト
+/// 第2段階（アルバム指定・空間色差し替え・カスタム刻印・旧データ互換性・二部最大マッチング）の網羅的テスト
 func runPhase2Verification() {
     print("\n🌟 --- 「誰でモザイクアート」第2段階 厳密仕様・互換性テスト開始 ---")
     
@@ -139,13 +139,21 @@ func runPhase2Verification() {
     assert(candidates[0].score < candidates[1].score, "空間配置が一致する候補のスコアがより低く（高評価）になる必要があります")
     print("✅ 3×3空間シグネチャ詳細順位＆自タイル写真除外テスト: 正常")
     
-    // 4. 制約優先 Greedy（Most Constrained First）自動マッチング検証テスト
-    // タイル0: 選択肢が2つある (Photo_Common, Photo_Scarce)
-    // タイル1: 選択肢が1つしかない (Photo_Scarce のみ)
+    // 4. 最大二部マッチング（Augmenting Path）検証テスト
+    // 閾値: passDistanceThreshold = 5.0
+    // タイル0: flexibleColor (l:50, a:0, b:0)
+    //   -> photo_scarce (l:50, a:3, b:0) との距離 = 3.0 (合格 <= 5.0)
+    //   -> photo_common (l:50, a:-2, b:0) との距離 = 2.0 (合格 <= 5.0)
+    // タイル1: constrainedColor (l:50, a:5, b:0)
+    //   -> photo_scarce (l:50, a:3, b:0) との距離 = 2.0 (合格 <= 5.0)
+    //   -> photo_common (l:50, a:-2, b:0) との距離 = 7.0 (不合格 > 5.0)
+    // したがって、タイル1は photo_scarce のみしか選択できない。
+    // タイル0が Greedy に photo_scarce を奪ってしまうとタイル1が空いてしまうが、
+    // 最大二部マッチングによって タイル1 -> photo_scarce, タイル0 -> photo_common が正しく割り当てられる。
     let flexibleColor = LabColor(l: 50, a: 0, b: 0)
-    let constrainedColor = LabColor(l: 50, a: 8, b: 0)
-    let scarceColor = LabColor(l: 50, a: 7, b: 0)
-    let commonColor = LabColor(l: 50, a: -1, b: 0)
+    let constrainedColor = LabColor(l: 50, a: 5, b: 0)
+    let scarceColor = LabColor(l: 50, a: 3, b: 0)
+    let commonColor = LabColor(l: 50, a: -2, b: 0)
     
     let matchTiles = [
         MosaicTile(gridX: 0, gridY: 0, targetLabColor: flexibleColor),
@@ -160,13 +168,13 @@ func runPhase2Verification() {
         tiles: matchTiles,
         availablePhotos: availablePhotos,
         allowDuplicates: false,
-        passDistanceThreshold: 10.0
+        passDistanceThreshold: 5.0
     )
     
-    assert(allocatedTiles.allSatisfy { $0.isFilled }, "制約順割り当てにより両方のタイルが埋まる必要があります")
-    assert(allocatedTiles[1].placedPhotoIdentifier == "photo_scarce", "選択肢の少ないタイル1に希少写真が割り当てられる必要があります")
-    assert(allocatedTiles[0].placedPhotoIdentifier == "photo_common", "選択肢の多いタイル0には共通写真が割り当てられる必要があります")
-    print("✅ 制約優先（Most Constrained First）マッチングテスト: 正常")
+    assert(allocatedTiles.allSatisfy { $0.isFilled }, "最大二部マッチングにより両方のタイルが埋まる必要があります")
+    assert(allocatedTiles[1].placedPhotoIdentifier == "photo_scarce", "選択肢が1つしかないタイル1に希少写真が割り当てられる必要があります")
+    assert(allocatedTiles[0].placedPhotoIdentifier == "photo_common", "タイル0には photo_common が割り当てられる必要があります")
+    print("✅ 最大二部マッチング（Augmenting Path）テスト: 正常")
     
     print("🎉 --- 第2段階 厳密仕様・互換性テストがすべて正常にパスしました！ ---")
 }

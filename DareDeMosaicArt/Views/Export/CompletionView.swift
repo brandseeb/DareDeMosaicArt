@@ -267,12 +267,12 @@ public struct CompletionView: View {
             Form {
                 Section(header: Text("刻印テキスト (最大60文字・2行まで)")) {
                     TextField("例: 2026.08.26 Happy Wedding\nKen & Yui", text: $draftWatermark.text, axis: .vertical)
-                        .lineLimit(2...3)
+                        .lineLimit(2)
                         .onChange(of: draftWatermark.text) { _, newText in
                             draftWatermark.text = sanitizeWatermarkText(newText)
                         }
                     
-                    Text("\(draftWatermark.text.count) / 60文字")
+                    Text("\(draftWatermark.text.count) / 60文字 (最大2行)")
                         .font(.caption2)
                         .foregroundColor(.secondary)
                 }
@@ -346,7 +346,6 @@ public struct CompletionView: View {
         guard let base = baseRenderedImage else { return nil }
         let isPro = storeKit.isProUser
         
-        // Proかつ刻印テキストが存在する場合のみ、4Kビットマップへ高解像度テキストを描画
         if isPro, let watermark = project.watermarkConfig, !watermark.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
             return await Self.renderWatermarkOnImage(baseImage: base, config: watermark)
         }
@@ -502,7 +501,7 @@ public struct CompletionView: View {
         return resultImage
     }
 
-    // MARK: - 4K高解像度テキスト刻印描画
+    // MARK: - 4K高解像度テキスト刻印描画 (最大2行の確実な保証)
     private static func renderWatermarkOnImage(baseImage: UIImage, config: WatermarkConfig) async -> UIImage {
         return await Task.detached(priority: .userInitiated) {
             let renderer = UIGraphicsImageRenderer(size: baseImage.size)
@@ -562,7 +561,7 @@ public struct CompletionView: View {
                 case .bottomCenter, .footerBar:
                     paragraphStyle.alignment = .center
                 }
-                paragraphStyle.lineBreakMode = .byWordWrapping
+                paragraphStyle.lineBreakMode = .byTruncatingTail
                 
                 let attributes: [NSAttributedString.Key: Any] = [
                     .font: font,
@@ -574,7 +573,7 @@ public struct CompletionView: View {
                 let margin: CGFloat = width * 0.03 // 端から約120px
                 let maxTextWidth = width - (margin * 2)
                 let textRectBounding = (text as NSString).boundingRect(
-                    with: CGSize(width: maxTextWidth, height: 300),
+                    with: CGSize(width: maxTextWidth, height: fontSize * 2.6), // 最大2行分の高さに制限
                     options: [.usesLineFragmentOrigin, .usesFontLeading],
                     attributes: attributes,
                     context: nil

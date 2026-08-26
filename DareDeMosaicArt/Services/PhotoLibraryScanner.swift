@@ -137,7 +137,6 @@ public final class PhotoLibraryScanner: ObservableObject {
             
             let batchResults = await withTaskGroup(of: CachedPhotoIndexEntry?.self) { group in
                 for asset in batchAssets {
-                    // キャッシュがあっても端末ローカルに写真が存在するか確認するためリクエストを実行
                     group.addTask {
                         let requestOptions = PHImageRequestOptions()
                         requestOptions.isSynchronous = false
@@ -156,17 +155,22 @@ public final class PhotoLibraryScanner: ObservableObject {
                                 let isCancelled = (info?[PHImageCancelledKey] as? Bool) == true
                                 let isError = info?[PHImageErrorKey] != nil
                                 let isDegraded = (info?[PHImageResultIsDegradedKey] as? Bool) == true
+                                let isInCloud = (info?[PHImageResultIsInCloudKey] as? Bool) == true
                                 
-                                if isCancelled || isError {
+                                if isCancelled || isError || isInCloud {
+                                    // iCloudのみに存在、キャンセル、またはエラーの場合は端末ローカル対象外
                                     gate.resume(returning: nil)
                                 } else if let uiImage = image {
-                                    // 端末内に画像が存在する場合
+                                    if isDegraded {
+                                        // 劣化版画像（プレビュー段階）は確定解析として採用せず、本番コールバックを待つ
+                                        return
+                                    }
+                                    
+                                    // 端末内に完全な画像が存在する場合
                                     if let cached = cachedEntries[asset.localIdentifier],
                                        cached.modificationDate == asset.modificationDate {
-                                        // キャッシュ利用
                                         gate.resume(returning: cached)
                                     } else {
-                                        // 新規色解析
                                         let signature = ColorAnalysisService.shared.extractSpatialSignature(from: uiImage)
                                         let thumbData = uiImage.jpegData(compressionQuality: 0.6)
                                         let item = IndexedPhoto(
@@ -181,8 +185,7 @@ public final class PhotoLibraryScanner: ObservableObject {
                                             photo: item
                                         ))
                                     }
-                                } else if image == nil && !isDegraded {
-                                    // iCloudのみに存在しローカルにない
+                                } else {
                                     gate.resume(returning: nil)
                                 }
                             }

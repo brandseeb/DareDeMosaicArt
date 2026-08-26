@@ -35,11 +35,10 @@ public final class MosaicEngine: Sendable {
             return labDist
         }
         let spatialDist = targetSig.distance(to: photoSig)
-        // 平均色と空間シグネチャの加重平均 (空間配置を重視)
         return labDist * 0.35 + spatialDist * 0.65
     }
     
-    // MARK: - タイル自動マッチング（制約優先 Greedy 割り当て: Most Constrained First）
+    // MARK: - タイル自動マッチング（疎グラフ上の最大二部マッチング＋スコア最適化）
     public func matchTiles(
         tiles: [MosaicTile],
         availablePhotos: [IndexedPhoto],
@@ -49,116 +48,150 @@ public final class MosaicEngine: Sendable {
         guard !availablePhotos.isEmpty else { return tiles }
         
         var updatedTiles = tiles
-        var usedPhotoIDs = Set<String>()
+        var lockedPhotoIDs = Set<String>()
         
-        // 既にロック済み・撮影済みの写真IDを使用済みセットに登録
         for tile in updatedTiles where tile.isLocked && tile.isFilled {
             if let photoId = tile.placedPhotoIdentifier {
-                usedPhotoIDs.insert(photoId)
+                lockedPhotoIDs.insert(photoId)
             }
         }
         
-        let buckets = ColorBuckets(photos: availablePhotos)
+        let usablePhotos = availablePhotos.filter { !lockedPhotoIDs.contains($0.id) }
+        guard !usablePhotos.isEmpty else { return updatedTiles }
         
-        // 未割り当てタイルごとに、適合する候補写真数とベストスコアを計算
-        struct TileCandidateInfo {
-            let tileIndex: Int
-            let bestPhoto: IndexedPhoto?
-            let bestScore: Float
-            let candidateCount: Int
-        }
+        let photoIndexMap = Dictionary(uniqueKeysWithValues: usablePhotos.enumerated().map { ($1.id, $0) })
+        let buckets = ColorBuckets(photos: usablePhotos)
         
-        var assignableIndices = updatedTiles.indices.filter { !updatedTiles[$0].isLocked || !updatedTiles[$0].isFilled }
+        let assignableIndices = updatedTiles.indices.filter { !updatedTiles[$0].isLocked || !updatedTiles[$0].isFilled }
         
-        if !allowDuplicates {
-            // 重複不許可の場合：候補数が少なく（希少色）、かつスコアが良いタイルから優先して割り当てる
-            while !assignableIndices.isEmpty {
-                var candidateInfos: [TileCandidateInfo] = []
-                candidateInfos.reserveCapacity(assignableIndices.count)
-                
-                for index in assignableIndices {
-                    let tile = updatedTiles[index]
-                    let candidates = buckets.candidates(for: tile.targetLabColor, maxRange: 28.0)
-                    
-                    var best: IndexedPhoto? = nil
-                    var bestScore = Float.infinity
-                    var validCount = 0
-                    
-                    for photo in candidates {
-                        if usedPhotoIDs.contains(photo.id) { continue }
-                        let score = matchScore(targetColor: tile.targetLabColor, targetSignature: tile.targetSignature, photo: photo)
-                        if score <= passDistanceThreshold {
-                            validCount += 1
-                            if score < bestScore {
-                                bestScore = score
-                                best = photo
-                            }
-                        }
-                    }
-                    
-                    candidateInfos.append(TileCandidateInfo(
-                        tileIndex: index,
-                        bestPhoto: best,
-                        bestScore: bestScore,
-                        candidateCount: validCount
-                    ))
-                }
-                
-                // 1件以上候補があるタイルの中で、最も候補数が少ない（希少）順、次いでスコアが良い順にソート
-                let validInfos = candidateInfos.filter { $0.bestPhoto != nil }
-                guard let mostConstrained = validInfos.min(by: {
-                    if $0.candidateCount != $1.candidateCount {
-                        return $0.candidateCount < $1.candidateCount
-                    }
-                    return $0.bestScore < $1.bestScore
-                }) else {
-                    // これ以上マッチする写真がなくなったため終了
-                    break
-                }
-                
-                let targetIndex = mostConstrained.tileIndex
-                if let photo = mostConstrained.bestPhoto {
-                    updatedTiles[targetIndex].placedPhotoIdentifier = photo.id
-                    updatedTiles[targetIndex].placedLabColor = photo.labColor
-                    updatedTiles[targetIndex].placedSignature = photo.signature
-                    updatedTiles[targetIndex].thumbnailData = photo.thumbnailData
-                    updatedTiles[targetIndex].origin = .automatic
-                    usedPhotoIDs.insert(photo.id)
-                }
-                
-                assignableIndices.removeAll { $0 == targetIndex }
-            }
-        } else {
-            // 重複許可の場合：各タイルのベストを直接適用
-            for index in assignableIndices {
-                let tile = updatedTiles[index]
+        if allowDuplicates {
+            // 重複許可の場合: 各タイルのベストを直接適用
+            for tileIdx in assignableIndices {
+                let tile = updatedTiles[tileIdx]
                 let candidates = buckets.candidates(for: tile.targetLabColor, maxRange: 28.0)
-                
                 var bestPhoto: IndexedPhoto? = nil
                 var bestScore = Float.infinity
                 
                 for photo in candidates {
                     let score = matchScore(targetColor: tile.targetLabColor, targetSignature: tile.targetSignature, photo: photo)
-                    if score < bestScore {
+                    if score < bestScore && score <= passDistanceThreshold {
                         bestScore = score
                         bestPhoto = photo
                     }
                 }
                 
-                if let best = bestPhoto, bestScore <= passDistanceThreshold {
-                    updatedTiles[index].placedPhotoIdentifier = best.id
-                    updatedTiles[index].placedLabColor = best.labColor
-                    updatedTiles[index].placedSignature = best.signature
-                    updatedTiles[index].thumbnailData = best.thumbnailData
-                    updatedTiles[index].origin = .automatic
+                if let best = bestPhoto {
+                    updatedTiles[tileIdx].placedPhotoIdentifier = best.id
+                    updatedTiles[tileIdx].placedLabColor = best.labColor
+                    updatedTiles[tileIdx].placedSignature = best.signature
+                    updatedTiles[tileIdx].thumbnailData = best.thumbnailData
+                    updatedTiles[tileIdx].origin = .automatic
                 }
             }
+            return updatedTiles
+        }
+        
+        // 重複不許可の場合: 疎グラフ構築 ＋ 最大二部マッチング (Augmenting Path)
+        // 1. 各タイルごとに合格圏内（passDistanceThreshold以下）の上位候補エッジを抽出
+        var adjList: [[(photoIdx: Int, score: Float)]] = Array(repeating: [], count: updatedTiles.count)
+        
+        for tileIdx in assignableIndices {
+            let tile = updatedTiles[tileIdx]
+            let candidates = buckets.candidates(for: tile.targetLabColor, maxRange: 28.0)
+            
+            var validEdges: [(photoIdx: Int, score: Float)] = []
+            for photo in candidates {
+                let score = matchScore(targetColor: tile.targetLabColor, targetSignature: tile.targetSignature, photo: photo)
+                if score <= passDistanceThreshold, let pIdx = photoIndexMap[photo.id] {
+                    validEdges.append((photoIdx: pIdx, score: score))
+                }
+            }
+            // スコア順にソートして上位16候補に絞る（高速かつ十分な探索幅）
+            validEdges.sort { $0.score < $1.score }
+            adjList[tileIdx] = Array(validEdges.prefix(16))
+        }
+        
+        // 2. 最大二部マッチング（Kuhn's Augmenting Path Algorithm）
+        var matchPtoT: [Int: Int] = [:] // 写真Index -> タイルIndex
+        var matchTtoP: [Int: Int] = [:] // タイルIndex -> 写真Index
+        
+        func dfs(tileIdx: Int, visited: inout [Bool]) -> Bool {
+            for edge in adjList[tileIdx] {
+                let pIdx = edge.photoIdx
+                if visited[pIdx] { continue }
+                visited[pIdx] = true
+                
+                if let currentOwner = matchPtoT[pIdx] {
+                    if dfs(tileIdx: currentOwner, visited: &visited) {
+                        matchPtoT[pIdx] = tileIdx
+                        matchTtoP[tileIdx] = pIdx
+                        return true
+                    }
+                } else {
+                    matchPtoT[pIdx] = tileIdx
+                    matchTtoP[tileIdx] = pIdx
+                    return true
+                }
+            }
+            return false
+        }
+        
+        // 候補数が少ないタイル（制約が厳しいタイル）から優先してマッチングを試みる
+        let sortedTileIndices = assignableIndices.sorted {
+            let countA = adjList[$0].count
+            let countB = adjList[$1].count
+            if countA != countB { return countA < countB }
+            return (adjList[$0].first?.score ?? .infinity) < (adjList[$1].first?.score ?? .infinity)
+        }
+        
+        for tileIdx in sortedTileIndices {
+            var visited = Array(repeating: false, count: usablePhotos.count)
+            _ = dfs(tileIdx: tileIdx, visited: &visited)
+        }
+        
+        // 3. 局所スワップによるスコア改善（割り当て総数を維持したまま合計距離を最小化）
+        var improved = true
+        var passes = 0
+        while improved && passes < 3 {
+            improved = false
+            passes += 1
+            for t1 in assignableIndices {
+                guard let p1 = matchTtoP[t1],
+                      let score1_1 = adjList[t1].first(where: { $0.photoIdx == p1 })?.score else { continue }
+                
+                for t2 in assignableIndices where t1 < t2 {
+                    guard let p2 = matchTtoP[t2],
+                          let score2_2 = adjList[t2].first(where: { $0.photoIdx == p2 })?.score else { continue }
+                    
+                    // t1にp2, t2にp1を入れ替え可能かチェック
+                    if let score1_2 = adjList[t1].first(where: { $0.photoIdx == p2 })?.score,
+                       let score2_1 = adjList[t2].first(where: { $0.photoIdx == p1 })?.score {
+                        if (score1_2 + score2_1) < (score1_1 + score2_2) {
+                            matchTtoP[t1] = p2
+                            matchTtoP[t2] = p1
+                            matchPtoT[p1] = t2
+                            matchPtoT[p2] = t1
+                            improved = true
+                        }
+                    }
+                }
+            }
+        }
+        
+        // 4. マッチ結果をタイルへ反映
+        for (tileIdx, photoIdx) in matchTtoP {
+            let photo = usablePhotos[photoIdx]
+            updatedTiles[tileIdx].placedPhotoIdentifier = photo.id
+            updatedTiles[tileIdx].placedLabColor = photo.labColor
+            updatedTiles[tileIdx].placedSignature = photo.signature
+            updatedTiles[tileIdx].thumbnailData = photo.thumbnailData
+            updatedTiles[tileIdx].origin = .automatic
         }
         
         return updatedTiles
     }
     
-    // MARK: - 手動差し替え用の類似色候補探索（二段階探索: Labバケット粗探索 -> 3×3空間評価）
+    // MARK: - 手動差し替え用の類似色候補探索（二段階探索: Labバケット粗探索 30〜60枚 -> 3×3空間評価）
     public func findBestMatchCandidates(
         for tile: MosaicTile,
         from photos: [IndexedPhoto],
@@ -169,22 +202,26 @@ public final class MosaicEngine: Sendable {
         
         let buckets = ColorBuckets(photos: photos)
         
-        // 1. まず標準範囲(maxRange=30.0)で近傍バケットから粗抽出
-        var coarseCandidates = buckets.candidates(for: tile.targetLabColor, maxRange: 30.0)
+        // 1. バケットから近傍写真を取得（除外写真を除く）
+        var rawBucketPhotos = buckets.candidates(for: tile.targetLabColor, maxRange: 28.0)
             .filter { !usedPhotoIDs.contains($0.id) }
         
-        // 候補が極端に少なければ範囲を拡大(maxRange=50.0)
-        if coarseCandidates.count < topK * 2 {
-            coarseCandidates = buckets.candidates(for: tile.targetLabColor, maxRange: 50.0)
+        if rawBucketPhotos.count < 30 {
+            rawBucketPhotos = buckets.candidates(for: tile.targetLabColor, maxRange: 45.0)
                 .filter { !usedPhotoIDs.contains($0.id) }
         }
         
-        // それでも足りなければ全写真から除外写真以外を対象
-        if coarseCandidates.count < topK {
-            coarseCandidates = photos.filter { !usedPhotoIDs.contains($0.id) }
+        if rawBucketPhotos.count < topK {
+            rawBucketPhotos = photos.filter { !usedPhotoIDs.contains($0.id) }
         }
         
-        // 2. 3x3空間シグネチャによる詳細スコア計算
+        // 粗探索: 平均色距離でソートし、最大50枚に厳密制限
+        rawBucketPhotos.sort {
+            tile.targetLabColor.distance(to: $0.labColor) < tile.targetLabColor.distance(to: $1.labColor)
+        }
+        let coarseCandidates = Array(rawBucketPhotos.prefix(50))
+        
+        // 2. 厳選された30〜50枚に対してのみ 3×3空間シグネチャを詳細評価
         var scoredList: [(IndexedPhoto, Float)] = []
         scoredList.reserveCapacity(coarseCandidates.count)
         
