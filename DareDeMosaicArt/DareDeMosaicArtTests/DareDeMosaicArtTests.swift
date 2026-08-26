@@ -85,7 +85,7 @@ final class DareDeMosaicArtTests: XCTestCase {
             )
         )
 
-        // 1. 効果音ありのエクスポート検証 (映像 + 48kHz AAC 音声)
+        // 1. 効果音ありのエクスポート検証 (映像 + 48kHz AAC ステレオ音声)
         let videoURLWithAudio = try await TimelapseExportService.shared.exportTimelapse(project: project, includeAudio: true)
         defer { try? FileManager.default.removeItem(at: videoURLWithAudio) }
 
@@ -93,6 +93,7 @@ final class DareDeMosaicArtTests: XCTestCase {
         let durationWithAudio = try await assetWithAudio.load(.duration)
         XCTAssertEqual(CMTimeGetSeconds(durationWithAudio), 10.0, accuracy: 0.05, "動画全体の長さは10.0秒である必要があります")
 
+        // 映像トラック仕様アサーション
         let videoTracks = try await assetWithAudio.loadTracks(withMediaType: .video)
         XCTAssertEqual(videoTracks.count, 1, "映像トラックが1本存在する必要があります")
         let videoTrack = try XCTUnwrap(videoTracks.first)
@@ -103,20 +104,38 @@ final class DareDeMosaicArtTests: XCTestCase {
         XCTAssertEqual(abs(displayedSize.width), 1080, accuracy: 0.5)
         XCTAssertEqual(abs(displayedSize.height), 1080, accuracy: 0.5)
 
-        let formatDescriptions = try await videoTrack.load(.formatDescriptions)
-        XCTAssertFalse(formatDescriptions.isEmpty)
+        let videoFormatDescriptions = try await videoTrack.load(.formatDescriptions)
+        XCTAssertFalse(videoFormatDescriptions.isEmpty)
         XCTAssertTrue(
-            formatDescriptions
+            videoFormatDescriptions
                 .map(CMFormatDescriptionGetMediaSubType)
                 .contains(kCMVideoCodecType_H264),
             "映像コーデックはH.264（avc1）である必要があります"
         )
 
+        // 🎵 音声トラック仕様の厳密アサーション (48kHz, ステレオ2ch, AAC)
         let audioTracks = try await assetWithAudio.loadTracks(withMediaType: .audio)
         XCTAssertEqual(audioTracks.count, 1, "効果音あり時は音声トラックが1本存在する必要があります")
         let audioTrack = try XCTUnwrap(audioTracks.first)
+        
         let audioDuration = try await audioTrack.load(.timeRange)
-        XCTAssertEqual(CMTimeGetSeconds(audioDuration.duration), 10.0, accuracy: 0.1, "音声トラックの長さは10.0秒である必要があります")
+        XCTAssertEqual(CMTimeGetSeconds(audioDuration.duration), 10.0, accuracy: 0.05, "音声トラックの長さは10.0秒である必要があります")
+
+        let audioFormatDescriptions = try await audioTrack.load(.formatDescriptions)
+        XCTAssertFalse(audioFormatDescriptions.isEmpty, "音声フォーマット情報が存在する必要があります")
+        let audioDesc = try XCTUnwrap(audioFormatDescriptions.first)
+        
+        let audioSubType = CMFormatDescriptionGetMediaSubType(audioDesc)
+        XCTAssertTrue(
+            audioSubType == kAudioFormatMPEG4AAC || audioSubType == kAudioFormatMPEG4AAC_HE || audioSubType == kAudioFormatMPEG4AAC_HE_V2,
+            "音声コーデックはAACである必要があります (subType: \(audioSubType))"
+        )
+        
+        if let asbdPtr = CMAudioFormatDescriptionGetStreamBasicDescription(audioDesc) {
+            let asbd = asbdPtr.pointee
+            XCTAssertEqual(asbd.mSampleRate, 48000.0, accuracy: 1.0, "サンプリング周波数は48.0kHzである必要があります")
+            XCTAssertEqual(asbd.mChannelsPerFrame, 2, "ステレオ2chである必要があります")
+        }
 
         // 2. 効果音なしのエクスポート検証 (音声トラック不在)
         let videoURLNoAudio = try await TimelapseExportService.shared.exportTimelapse(project: project, includeAudio: false)

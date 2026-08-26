@@ -119,7 +119,7 @@ public final class TimelapseExportService: Sendable {
         }
     }
     
-    // MARK: - メインレンダリング処理
+    // MARK: - メインレンダリング処理 (requestMediaDataWhenReady による高効率エンコード)
     private func renderVideoWithAdaptiveAnimation(
         project: MosaicProject,
         includeAudio: Bool,
@@ -129,7 +129,7 @@ public final class TimelapseExportService: Sendable {
     ) async throws {
         let dimension = Self.videoDimension
         
-        // 1. マクロ時系列（8〜12区間）＋3幕構成（散布 -> スパイラル・波 -> 重要部）
+        // 1. マクロ時系列（8〜12区間）＋3幕構成（散布 -> スパイラル・波 -> エッジ密度・重要領域）
         let sortedTiles = TimelapseTimeline.sortTilesInMacroDynamicSequence(
             tiles: project.tiles,
             projectID: project.id,
@@ -309,210 +309,232 @@ public final class TimelapseExportService: Sendable {
         let fps = TimelapseTimeline.fps
         let timescale: Int32 = 600
         let frameDuration = CMTime(value: Int64(timescale) / Int64(fps), timescale: timescale)
-        var currentPresentationTime = CMTime.zero
         
-        var globalFrame = 0
         let totalFramesCount = TimelapseTimeline.totalFrames
-        let samplesPerFrame = Int(Self.audioSampleRate) / fps // 1600 サンプル / フレーム
-        
         var prng = DeterministicPRNG(seed: project.id)
         let tileSeeds: [UInt64] = (0..<totalTiles).map { _ in prng.next() }
         
-        var bakedTiles = Set<Int>()
-        bakedTiles.reserveCapacity(totalTiles)
+        // -------------------------------------------------------------
+        // 7. requestMediaDataWhenReady による高効率・安全な非同期エンコード
+        // -------------------------------------------------------------
+        let videoQueue = DispatchQueue(label: "com.daredemosaic.timelapse.video", qos: .userInitiated)
+        let audioQueue = DispatchQueue(label: "com.daredemosaic.timelapse.audio", qos: .userInitiated)
         
-        // -------------------------------------------------------------
-        // 全300フレームの完全同期レンダリングループ
-        // -------------------------------------------------------------
-        for f in 0..<totalFramesCount {
-            if Task.isCancelled { throw TimelapseExportError.cancelled }
-            
-            // A. 音声サンプルバッファ（1,600 サンプル）を同期追加（バックプレッシャー待機付き）
-            if let helper = audioPcmHelper, let aInput = audioInput {
-                try await helper.appendFrameAudio(
-                    frameIndex: f,
-                    samplesPerFrame: samplesPerFrame,
-                    audioInput: aInput
-                )
-            }
-            
-            // B. 映像フレームの描画
-            if f < TimelapseTimeline.openingFrames {
-                // フェーズ1: オープニング (0..<30F)
-                try await appendFrame(
-                    context: baseContext,
-                    adaptor: adaptor,
-                    input: videoInput,
-                    pool: pool,
-                    at: currentPresentationTime
-                )
-            } else if f < TimelapseTimeline.openingFrames + TimelapseTimeline.buildFrames {
-                // フェーズ2: ビルドフェーズ (30..<240F / buildFrame: 0..<210)
-                let buildFrame = f - TimelapseTimeline.openingFrames
+        let dispatchGroup = DispatchGroup()
+        
+        final class RenderState: @unchecked Sendable {
+            var currentFrame: Int = 0
+            var bakedTiles = Set<Int>()
+            var error: Error? = nil
+            var audioSampleOffset: Int = 0
+        }
+        let state = RenderState()
+        
+        // A. 映像トラックの供給
+        dispatchGroup.enter()
+        videoInput.requestMediaDataWhenReady(on: videoQueue) {
+            while videoInput.isReadyForMoreMediaData {
+                if state.currentFrame >= totalFramesCount {
+                    videoInput.markAsFinished()
+                    dispatchGroup.leave()
+                    break
+                }
                 
-                // 1. 完全定着済み（着地フレームを終えた次のフレーム以降）のタイルをベースコンテキストへ焼き込み
-                for schedule in tileSchedules {
-                    if schedule.isFullyLandedAndSettled(atBuildFrame: buildFrame) && !bakedTiles.contains(schedule.tileIndex) {
-                        bakedTiles.insert(schedule.tileIndex)
-                        let tile = sortedTiles[schedule.tileIndex]
-                        let targetRect = CGRect(
-                            x: CGFloat(tile.gridX) * tilePixelWidth,
-                            y: CGFloat(project.gridHeight - tile.gridY - 1) * tilePixelHeight,
-                            width: tilePixelWidth,
-                            height: tilePixelHeight
-                        )
+                let f = state.currentFrame
+                let presentationTime = CMTime(value: Int64(f * (Int(timescale) / fps)), timescale: timescale)
+                
+                do {
+                    if f < TimelapseTimeline.openingFrames {
+                        // オープニング
+                        try self.syncAppendFrame(context: baseContext, adaptor: adaptor, pool: pool, at: presentationTime)
+                    } else if f < TimelapseTimeline.openingFrames + TimelapseTimeline.buildFrames {
+                        // ビルドフェーズ
+                        let buildFrame = f - TimelapseTimeline.openingFrames
                         
-                        let rgb = tile.targetLabColor.toRGB()
-                        baseContext.setFillColor(red: CGFloat(rgb.red), green: CGFloat(rgb.green), blue: CGFloat(rgb.blue), alpha: 1.0)
-                        baseContext.fill(targetRect)
-                        
-                        if let cg = cachedTileCGImages[tile.id] {
-                            baseContext.saveGState()
-                            baseContext.clip(to: targetRect)
-                            baseContext.draw(cg, in: targetRect)
-                            baseContext.restoreGState()
+                        for schedule in tileSchedules {
+                            if schedule.isFullyLandedAndSettled(atBuildFrame: buildFrame) && !state.bakedTiles.contains(schedule.tileIndex) {
+                                state.bakedTiles.insert(schedule.tileIndex)
+                                let tile = sortedTiles[schedule.tileIndex]
+                                let targetRect = CGRect(
+                                    x: CGFloat(tile.gridX) * tilePixelWidth,
+                                    y: CGFloat(project.gridHeight - tile.gridY - 1) * tilePixelHeight,
+                                    width: tilePixelWidth,
+                                    height: tilePixelHeight
+                                )
+                                
+                                let rgb = tile.targetLabColor.toRGB()
+                                baseContext.setFillColor(red: CGFloat(rgb.red), green: CGFloat(rgb.green), blue: CGFloat(rgb.blue), alpha: 1.0)
+                                baseContext.fill(targetRect)
+                                
+                                if let cg = cachedTileCGImages[tile.id] {
+                                    baseContext.saveGState()
+                                    baseContext.clip(to: targetRect)
+                                    baseContext.draw(cg, in: targetRect)
+                                    baseContext.restoreGState()
+                                }
+                            }
                         }
+                        
+                        guard let baseSnapshot = baseContext.makeImage() else {
+                            throw TimelapseExportError.contextCreationFailed
+                        }
+                        frameContext.draw(baseSnapshot, in: CGRect(x: 0, y: 0, width: dimension, height: dimension))
+                        
+                        let activeSchedules = tileSchedules.filter {
+                            $0.isActive(atBuildFrame: buildFrame) && !state.bakedTiles.contains($0.tileIndex)
+                        }.sorted {
+                            let tileA = sortedTiles[$0.tileIndex]
+                            let tileB = sortedTiles[$1.tileIndex]
+                            return (tileA.gridY * project.gridWidth + tileA.gridX) < (tileB.gridY * project.gridWidth + tileB.gridX)
+                        }
+                        
+                        for schedule in activeSchedules {
+                            let tile = sortedTiles[schedule.tileIndex]
+                            let t = schedule.progress(atBuildFrame: buildFrame)
+                            let isLanding = schedule.isLandingFrame(atBuildFrame: buildFrame)
+                            let transform = timeline.evaluateTransform(progress: t, randomSeed: tileSeeds[schedule.tileIndex], isLanding: isLanding)
+                            
+                            let targetRect = CGRect(
+                                x: CGFloat(tile.gridX) * tilePixelWidth,
+                                y: CGFloat(project.gridHeight - tile.gridY - 1) * tilePixelHeight,
+                                width: tilePixelWidth,
+                                height: tilePixelHeight
+                            )
+                            
+                            let centerX = targetRect.midX + transform.xOffset
+                            let centerY = targetRect.midY + transform.yOffset
+                            let w = targetRect.width * transform.scale
+                            let h = targetRect.height * transform.scale
+                            let drawRect = CGRect(x: -w / 2, y: -h / 2, width: w, height: h)
+                            
+                            frameContext.saveGState()
+                            frameContext.translateBy(x: centerX, y: centerY)
+                            frameContext.rotate(by: transform.rotationRadians)
+                            
+                            if transform.shadowAlpha > 0.02, let shadowCG = shadowCache.shadowImage {
+                                frameContext.saveGState()
+                                let shadowRect = drawRect.offsetBy(dx: 0, dy: -transform.shadowYOffset)
+                                    .insetBy(dx: -transform.shadowBlur, dy: -transform.shadowBlur)
+                                frameContext.setAlpha(transform.shadowAlpha)
+                                frameContext.draw(shadowCG, in: shadowRect)
+                                frameContext.restoreGState()
+                            }
+                            
+                            let rgb = tile.targetLabColor.toRGB()
+                            frameContext.setFillColor(red: CGFloat(rgb.red), green: CGFloat(rgb.green), blue: CGFloat(rgb.blue), alpha: 1.0)
+                            frameContext.fill(drawRect)
+                            
+                            if let cg = cachedTileCGImages[tile.id] {
+                                frameContext.saveGState()
+                                frameContext.clip(to: drawRect)
+                                frameContext.draw(cg, in: drawRect)
+                                frameContext.restoreGState()
+                            }
+                            
+                            if transform.isLanding {
+                                frameContext.setStrokeColor(red: 1.0, green: 1.0, blue: 1.0, alpha: 0.75)
+                                frameContext.setLineWidth(max(2.0, tilePixelWidth * 0.10))
+                                frameContext.stroke(drawRect)
+                            }
+                            
+                            frameContext.restoreGState()
+                        }
+                        
+                        try self.syncAppendFrame(context: frameContext, adaptor: adaptor, pool: pool, at: presentationTime)
+                    } else {
+                        // フィナーレ
+                        let finaleFrame = f - (TimelapseTimeline.openingFrames + TimelapseTimeline.buildFrames)
+                        
+                        guard let finalBaseSnapshot = baseContext.makeImage() else {
+                            throw TimelapseExportError.contextCreationFailed
+                        }
+                        frameContext.clear(CGRect(x: 0, y: 0, width: dimension, height: dimension))
+                        
+                        let zoomScale: CGFloat
+                        if finaleFrame < 30 {
+                            let zoomT = CGFloat(finaleFrame) / 30.0
+                            zoomScale = 1.02 - 0.02 * sin(.pi * 0.5 * zoomT)
+                        } else {
+                            zoomScale = 1.0
+                        }
+                        
+                        let zoomedW = CGFloat(dimension) * zoomScale
+                        let zoomedH = CGFloat(dimension) * zoomScale
+                        let zoomedRect = CGRect(
+                            x: (CGFloat(dimension) - zoomedW) / 2,
+                            y: (CGFloat(dimension) - zoomedH) / 2,
+                            width: zoomedW,
+                            height: zoomedH
+                        )
+                        frameContext.draw(finalBaseSnapshot, in: zoomedRect)
+                        
+                        if finaleFrame < 5 {
+                            let glowAlpha = 0.15 * (1.0 - CGFloat(finaleFrame) / 5.0)
+                            frameContext.setFillColor(red: 1.0, green: 1.0, blue: 1.0, alpha: glowAlpha)
+                            frameContext.fill(CGRect(x: 0, y: 0, width: dimension, height: dimension))
+                        }
+                        
+                        #if canImport(UIKit)
+                        if let watermarkConfig = project.watermarkConfig, !watermarkConfig.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                            let watermarkAlpha: CGFloat = (finaleFrame < 30) ? CGFloat(finaleFrame + 1) / 30.0 : 1.0
+                            self.drawWatermarkOverlay(context: frameContext, config: watermarkConfig, dimension: CGFloat(dimension), alpha: watermarkAlpha)
+                        }
+                        #endif
+                        
+                        try self.syncAppendFrame(context: frameContext, adaptor: adaptor, pool: pool, at: presentationTime)
                     }
-                }
-                
-                // 2. フレームコンテキストにベースレイヤーを描画
-                guard let baseSnapshot = baseContext.makeImage() else {
-                    throw TimelapseExportError.contextCreationFailed
-                }
-                frameContext.draw(baseSnapshot, in: CGRect(x: 0, y: 0, width: dimension, height: dimension))
-                
-                // 3. アクティブピース（落下中および着地フレームのフチ発光対象）を固定深度順で描画
-                let activeSchedules = tileSchedules.filter {
-                    $0.isActive(atBuildFrame: buildFrame) && !bakedTiles.contains($0.tileIndex)
-                }.sorted {
-                    let tileA = sortedTiles[$0.tileIndex]
-                    let tileB = sortedTiles[$1.tileIndex]
-                    return (tileA.gridY * project.gridWidth + tileA.gridX) < (tileB.gridY * project.gridWidth + tileB.gridX)
-                }
-                
-                for schedule in activeSchedules {
-                    let tile = sortedTiles[schedule.tileIndex]
-                    let t = schedule.progress(atBuildFrame: buildFrame)
-                    let isLanding = schedule.isLandingFrame(atBuildFrame: buildFrame)
-                    let transform = timeline.evaluateTransform(progress: t, randomSeed: tileSeeds[schedule.tileIndex], isLanding: isLanding)
                     
-                    let targetRect = CGRect(
-                        x: CGFloat(tile.gridX) * tilePixelWidth,
-                        y: CGFloat(project.gridHeight - tile.gridY - 1) * tilePixelHeight,
-                        width: tilePixelWidth,
-                        height: tilePixelHeight
-                    )
-                    
-                    let centerX = targetRect.midX + transform.xOffset
-                    let centerY = targetRect.midY + transform.yOffset
-                    let w = targetRect.width * transform.scale
-                    let h = targetRect.height * transform.scale
-                    let drawRect = CGRect(x: -w / 2, y: -h / 2, width: w, height: h)
-                    
-                    frameContext.saveGState()
-                    frameContext.translateBy(x: centerX, y: centerY)
-                    frameContext.rotate(by: transform.rotationRadians)
-                    
-                    // ① 角丸矩形立体シャドウの描画
-                    if transform.shadowAlpha > 0.02, let shadowCG = shadowCache.shadowImage {
-                        frameContext.saveGState()
-                        let shadowRect = drawRect.offsetBy(dx: 0, dy: -transform.shadowYOffset)
-                            .insetBy(dx: -transform.shadowBlur, dy: -transform.shadowBlur)
-                        frameContext.setAlpha(transform.shadowAlpha)
-                        frameContext.draw(shadowCG, in: shadowRect)
-                        frameContext.restoreGState()
-                    }
-                    
-                    // ② パネル本体の描画
-                    let rgb = tile.targetLabColor.toRGB()
-                    frameContext.setFillColor(red: CGFloat(rgb.red), green: CGFloat(rgb.green), blue: CGFloat(rgb.blue), alpha: 1.0)
-                    frameContext.fill(drawRect)
-                    
-                    if let cg = cachedTileCGImages[tile.id] {
-                        frameContext.saveGState()
-                        frameContext.clip(to: drawRect)
-                        frameContext.draw(cg, in: drawRect)
-                        frameContext.restoreGState()
-                    }
-                    
-                    // ③ 着地瞬間のフチ発光 (Rim Highlight: 着地フレームで確実に描画)
-                    if transform.isLanding {
-                        frameContext.setStrokeColor(red: 1.0, green: 1.0, blue: 1.0, alpha: 0.75)
-                        frameContext.setLineWidth(max(2.0, tilePixelWidth * 0.10))
-                        frameContext.stroke(drawRect)
-                    }
-                    
-                    frameContext.restoreGState()
+                    state.currentFrame += 1
+                    onProgress?(Float(state.currentFrame) / Float(totalFramesCount))
+                } catch {
+                    state.error = error
+                    videoInput.markAsFinished()
+                    dispatchGroup.leave()
+                    break
                 }
-                
-                try await appendFrame(
-                    context: frameContext,
-                    adaptor: adaptor,
-                    input: videoInput,
-                    pool: pool,
-                    at: currentPresentationTime
-                )
-            } else {
-                // フェーズ3: フィナーレ (240..<300F / finaleFrame: 0..<60)
-                let finaleFrame = f - (TimelapseTimeline.openingFrames + TimelapseTimeline.buildFrames)
-                
-                guard let finalBaseSnapshot = baseContext.makeImage() else {
-                    throw TimelapseExportError.contextCreationFailed
-                }
-                frameContext.clear(CGRect(x: 0, y: 0, width: dimension, height: dimension))
-                
-                // 緩やかなカメラズームアウト (1.02x -> 1.0x)
-                let zoomScale: CGFloat
-                if finaleFrame < 30 {
-                    let zoomT = CGFloat(finaleFrame) / 30.0
-                    zoomScale = 1.02 - 0.02 * sin(.pi * 0.5 * zoomT)
-                } else {
-                    zoomScale = 1.0
-                }
-                
-                let zoomedW = CGFloat(dimension) * zoomScale
-                let zoomedH = CGFloat(dimension) * zoomScale
-                let zoomedRect = CGRect(
-                    x: (CGFloat(dimension) - zoomedW) / 2,
-                    y: (CGFloat(dimension) - zoomedH) / 2,
-                    width: zoomedW,
-                    height: zoomedH
-                )
-                frameContext.draw(finalBaseSnapshot, in: zoomedRect)
-                
-                // ソフトグロー (第0〜4F)
-                if finaleFrame < 5 {
-                    let glowAlpha = 0.15 * (1.0 - CGFloat(finaleFrame) / 5.0)
-                    frameContext.setFillColor(red: 1.0, green: 1.0, blue: 1.0, alpha: glowAlpha)
-                    frameContext.fill(CGRect(x: 0, y: 0, width: dimension, height: dimension))
-                }
-                
-                // 刻印フェードイン
-                #if canImport(UIKit)
-                if let watermarkConfig = project.watermarkConfig, !watermarkConfig.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                    let watermarkAlpha: CGFloat = (finaleFrame < 30) ? CGFloat(finaleFrame + 1) / 30.0 : 1.0
-                    drawWatermarkOverlay(context: frameContext, config: watermarkConfig, dimension: CGFloat(dimension), alpha: watermarkAlpha)
-                }
-                #endif
-                
-                try await appendFrame(
-                    context: frameContext,
-                    adaptor: adaptor,
-                    input: videoInput,
-                    pool: pool,
-                    at: currentPresentationTime
-                )
             }
-            
-            currentPresentationTime = CMTimeAdd(currentPresentationTime, frameDuration)
-            globalFrame += 1
-            onProgress?(Float(globalFrame) / Float(totalFramesCount))
         }
         
-        // 7. エンコードの完了待機
-        videoInput.markAsFinished()
-        audioInput?.markAsFinished()
+        // B. 音声トラックの供給
+        if let helper = audioPcmHelper, let aInput = audioInput {
+            dispatchGroup.enter()
+            let chunkSize = 1024
+            aInput.requestMediaDataWhenReady(on: audioQueue) {
+                while aInput.isReadyForMoreMediaData {
+                    if state.audioSampleOffset >= helper.totalSamples {
+                        aInput.markAsFinished()
+                        dispatchGroup.leave()
+                        break
+                    }
+                    
+                    let remaining = helper.totalSamples - state.audioSampleOffset
+                    let samplesThisChunk = min(chunkSize, remaining)
+                    
+                    do {
+                        try helper.appendChunk(sampleOffset: state.audioSampleOffset, count: samplesThisChunk, to: aInput)
+                        state.audioSampleOffset += samplesThisChunk
+                    } catch {
+                        state.error = error
+                        aInput.markAsFinished()
+                        dispatchGroup.leave()
+                        break
+                    }
+                }
+            }
+        }
         
+        // 両方のトラックが書き込み完了するのを待機
+        await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
+            dispatchGroup.notify(queue: .global(qos: .userInitiated)) {
+                continuation.resume()
+            }
+        }
+        
+        if let err = state.error {
+            throw err
+        }
+        
+        // 8. ファイルの書き込み終了
         await withCheckedContinuation { continuation in
             writer.finishWriting {
                 continuation.resume()
@@ -524,19 +546,13 @@ public final class TimelapseExportService: Sendable {
         }
     }
     
-    // MARK: - 1フレームのビデオ書き込み
-    private func appendFrame(
+    // MARK: - 1フレームの同期書き込み
+    private func syncAppendFrame(
         context: CGContext,
         adaptor: AVAssetWriterInputPixelBufferAdaptor,
-        input: AVAssetWriterInput,
         pool: CVPixelBufferPool,
         at time: CMTime
-    ) async throws {
-        while !input.isReadyForMoreMediaData {
-            if Task.isCancelled { throw TimelapseExportError.cancelled }
-            try await Task.sleep(nanoseconds: 5_000_000)
-        }
-        
+    ) throws {
         var pixelBufferOut: CVPixelBuffer? = nil
         let status = CVPixelBufferPoolCreatePixelBuffer(kCFAllocatorDefault, pool, &pixelBufferOut)
         guard status == kCVReturnSuccess, let pixelBuffer = pixelBufferOut else {
@@ -706,11 +722,13 @@ private final class AudioPcmHelper: Sendable {
     private let int16StereoBuffer: [Int16]
     private let formatDescription: CMAudioFormatDescription
     private let sampleRate: Double = 48000.0
+    public let totalSamples: Int
     
     init?(tileSchedules: [TimelapseTimeline.TileAnimState]) {
         let totalDuration = TimelapseTimeline.totalDurationSeconds
-        let totalSamples = Int(sampleRate * totalDuration) // 480,000 サンプル
-        var pcm = [Float](repeating: 0.0, count: totalSamples)
+        let totalSamplesCount = Int(sampleRate * totalDuration) // 480,000 サンプル
+        self.totalSamples = totalSamplesCount
+        var pcm = [Float](repeating: 0.0, count: totalSamplesCount)
         
         // 1. グループ着地クリック音の合成
         var landingFrames = Set<Int>()
@@ -731,7 +749,7 @@ private final class AudioPcmHelper: Sendable {
             let freq = frequencies[idx % frequencies.count]
             let soundDur = Int(0.025 * sampleRate) // 25ms
             for i in 0..<soundDur {
-                guard startSample + i < totalSamples else { break }
+                guard startSample + i < totalSamplesCount else { break }
                 let t = Float(i) / Float(sampleRate)
                 let env = exp(-t * 120.0)
                 pcm[startSample + i] += sin(2.0 * .pi * freq * t) * env * 0.22
@@ -746,7 +764,7 @@ private final class AudioPcmHelper: Sendable {
             let offset = Int(Double(noteIdx) * 0.08 * sampleRate)
             for i in 0..<chimeDur {
                 let sIdx = chimeStart + offset + i
-                guard sIdx < totalSamples else { break }
+                guard sIdx < totalSamplesCount else { break }
                 let t = Float(i) / Float(sampleRate)
                 let env = exp(-t * 2.2) * (1.0 - exp(-t * 80.0))
                 pcm[sIdx] += sin(2.0 * .pi * noteFreq * t) * env * 0.16
@@ -757,12 +775,12 @@ private final class AudioPcmHelper: Sendable {
         let maxPeak = pcm.map { abs($0) }.max() ?? 0.0
         if maxPeak > 0.891 {
             let gain = 0.891 / maxPeak
-            for i in 0..<totalSamples { pcm[i] *= gain }
+            for i in 0..<totalSamplesCount { pcm[i] *= gain }
         }
         
         // 4. 16-bit インターリーブステレオ PCM バッファ (1,920,000 bytes)
-        var stereo = [Int16](repeating: 0, count: totalSamples * 2)
-        for i in 0..<totalSamples {
+        var stereo = [Int16](repeating: 0, count: totalSamplesCount * 2)
+        for i in 0..<totalSamplesCount {
             let val = Int16(max(-1.0, min(1.0, pcm[i])) * 32767.0)
             stereo[i * 2] = val
             stereo[i * 2 + 1] = val
@@ -797,19 +815,13 @@ private final class AudioPcmHelper: Sendable {
         self.formatDescription = format
     }
     
-    func appendFrameAudio(
-        frameIndex: Int,
-        samplesPerFrame: Int,
-        audioInput: AVAssetWriterInput
-    ) async throws {
-        let sampleOffset = frameIndex * samplesPerFrame
-        let byteCount = samplesPerFrame * 4
-        guard (sampleOffset + samplesPerFrame) * 2 <= int16StereoBuffer.count else { return }
-        
-        while !audioInput.isReadyForMoreMediaData {
-            if Task.isCancelled { throw TimelapseExportError.cancelled }
-            try await Task.sleep(nanoseconds: 5_000_000)
-        }
+    func appendChunk(
+        sampleOffset: Int,
+        count: Int,
+        to audioInput: AVAssetWriterInput
+    ) throws {
+        let byteCount = count * 4
+        guard (sampleOffset + count) * 2 <= int16StereoBuffer.count else { return }
         
         var blockBufferOut: CMBlockBuffer? = nil
         let bStatus = CMBlockBufferCreateWithMemoryBlock(
@@ -824,7 +836,7 @@ private final class AudioPcmHelper: Sendable {
             blockBufferOut: &blockBufferOut
         )
         guard bStatus == kCMBlockBufferNoErr, let blockBuffer = blockBufferOut else {
-            throw TimelapseExportError.audioEncodingFailed("CMBlockBuffer creation failed")
+            throw TimelapseExportError.audioEncodingFailed("CMBlockBuffer creation failed: \(bStatus)")
         }
         
         int16StereoBuffer.withUnsafeBytes { rawPtr in
@@ -846,14 +858,18 @@ private final class AudioPcmHelper: Sendable {
             makeDataReadyCallback: nil,
             refcon: nil,
             formatDescription: formatDescription,
-            sampleCount: samplesPerFrame,
+            sampleCount: count,
             presentationTimeStamp: presentationTime,
             packetDescriptions: nil,
             sampleBufferOut: &sampleBufferOut
         )
         
-        if sbufStatus == noErr, let sampleBuffer = sampleBufferOut {
-            audioInput.append(sampleBuffer)
+        guard sbufStatus == noErr, let sampleBuffer = sampleBufferOut else {
+            throw TimelapseExportError.audioEncodingFailed("CMAudioSampleBufferCreate failed with status: \(sbufStatus)")
+        }
+        
+        if !audioInput.append(sampleBuffer) {
+            throw TimelapseExportError.audioEncodingFailed("audioInput.append failed")
         }
     }
 }

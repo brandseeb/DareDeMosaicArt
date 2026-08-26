@@ -196,7 +196,7 @@ public struct TimelapseTimeline: Sendable {
         )
     }
     
-    // MARK: - 制作時系列マクロ分割（8〜12ブロック） ＆ 3幕構成（散布 -> スパイラル・波 -> 重要部）
+    // MARK: - 制作時系列マクロ分割（8〜12ブロック） ＆ 3幕構成（散布 -> スパイラル・波 -> エッジ密度・重要領域）
     public static func sortTilesInMacroDynamicSequence(
         tiles: [MosaicTile],
         projectID: UUID,
@@ -238,7 +238,7 @@ public struct TimelapseTimeline: Sendable {
         return resultTiles
     }
     
-    /// 3幕構成（序盤：均等散布、中盤：スパイラル・波、終盤：重要・中央領域）
+    /// 3幕構成（序盤：均等散布、中盤：スパイラル・波、終盤：エッジ密度・コントラスト重要度領域）
     private static func orderChunkWithThreeActFlow(
         chunk: [MosaicTile],
         gridWidth: Int,
@@ -294,18 +294,53 @@ public struct TimelapseTimeline: Sendable {
                 return spiralA < spiralB
             }
         } else {
-            // 第3幕: 終盤 (85〜100%) - 重要度領域（中心からの距離が近い順・高密度順）を最後に着地
+            // 第3幕: 終盤 (85〜100%) - エッジ密度・コントラスト重要度領域を最後に着地
             return chunk.sorted { a, b in
-                let daX = Float(a.gridX) - centerX
-                let daY = Float(a.gridY) - centerY
-                let dbX = Float(b.gridX) - centerX
-                let dbY = Float(b.gridY) - centerY
-                
-                let distA = sqrt(daX * daX + daY * daY)
-                let distB = sqrt(dbX * dbX + dbY * dbY)
-                return distA > distB // 外側から埋めていき、最後に中央・重要部がピタッと着地
+                let scoreA = computeTileImportanceScore(a, centerX: centerX, centerY: centerY, maxRadius: maxRadius)
+                let scoreB = computeTileImportanceScore(b, centerX: centerX, centerY: centerY, maxRadius: maxRadius)
+                return scoreA < scoreB // スコアが低い（周辺・平坦）タイルが先、高重要度（主役・エッジ・高コントラスト）が最後
             }
         }
+    }
+    
+    /// タイルのエッジ密度・コントラスト・彩度・中心性を統合した重要度スコア計算
+    private static func computeTileImportanceScore(
+        _ tile: MosaicTile,
+        centerX: Float,
+        centerY: Float,
+        maxRadius: Float
+    ) -> Float {
+        // 1. 中心からの近さ (0.0: 最外郭 〜 1.0: 中心)
+        let dx = Float(tile.gridX) - centerX
+        let dy = Float(tile.gridY) - centerY
+        let dist = sqrt(dx * dx + dy * dy)
+        let centrality: Float = 1.0 - min(1.0, dist / maxRadius)
+        
+        // 2. エッジ密度 / 空間シグネチャのコントラスト分散
+        var edgeContrast: Float = 0.0
+        if let sig = tile.targetSignature, !sig.cells.isEmpty {
+            let avgL = Float(sig.average.l)
+            let avgA = Float(sig.average.a)
+            let avgB = Float(sig.average.b)
+            var sumDev: Float = 0.0
+            for cell in sig.cells {
+                let dL = Float(cell.l) - avgL
+                let da = Float(cell.a) - avgA
+                let db = Float(cell.b) - avgB
+                sumDev += (dL * dL + da * da + db * db)
+            }
+            let meanDev = sumDev / Float(sig.cells.count)
+            edgeContrast = min(1.0, sqrt(meanDev) / 30.0)
+        }
+        
+        // 3. 彩度 (Chroma: a^2 + b^2)
+        let aVal = Float(tile.targetLabColor.a)
+        let bVal = Float(tile.targetLabColor.b)
+        let chroma = sqrt(aVal * aVal + bVal * bVal)
+        let chromaScore: Float = min(1.0, chroma / 60.0)
+        
+        // 総合重要度: エッジコントラスト(40%) + 中心性(35%) + 彩度(25%)
+        return edgeContrast * 0.40 + centrality * 0.35 + chromaScore * 0.25
     }
     
     // MARK: - 基本時系列ソート（旧作フォールバック）
