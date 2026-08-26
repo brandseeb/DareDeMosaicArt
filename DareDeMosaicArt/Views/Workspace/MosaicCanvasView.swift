@@ -124,8 +124,10 @@ public struct MosaicCanvasView: View {
                 }
             }
             .frame(width: geometry.size.width, height: geometry.size.height)
+            .contentShape(Rectangle())
             .clipped() // キャンバス領域外へのはみ出しを確実に防止
         }
+        .contentShape(Rectangle())
         .clipped() // 親コンテナ外へのはみ出しも確実に防止
     }
     

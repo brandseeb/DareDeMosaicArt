@@ -200,13 +200,19 @@ public struct MosaicWorkspaceView: View {
                         canvasOffset = .zero
                     }
                 } label: {
-                    HStack(spacing: 4) {
+                    HStack(spacing: 5) {
                         Image(systemName: "arrow.down.right.and.arrow.up.left")
                         Text("全体表示")
                     }
                     .font(.caption.bold())
-                    .foregroundColor(.accentColor)
+                    .foregroundColor(.white)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 6)
+                    .background(Color.accentColor)
+                    .cornerRadius(8)
                 }
+                .buttonStyle(.plain)
+                .contentShape(Rectangle())
             } else {
                 Text("ピンチで拡大 / タップで詳細")
                     .font(.caption2)
@@ -216,6 +222,7 @@ public struct MosaicWorkspaceView: View {
         .padding(.horizontal)
         .padding(.vertical, 8)
         .background(Color(.secondarySystemBackground))
+        .zIndex(10) // 拡大されたキャンバスより確実に前面に配置
     }
     
     // MARK: - ミッションセクション
