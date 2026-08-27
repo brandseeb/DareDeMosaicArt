@@ -825,6 +825,42 @@ final class DareDeMosaicArtTests: XCTestCase {
         XCTAssertNotNil(completeMaxSim)
         XCTAssertEqual(completeMaxSim?.additionalCount, 300, "写真300枚すべてが重複なしで最大配置されること")
     }
+
+    /// ライブラリに似た色がある場合、他の無関係なタイルに奪われず確実にベストマッチが配置されること
+    func testAutoFillGreedyPriorityPicksBestMatchOverBadMatch() async throws {
+        let tiles = [
+            // タイル0: 青色
+            MosaicTile(gridX: 0, gridY: 0, targetLabColor: LabColor(l: 30, a: 0, b: -40)),
+            // タイル1: 黄色
+            MosaicTile(gridX: 1, gridY: 0, targetLabColor: LabColor(l: 80, a: 0, b: 50))
+        ]
+        let project = MosaicProject(title: "ベストマッチ優先テスト", gridWidth: 2, gridHeight: 1, tiles: tiles)
+        
+        let photos = [
+            // p_blue: タイル0に完璧に合う青色
+            IndexedPhoto(id: "p_blue", labColor: LabColor(l: 30, a: 0, b: -40)),
+            // p_yellow: タイル1に完璧に合う黄色
+            IndexedPhoto(id: "p_yellow", labColor: LabColor(l: 80, a: 0, b: 50)),
+            // p_gray: どちらにも合わない灰色
+            IndexedPhoto(id: "p_gray", labColor: LabColor(l: 50, a: 0, b: 0))
+        ]
+        
+        let plan = try MosaicEngine.shared.makeAutoFillPlan(
+            project: project,
+            availablePhotos: photos,
+            level: .completeMax,
+            allowDuplicates: false
+        )
+        
+        guard case .applied(let updatedProject, let count) = MosaicEngine.shared.applyAutoFillPlan(project: project, plan: plan) else {
+            XCTFail("適用失敗")
+            return
+        }
+        
+        XCTAssertEqual(count, 2)
+        XCTAssertEqual(updatedProject.tiles[0].placedPhotoIdentifier, "p_blue", "青いマスには青い写真が確実に割り当てられること")
+        XCTAssertEqual(updatedProject.tiles[1].placedPhotoIdentifier, "p_yellow", "黄色いマスには黄色い写真が確実に割り当てられること")
+    }
 }
 
 

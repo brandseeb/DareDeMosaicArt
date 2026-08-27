@@ -909,13 +909,14 @@ extension MosaicEngine {
             )
         }
         
-        // 5. 重複不許可の場合（高速 Kuhn 最大二部マッチング ＆ 局所 2-opt）
+        // 5. 重複不許可の場合（Greedy 最優先割り当て ＆ Kuhn 増大路 ＆ 2-opt）
         var adjList: [[(photoIdx: Int, score: Float)]] = Array(repeating: [], count: targetTiles.count)
         var scoreCache: [Int: [Int: Float]] = [:]
+        var allCandidateEdges: [(tIdx: Int, photoIdx: Int, score: Float)] = []
         
         for (tIdx, tile) in targetTiles.enumerated() {
             if Task.isCancelled { throw CancellationError() }
-            let candidates = photoIndex.candidates(for: tile.targetLabColor, signature: tile.targetSignature, maxCandidates: 32)
+            let candidates = photoIndex.candidates(for: tile.targetLabColor, signature: tile.targetSignature, maxCandidates: 48)
             var validEdges: [(photoIdx: Int, score: Float)] = []
             validEdges.reserveCapacity(candidates.count)
             
@@ -923,6 +924,7 @@ extension MosaicEngine {
                 let score = matchScore(targetColor: tile.targetLabColor, targetSignature: tile.targetSignature, photo: photo)
                 if score.isFinite && !score.isNaN && score <= threshold, let pIdx = photoIndexMap[photo.id] {
                     validEdges.append((photoIdx: pIdx, score: score))
+                    allCandidateEdges.append((tIdx: tIdx, photoIdx: pIdx, score: score))
                 }
             }
             validEdges.sort {
@@ -930,13 +932,28 @@ extension MosaicEngine {
                 return usablePhotos[$0.photoIdx].id < usablePhotos[$1.photoIdx].id
             }
             
-            let topEdges = Array(validEdges.prefix(24))
+            let topEdges = Array(validEdges.prefix(32))
             adjList[tIdx] = topEdges
             scoreCache[tIdx] = Dictionary(uniqueKeysWithValues: topEdges.map { ($0.photoIdx, $0.score) })
         }
         
         var matchPtoT = Array<Int?>(repeating: nil, count: usablePhotos.count)
         var matchTtoP = Array<Int?>(repeating: nil, count: targetTiles.count)
+        
+        // 5-1. Greedy 最優先割り当て（スコア昇順＝最も似ているペアから確定）
+        allCandidateEdges.sort {
+            if $0.score != $1.score { return $0.score < $1.score }
+            if $0.tIdx != $1.tIdx { return $0.tIdx < $1.tIdx }
+            return usablePhotos[$0.photoIdx].id < usablePhotos[$1.photoIdx].id
+        }
+        for edge in allCandidateEdges {
+            if matchTtoP[edge.tIdx] == nil && matchPtoT[edge.photoIdx] == nil {
+                matchTtoP[edge.tIdx] = edge.photoIdx
+                matchPtoT[edge.photoIdx] = edge.tIdx
+            }
+        }
+        
+        // 5-2. Kuhn 増大路探索（Greedy で未割り当てのマスを追加最大化）
         var visitedToken = Array(repeating: 0, count: usablePhotos.count)
         var currentToken = 0
         
@@ -961,10 +978,8 @@ extension MosaicEngine {
             return false
         }
         
-        let sortedIndices = Array(0..<targetTiles.count).sorted {
-            adjList[$0].count < adjList[$1].count
-        }
-        for tIdx in sortedIndices {
+        let unassignedIndices = (0..<targetTiles.count).filter { matchTtoP[$0] == nil }
+        for tIdx in unassignedIndices {
             currentToken += 1
             _ = dfs(tIdx: tIdx, token: currentToken)
         }
@@ -976,46 +991,38 @@ extension MosaicEngine {
             }
         }
         
-        // .completeMax で 48 候補でも不足する場合、未割り当てタイルと未使用写真をストリーミングで補完
+        // 5-3. .completeMax で 32 候補でも不足する場合、未割り当てタイルと未使用写真をストリーミングで補完
         if level == .completeMax && bestMatchingTtoP.count < min(targetTiles.count, usablePhotos.count) {
             if Task.isCancelled { throw CancellationError() }
             
             var assignedPhotos = Set(bestMatchingTtoP.values)
             let unassignedTileIndices = (0..<targetTiles.count).filter { bestMatchingTtoP[$0] == nil }
-            let remainingPhotoIndices = (0..<usablePhotos.count).filter { !assignedPhotos.contains($0) }
+            var remainingPool = (0..<usablePhotos.count).filter { !assignedPhotos.contains($0) }
             
-            var photoPool = remainingPhotoIndices
             for tIdx in unassignedTileIndices {
-                if photoPool.isEmpty { break }
+                if remainingPool.isEmpty { break }
                 let tile = targetTiles[tIdx]
                 
-                var bestPIdx: Int? = nil
-                var bestScore = Float.infinity
-                var bestPoolIdx: Int? = nil
-                
-                for (poolIdx, pIdx) in photoPool.enumerated() {
-                    let photo = usablePhotos[pIdx]
-                    let score = matchScore(targetColor: tile.targetLabColor, targetSignature: tile.targetSignature, photo: photo)
-                    if score.isFinite && !score.isNaN {
-                        if score < bestScore || (score == bestScore && photo.id < (bestPIdx.map { usablePhotos[$0].id } ?? "")) {
-                            bestScore = score
-                            bestPIdx = pIdx
-                            bestPoolIdx = poolIdx
-                        }
+                var bestPoolIdx = 0
+                var bestScore: Float = Float.infinity
+                for (idx, pIdx) in remainingPool.enumerated() {
+                    let p = usablePhotos[pIdx]
+                    let s = max(0.0, min(1.0, tile.targetLabColor.distance(to: p.labColor) / 40.0))
+                    if s < bestScore {
+                        bestScore = s
+                        bestPoolIdx = idx
                     }
                 }
                 
-                if let pIdx = bestPIdx, let poolIdx = bestPoolIdx {
-                    bestMatchingTtoP[tIdx] = pIdx
-                    assignedPhotos.insert(pIdx)
-                    photoPool.remove(at: poolIdx)
-                    if scoreCache[tIdx] == nil { scoreCache[tIdx] = [:] }
-                    scoreCache[tIdx]?[pIdx] = bestScore
-                }
+                let chosenPIdx = remainingPool.remove(at: bestPoolIdx)
+                bestMatchingTtoP[tIdx] = chosenPIdx
+                assignedPhotos.insert(chosenPIdx)
+                if scoreCache[tIdx] == nil { scoreCache[tIdx] = [:] }
+                scoreCache[tIdx]?[chosenPIdx] = bestScore
             }
         }
         
-        // 6. 高速局所 2-opt スワップ改善
+        // 6. 2-opt スワップ改善
         if bestMatchingTtoP.count > 1 {
             bestMatchingTtoP = optimizeAutoFill2Opt(
                 matching: bestMatchingTtoP,
@@ -1326,19 +1333,42 @@ extension MosaicEngine {
                     projectedProgress: projected
                 )
             } else {
-                // 重複なし Kuhn マッチング (O(1) Token visited による超高速探索)
+                // 重複なし Greedy 優先 ＋ Kuhn 増大路マッチング
                 var adjList: [[(photoIdx: Int, score: Float)]] = Array(repeating: [], count: emptyTiles.count)
+                var allCandidateEdges: [(tIdx: Int, photoIdx: Int, score: Float)] = []
+                
                 for (tIdx, edges) in tileCandidates.enumerated() {
                     let valid = edges.filter { $0.score <= threshold }
                     if valid.isEmpty && level == .completeMax {
-                        adjList[tIdx] = edges // 可能な限り埋める
+                        adjList[tIdx] = edges
+                        for edge in edges {
+                            allCandidateEdges.append((tIdx: tIdx, photoIdx: edge.photoIdx, score: edge.score))
+                        }
                     } else {
                         adjList[tIdx] = valid
+                        for edge in valid {
+                            allCandidateEdges.append((tIdx: tIdx, photoIdx: edge.photoIdx, score: edge.score))
+                        }
                     }
                 }
                 
                 var matchPtoT = Array<Int?>(repeating: nil, count: usablePhotos.count)
                 var matchTtoP = Array<Int?>(repeating: nil, count: emptyTiles.count)
+                
+                // 1. Greedy 最優先割り当て（最も似ているペアから確定）
+                allCandidateEdges.sort {
+                    if $0.score != $1.score { return $0.score < $1.score }
+                    if $0.tIdx != $1.tIdx { return $0.tIdx < $1.tIdx }
+                    return usablePhotos[$0.photoIdx].id < usablePhotos[$1.photoIdx].id
+                }
+                for edge in allCandidateEdges {
+                    if matchTtoP[edge.tIdx] == nil && matchPtoT[edge.photoIdx] == nil {
+                        matchTtoP[edge.tIdx] = edge.photoIdx
+                        matchPtoT[edge.photoIdx] = edge.tIdx
+                    }
+                }
+                
+                // 2. Kuhn 増大路探索（未割り当てマスを追加最大化）
                 var visitedToken = Array(repeating: 0, count: usablePhotos.count)
                 var currentToken = 0
                 
@@ -1363,10 +1393,8 @@ extension MosaicEngine {
                     return false
                 }
                 
-                let sortedIndices = Array(0..<emptyTiles.count).sorted {
-                    adjList[$0].count < adjList[$1].count
-                }
-                for tIdx in sortedIndices {
+                let unassignedIndices = (0..<emptyTiles.count).filter { matchTtoP[$0] == nil }
+                for tIdx in unassignedIndices {
                     currentToken += 1
                     _ = dfs(tIdx: tIdx, token: currentToken)
                 }
