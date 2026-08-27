@@ -156,25 +156,33 @@ public struct MosaicWorkspaceView: View {
                 Text(albumMissingMessage)
             }
             .task {
-                await loadSourcePhotos()
+                // UIの表示遷移アニメーション完了後に低優先度で事前ロード
+                Task(priority: .utility) {
+                    await loadSourcePhotos()
+                }
             }
         }
     }
     
-    // MARK: - ソース写真の事前ロード
+    // MARK: - ソース写真の事前ロード（バックグラウンド実行）
     private func loadSourcePhotos() async {
         do {
-            self.allSourcePhotos = try await PhotoLibraryScanner.shared.photos(for: project.photoSource)
+            let loaded = try await PhotoLibraryScanner.shared.photos(for: project.photoSource)
+            await MainActor.run {
+                self.allSourcePhotos = loaded
+            }
         } catch let error as PhotoLibraryScannerError {
             if case .albumNotFound(let albumTitle) = error {
                 await MainActor.run {
                     self.albumMissingMessage = "指定されたアルバム「\(albumTitle)」が見つかりません。削除された可能性があります。"
                     self.showAlbumMissingAlert = true
+                    self.allSourcePhotos = []
                 }
             }
-            self.allSourcePhotos = []
         } catch {
-            self.allSourcePhotos = []
+            await MainActor.run {
+                self.allSourcePhotos = []
+            }
         }
     }
     

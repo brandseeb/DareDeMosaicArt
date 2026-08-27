@@ -4,7 +4,35 @@ import SwiftUI
 import UIKit
 #endif
 
-/// モザイクアートのキャンバスビュー（全体フィット & ズーム・パン対応 & 完全クリップ）
+/// タイル画像のインメモリキャッシュ（デコード重複とメインスレッドブロックを完全排除）
+@MainActor
+public final class TileImageCache {
+    public static let shared = TileImageCache()
+    private let cache = NSCache<NSString, UIImage>()
+    
+    private init() {
+        cache.countLimit = 4000
+    }
+    
+    public func image(for tileId: UUID, data: Data?) -> UIImage? {
+        guard let data else { return nil }
+        let key = tileId.uuidString as NSString
+        if let cached = cache.object(forKey: key) {
+            return cached
+        }
+        if let img = UIImage(data: data) {
+            cache.setObject(img, forKey: key)
+            return img
+        }
+        return nil
+    }
+    
+    public func clear() {
+        cache.removeAllObjects()
+    }
+}
+
+/// モザイクアートのキャンバスビュー（GPU Canvas による超高速60fps描画 & ズーム・パン & タップ判定）
 public struct MosaicCanvasView: View {
     public let project: MosaicProject
     public let selectedTileId: UUID?
@@ -38,32 +66,45 @@ public struct MosaicCanvasView: View {
     public var body: some View {
         GeometryReader { geometry in
             let canvasSize = min(geometry.size.width, geometry.size.height)
-            let tileSide = canvasSize / CGFloat(max(1, project.gridWidth))
+            let gridW = max(1, project.gridWidth)
+            let gridH = max(1, project.gridHeight)
+            let tileWidth = canvasSize / CGFloat(gridW)
+            let tileHeight = canvasSize / CGFloat(gridH)
             
             ZStack {
                 Color.black
                 
-                // モザイクアート本体
-                ZStack {
-                    // グリッド描画
-                    VStack(spacing: 0) {
-                        ForEach(0..<project.gridHeight, id: \.self) { y in
-                            HStack(spacing: 0) {
-                                ForEach(0..<project.gridWidth, id: \.self) { x in
-                                    let index = y * project.gridWidth + x
-                                    if index < project.tiles.count {
-                                        let tile = project.tiles[index]
-                                        tileCell(for: tile, size: tileSide)
-                                            .onTapGesture {
-                                                onSelectTile(tile)
-                                            }
-                                    }
-                                }
-                            }
+                // メインの超高速 Canvas 描画
+                Canvas { context, size in
+                    let tiles = project.tiles
+                    
+                    // 1. 各タイルの高速一括描画
+                    for tile in tiles {
+                        let x = CGFloat(tile.gridX) * tileWidth
+                        let y = CGFloat(tile.gridY) * tileHeight
+                        let tileRect = CGRect(x: x, y: y, width: tileWidth, height: tileHeight)
+                        
+                        if let img = TileImageCache.shared.image(for: tile.id, data: tile.thumbnailData) {
+                            // 配置済み写真の描画
+                            context.draw(Image(uiImage: img), in: tileRect)
+                        } else {
+                            // 未配置マス: 目標Lab色で塗りつぶし
+                            let color = tile.targetLabColor.swiftUIColor
+                            context.fill(Path(tileRect), with: .color(color))
+                            
+                            // グリッド線
+                            context.stroke(Path(tileRect), with: .color(Color.white.opacity(0.3)), lineWidth: 0.5)
+                        }
+                        
+                        // 選択中タイルのハイライト
+                        if tile.id == selectedTileId {
+                            context.stroke(Path(tileRect), with: .color(Color.yellow), lineWidth: 2.5)
                         }
                     }
-                    
-                    // 下絵（元画像）オーバーレイガイド
+                }
+                .frame(width: canvasSize, height: canvasSize)
+                // 下絵オーバーレイ（ガイド）
+                .overlay {
                     if showGuideImage, let targetImg = UIImage(data: project.targetImageData) {
                         Image(uiImage: targetImg)
                             .resizable()
@@ -72,11 +113,11 @@ public struct MosaicCanvasView: View {
                             .allowsHitTesting(false)
                     }
                 }
-                .frame(width: canvasSize, height: canvasSize)
                 .scaleEffect(zoomScale)
                 .offset(offset)
                 .gesture(
                     SimultaneousGesture(
+                        // ピンチズーム
                         MagnificationGesture()
                             .onChanged { val in
                                 let delta = val / lastScale
@@ -93,6 +134,7 @@ public struct MosaicCanvasView: View {
                                     }
                                 }
                             },
+                        // パン（ドラッグ）移動
                         DragGesture()
                             .onChanged { val in
                                 if zoomScale > 1.0 {
@@ -114,56 +156,51 @@ public struct MosaicCanvasView: View {
                             }
                     )
                 )
-                .onTapGesture(count: 2) {
-                    // ダブルタップで全体表示＆中央リセット
-                    withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
-                        zoomScale = 1.0
-                        offset = .zero
-                        lastOffset = .zero
-                    }
-                }
+                .simultaneousGesture(
+                    // シングルタップ: タップ位置から該当タイルを計算して選択
+                    SpatialTapGesture(count: 1)
+                        .onEnded { value in
+                            handleTap(at: value.location, canvasSize: canvasSize, gridW: gridW, gridH: gridH)
+                        }
+                )
+                .simultaneousGesture(
+                    // ダブルタップ: ズームリセット
+                    SpatialTapGesture(count: 2)
+                        .onEnded { _ in
+                            withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
+                                zoomScale = 1.0
+                                offset = .zero
+                                lastOffset = .zero
+                            }
+                        }
+                )
             }
             .frame(width: geometry.size.width, height: geometry.size.height)
             .contentShape(Rectangle())
-            .clipped() // キャンバス領域外へのはみ出しを確実に防止
+            .clipped()
         }
         .contentShape(Rectangle())
-        .clipped() // 親コンテナ外へのはみ出しも確実に防止
+        .clipped()
     }
     
-    @ViewBuilder
-    private func tileCell(for tile: MosaicTile, size: CGFloat) -> some View {
-        let isSelected = tile.id == selectedTileId
+    // MARK: - タップ座標からタイルを判定
+    private func handleTap(at location: CGPoint, canvasSize: CGFloat, gridW: Int, gridH: Int) {
+        guard canvasSize > 0, gridW > 0, gridH > 0 else { return }
         
-        ZStack {
-            if let data = tile.thumbnailData, let img = UIImage(data: data) {
-                // はまっている写真
-                Image(uiImage: img)
-                    .resizable()
-                    .aspectRatio(contentMode: .fill)
-            } else {
-                // 未充足のマス（目標色の背景 ＋ ドット枠）
-                ZStack {
-                    tile.targetLabColor.swiftUIColor
-                    
-                    Rectangle()
-                        .stroke(Color.white.opacity(0.4), lineWidth: 0.5)
-                    
-                    if size >= 18 {
-                        Image(systemName: "plus")
-                            .font(.system(size: max(6, size * 0.3)))
-                            .foregroundColor(.white.opacity(0.8))
-                    }
-                }
-            }
-            
-            // 選択時のハイライト枠
-            if isSelected {
-                Rectangle()
-                    .stroke(Color.yellow, lineWidth: 2)
-            }
+        let tileWidth = canvasSize / CGFloat(gridW)
+        let tileHeight = canvasSize / CGFloat(gridH)
+        
+        let gridX = Int(location.x / tileWidth)
+        let gridY = Int(location.y / tileHeight)
+        
+        guard gridX >= 0, gridX < gridW, gridY >= 0, gridY < gridH else { return }
+        
+        let index = gridY * gridW + gridX
+        if index < project.tiles.count {
+            let tile = project.tiles[index]
+            onSelectTile(tile)
+        } else if let found = project.tiles.first(where: { $0.gridX == gridX && $0.gridY == gridY }) {
+            onSelectTile(found)
         }
-        .frame(width: size, height: size)
-        .clipped()
     }
 }

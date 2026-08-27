@@ -1294,11 +1294,22 @@ extension MosaicEngine {
             return allChunks
         }
         
+        var globalAllEdges: [(tIdx: Int, photoIdx: Int, score: Float)] = []
         for chunk in calculatedChunks {
             for (tIdx, topEdges) in chunk {
                 tileCandidates[tIdx] = topEdges
                 globalScoreCache[tIdx] = Dictionary(uniqueKeysWithValues: topEdges.map { ($0.photoIdx, $0.score) })
+                for edge in topEdges {
+                    globalAllEdges.append((tIdx: tIdx, photoIdx: edge.photoIdx, score: edge.score))
+                }
             }
+        }
+        
+        // 全エッジをスコア昇順（最も似ている順）で 1 回だけ事前ソート
+        globalAllEdges.sort {
+            if $0.score != $1.score { return $0.score < $1.score }
+            if $0.tIdx != $1.tIdx { return $0.tIdx < $1.tIdx }
+            return usablePhotos[$0.photoIdx].id < usablePhotos[$1.photoIdx].id
         }
         
         var simulations: [AutoFillSimulation] = []
@@ -1335,33 +1346,24 @@ extension MosaicEngine {
             } else {
                 // 重複なし Greedy 優先 ＋ Kuhn 増大路マッチング
                 var adjList: [[(photoIdx: Int, score: Float)]] = Array(repeating: [], count: emptyTiles.count)
-                var allCandidateEdges: [(tIdx: Int, photoIdx: Int, score: Float)] = []
                 
                 for (tIdx, edges) in tileCandidates.enumerated() {
                     let valid = edges.filter { $0.score <= threshold }
                     if valid.isEmpty && level == .completeMax {
                         adjList[tIdx] = edges
-                        for edge in edges {
-                            allCandidateEdges.append((tIdx: tIdx, photoIdx: edge.photoIdx, score: edge.score))
-                        }
                     } else {
                         adjList[tIdx] = valid
-                        for edge in valid {
-                            allCandidateEdges.append((tIdx: tIdx, photoIdx: edge.photoIdx, score: edge.score))
-                        }
                     }
                 }
                 
                 var matchPtoT = Array<Int?>(repeating: nil, count: usablePhotos.count)
                 var matchTtoP = Array<Int?>(repeating: nil, count: emptyTiles.count)
                 
-                // 1. Greedy 最優先割り当て（最も似ているペアから確定）
-                allCandidateEdges.sort {
-                    if $0.score != $1.score { return $0.score < $1.score }
-                    if $0.tIdx != $1.tIdx { return $0.tIdx < $1.tIdx }
-                    return usablePhotos[$0.photoIdx].id < usablePhotos[$1.photoIdx].id
-                }
-                for edge in allCandidateEdges {
+                // 1. Greedy 最優先割り当て（事前にソートされたエッジからスコア閾値内のものを即座に確定）
+                for edge in globalAllEdges {
+                    if level != .completeMax && edge.score > threshold {
+                        break // ソート済みのためこれ以降はすべて閾値超過
+                    }
                     if matchTtoP[edge.tIdx] == nil && matchPtoT[edge.photoIdx] == nil {
                         matchTtoP[edge.tIdx] = edge.photoIdx
                         matchPtoT[edge.photoIdx] = edge.tIdx
