@@ -445,6 +445,10 @@ public struct MultiDimensionalPhotoIndex: Sendable {
         var candidateIndices = Set<Int>()
         
         // 1. Lab 近傍バケット探索 (±1)
+        var labCandidateIndices = Set<Int>()
+        var comCandidateIndices = Set<Int>()
+        var gradCandidateIndices = Set<Int>()
+        
         let targetL = Int(targetColor.l / 15.0)
         let targetA = Int((targetColor.a + 128.0) / 20.0)
         let targetB = Int((targetColor.b + 128.0) / 20.0)
@@ -455,7 +459,7 @@ public struct MultiDimensionalPhotoIndex: Sendable {
                     let key = (targetL + dL) * 10000 + (targetA + da) * 100 + (targetB + db)
                     if let list = labBuckets[key] {
                         for pIdx in list {
-                            candidateIndices.insert(pIdx)
+                            labCandidateIndices.insert(pIdx)
                         }
                     }
                 }
@@ -478,7 +482,7 @@ public struct MultiDimensionalPhotoIndex: Sendable {
                         let comKey = rB * 100 + targetX * 10 + targetY
                         if let list = comBuckets[comKey] {
                             for pIdx in list {
-                                candidateIndices.insert(pIdx)
+                                comCandidateIndices.insert(pIdx)
                             }
                         }
                     }
@@ -511,7 +515,7 @@ public struct MultiDimensionalPhotoIndex: Sendable {
                         let gradKey = mb * 10 + b
                         if let list = gradientBuckets[gradKey] {
                             for pIdx in list {
-                                candidateIndices.insert(pIdx)
+                                gradCandidateIndices.insert(pIdx)
                             }
                         }
                     }
@@ -520,24 +524,72 @@ public struct MultiDimensionalPhotoIndex: Sendable {
         }
         
         // フォールバック（候補が少なすぎる場合は全体から補充）
-        if candidateIndices.count < min(30, allPhotos.count) {
+        let allUniqueCount = labCandidateIndices.union(comCandidateIndices).union(gradCandidateIndices).count
+        if allUniqueCount < min(30, allPhotos.count) {
             for i in 0..<allPhotos.count {
-                candidateIndices.insert(i)
-                if candidateIndices.count >= maxCandidates { break }
+                labCandidateIndices.insert(i)
+                if labCandidateIndices.count >= maxCandidates { break }
             }
         }
         
-        let rawCandidates = candidateIndices.map { allPhotos[$0] }
-        if rawCandidates.count <= maxCandidates {
-            return rawCandidates
+        // 予約枠の割り振りと各ソースごとの上位抽出（Lab 40%, CoM 30%, 勾配 30%）
+        let labQuota = Int(Float(maxCandidates) * 0.40)  // 例: 80枚
+        let comQuota = Int(Float(maxCandidates) * 0.30)  // 例: 60枚
+        let gradQuota = Int(Float(maxCandidates) * 0.30) // 例: 60枚
+        
+        let topLab = Array(labCandidateIndices.map { (idx: $0, dist: targetColor.distance(to: allPhotos[$0].labColor)) }
+            .sorted { $0.dist < $1.dist }
+            .prefix(labQuota)
+            .map(\.idx))
+            
+        let topCom = Array(comCandidateIndices.map { idx -> (idx: Int, dist: Float) in
+            guard let tSig = signature, let pSig = allPhotos[idx].signature else {
+                return (idx, targetColor.distance(to: allPhotos[idx].labColor))
+            }
+            let dx = tSig.darkCenterOfMassX - pSig.darkCenterOfMassX
+            let dy = tSig.darkCenterOfMassY - pSig.darkCenterOfMassY
+            let dCoM = sqrt(dx * dx + dy * dy)
+            return (idx, dCoM + abs(tSig.darkRatio - pSig.darkRatio))
+        }.sorted { $0.dist < $1.dist }
+        .prefix(comQuota)
+        .map(\.idx))
+        
+        let topGrad = Array(gradCandidateIndices.map { idx -> (idx: Int, dist: Float) in
+            guard let tSig = signature, let pSig = allPhotos[idx].signature else {
+                return (idx, targetColor.distance(to: allPhotos[idx].labColor))
+            }
+            var sumDiff: Float = 0
+            for c in 0..<min(tSig.gradientHistograms6x6.count, pSig.gradientHistograms6x6.count) {
+                for b in 0..<8 {
+                    sumDiff += abs(tSig.gradientHistograms6x6[c][b] - pSig.gradientHistograms6x6[c][b])
+                }
+            }
+            return (idx, sumDiff)
+        }.sorted { $0.dist < $1.dist }
+        .prefix(gradQuota)
+        .map(\.idx))
+        
+        // 予約枠の結合
+        var finalCandidateIndices = Set<Int>()
+        finalCandidateIndices.formUnion(topLab)
+        finalCandidateIndices.formUnion(topCom)
+        finalCandidateIndices.formUnion(topGrad)
+        
+        // もし 200 枚に達していなければ、全プールから簡易複合スコア順で補充
+        if finalCandidateIndices.count < maxCandidates {
+            let remainingPool = labCandidateIndices.union(comCandidateIndices).union(gradCandidateIndices)
+                .subtracting(finalCandidateIndices)
+            let sortedRemaining = remainingPool.map { idx -> (idx: Int, score: Float) in
+                (idx, quickCoarseScore(targetColor: targetColor, targetSig: signature, photo: allPhotos[idx]))
+            }.sorted { $0.score < $1.score }
+            
+            for item in sortedRemaining {
+                finalCandidateIndices.insert(item.idx)
+                if finalCandidateIndices.count >= maxCandidates { break }
+            }
         }
         
-        // 平均色だけでなく、重心・比率を加味した O(1) 簡易複合スコアで上位 maxCandidates を抽出
-        return Array(rawCandidates.sorted { photoA, photoB in
-            let scoreA = quickCoarseScore(targetColor: targetColor, targetSig: signature, photo: photoA)
-            let scoreB = quickCoarseScore(targetColor: targetColor, targetSig: signature, photo: photoB)
-            return scoreA < scoreB
-        }.prefix(maxCandidates))
+        return finalCandidateIndices.map { allPhotos[$0] }
     }
     
     private func quickCoarseScore(targetColor: LabColor, targetSig: SpatialColorSignature?, photo: IndexedPhoto) -> Float {

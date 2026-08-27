@@ -237,11 +237,12 @@ public struct SpatialColorSignature: Codable, Equatable, Hashable, Sendable {
         self.cells3x3 = safe3x3
         self.average = average
         
-        // 6×6 / 勾配データが完全か判定（不完全な場合は偽の補間を行わず v1 へ降格）
+        // 6×6 / 勾配データが完全か判定（各セルのヒストグラムが8要素揃っていない場合も偽の補間を行わず v1 へ降格）
         let isCompleteV2 = (version >= 2)
             && (cells6x6.count == Self.cellCountV2)
             && (gradientHistograms6x6.count == Self.cellCountV2)
             && (gradientMagnitudes6x6.count == Self.cellCountV2)
+            && gradientHistograms6x6.allSatisfy { $0.count == Self.gradientBinCount }
         
         if isCompleteV2 {
             self.version = 2
@@ -343,8 +344,14 @@ public struct SpatialColorSignature: Codable, Equatable, Hashable, Sendable {
         let gh = try container.decodeIfPresent([[Float]].self, forKey: .gradientHistograms6x6) ?? []
         let gm = try container.decodeIfPresent([Float].self, forKey: .gradientMagnitudes6x6) ?? []
         
-        // 完全な 36 セルがある場合のみ v2 として承認
-        if ver >= 2 && c6.count == Self.cellCountV2 && gh.count == Self.cellCountV2 && gm.count == Self.cellCountV2 {
+        // 完全な 36 セル（かつ各ヒストグラムが厳密に 8 要素）ある場合のみ v2 として承認
+        let isDecodedCompleteV2 = (ver >= 2)
+            && (c6.count == Self.cellCountV2)
+            && (gh.count == Self.cellCountV2)
+            && (gm.count == Self.cellCountV2)
+            && gh.allSatisfy { $0.count == Self.gradientBinCount }
+        
+        if isDecodedCompleteV2 {
             self.version = 2
             self.cells6x6 = c6
             self.gradientMagnitudes6x6 = gm.map { max(0.0, min(1.0, $0)) }

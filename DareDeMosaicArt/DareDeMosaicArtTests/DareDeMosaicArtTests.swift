@@ -443,7 +443,7 @@ final class DareDeMosaicArtTests: XCTestCase {
         let distV1toV2 = decodedV1.distance(to: v2Sig)
         XCTAssertEqual(distV1toV2, 0.0, accuracy: 0.001, "v1とv2の互換計算が正常に動作するはず")
 
-        // 3. 不正な配列サイズ（破損データ）のデコード -> 偽の36セル補間を行わず、version 1 に安全降格
+        // 3. 不正な外側配列サイズ（破損データ）のデコード -> 偽の36セル補間を行わず、version 1 に安全降格
         let corruptJSON = """
         {
             "version": 2,
@@ -456,19 +456,83 @@ final class DareDeMosaicArtTests: XCTestCase {
         XCTAssertEqual(decodedCorrupt.version, 1, "36セル揃っていない不完全なデータは安全にv1へ降格されるはず")
         XCTAssertTrue(decodedCorrupt.cells6x6.isEmpty, "降格されたデータのcells6x6は空配列になるはず")
         XCTAssertEqual(decodedCorrupt.cells3x3.count, 9, "3x3データとして安全に機能するはず")
+
+        // 4. 不正な内側ヒストグラムサイズ（8要素未満）のデコード -> クラッシュせず安全にv1へ降格
+        let corruptInnerJSON = """
+        {
+            "version": 2,
+            "average": {"l": 50, "a": 0, "b": 0},
+            "cells3x3": [
+                {"l": 50, "a": 0, "b": 0}, {"l": 50, "a": 0, "b": 0}, {"l": 50, "a": 0, "b": 0},
+                {"l": 50, "a": 0, "b": 0}, {"l": 50, "a": 0, "b": 0}, {"l": 50, "a": 0, "b": 0},
+                {"l": 50, "a": 0, "b": 0}, {"l": 50, "a": 0, "b": 0}, {"l": 50, "a": 0, "b": 0}
+            ],
+            "cells6x6": [\(Array(repeating: #"{"l": 50, "a": 0, "b": 0}"#, count: 36).joined(separator: ","))],
+            "gradientMagnitudes6x6": [\(Array(repeating: "0.5", count: 36).joined(separator: ","))],
+            "gradientHistograms6x6": [\(Array(repeating: "[0.1, 0.2]", count: 36).joined(separator: ","))]
+        }
+        """.data(using: .utf8)!
+
+        let decodedInnerCorrupt = try JSONDecoder().decode(SpatialColorSignature.self, from: corruptInnerJSON)
+        XCTAssertEqual(decodedInnerCorrupt.version, 1, "内側ヒストグラムが8要素未満のデータは安全にv1へ降格されるはず")
+        XCTAssertTrue(decodedInnerCorrupt.cells6x6.isEmpty)
     }
 
     func testMultiDimensionalIndexUnionCandidates() throws {
-        let photos = [
-            IndexedPhoto(id: "p1", labColor: LabColor(l: 50, a: 0, b: 0), signature: SpatialColorSignature(version: 2, average: LabColor(l: 50, a: 0, b: 0), cells3x3: Array(repeating: LabColor(l: 50, a: 0, b: 0), count: 9))),
-            IndexedPhoto(id: "p2", labColor: LabColor(l: 20, a: 0, b: 0), signature: SpatialColorSignature(version: 2, average: LabColor(l: 20, a: 0, b: 0), cells3x3: Array(repeating: LabColor(l: 20, a: 0, b: 0), count: 9), darkCenterOfMass: (-0.5, -0.5), darkConfidence: 0.8)),
-            IndexedPhoto(id: "p3", labColor: LabColor(l: 80, a: 0, b: 0), signature: SpatialColorSignature(version: 2, average: LabColor(l: 80, a: 0, b: 0), cells3x3: Array(repeating: LabColor(l: 80, a: 0, b: 0), count: 9), brightCenterOfMass: (0.5, 0.5), brightConfidence: 0.8))
-        ]
+        // 完全な 36 セル・36x8 勾配・36 勾配強度を持つ完全な v2 写真群（300枚）を生成
+        var photos: [IndexedPhoto] = []
+        photos.reserveCapacity(300)
+
+        // ターゲット: L=50, 主勾配は bin 1 (対角線方向)
+        var targetDiagHist = Array(repeating: Array(repeating: Float(0), count: 8), count: 36)
+        for c in 0..<36 { targetDiagHist[c][1] = 1.0 }
+        let targetSig = SpatialColorSignature(
+            version: 2,
+            average: LabColor(l: 50, a: 0, b: 0),
+            cells3x3: Array(repeating: LabColor(l: 50, a: 0, b: 0), count: 9),
+            cells6x6: Array(repeating: LabColor(l: 50, a: 0, b: 0), count: 36),
+            gradientHistograms6x6: targetDiagHist,
+            gradientMagnitudes6x6: Array(repeating: 0.5, count: 36)
+        )
+        XCTAssertEqual(targetSig.version, 2, "完全なv2シグネチャとして作成される必要があります")
+
+        // 1〜250 枚目: ターゲットと平均色は極めて近い (L=50付近) が、勾配方向は全く異なる (bin 4: 逆水平方向)
+        var vertHist = Array(repeating: Array(repeating: Float(0), count: 8), count: 36)
+        for c in 0..<36 { vertHist[c][4] = 1.0 }
+        for i in 0..<250 {
+            let lab = LabColor(l: 50.0 + Float(i % 5) * 0.1, a: 0, b: 0)
+            let sig = SpatialColorSignature(
+                version: 2,
+                average: lab,
+                cells3x3: Array(repeating: lab, count: 9),
+                cells6x6: Array(repeating: lab, count: 36),
+                gradientHistograms6x6: vertHist,
+                gradientMagnitudes6x6: Array(repeating: 0.5, count: 36)
+            )
+            photos.append(IndexedPhoto(id: "lab_match_\(i)", labColor: lab, signature: sig))
+        }
+
+        // 251 枚目: 平均色はかなり離れている (L=20) が、ターゲットと同じ対角線勾配 (bin 1) を持つ写真
+        let gradLab = LabColor(l: 20, a: 0, b: 0)
+        let gradSig = SpatialColorSignature(
+            version: 2,
+            average: gradLab,
+            cells3x3: Array(repeating: gradLab, count: 9),
+            cells6x6: Array(repeating: gradLab, count: 36),
+            gradientHistograms6x6: targetDiagHist,
+            gradientMagnitudes6x6: Array(repeating: 0.5, count: 36)
+        )
+        photos.append(IndexedPhoto(id: "special_grad_match", labColor: gradLab, signature: gradSig))
 
         let index = MultiDimensionalPhotoIndex(photos: photos)
-        let candidates = index.candidates(for: LabColor(l: 25, a: 0, b: 0), signature: photos[1].signature)
+        // 300 枚中、上限 200 枚の粗探索を実行
+        let candidates = index.candidates(for: targetSig.average, signature: targetSig, maxCandidates: 200)
 
-        XCTAssertTrue(candidates.contains(where: { $0.id == "p2" }), "明暗重心が近い写真が候補の和集合に確実に含まれる必要があります")
+        XCTAssertLessThanOrEqual(candidates.count, 200, "上限200枚を超えないこと")
+        XCTAssertTrue(
+            candidates.contains(where: { $0.id == "special_grad_match" }),
+            "平均色は離れていても勾配が一致する写真が、勾配予約枠により200枚制限下でも確実に残る必要があります"
+        )
     }
 }
 
