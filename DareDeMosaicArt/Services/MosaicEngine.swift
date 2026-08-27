@@ -404,28 +404,39 @@ public struct MultiDimensionalPhotoIndex: Sendable {
             let labKey = lK * 10000 + aK * 100 + bK
             labBuckets[labKey, default: []].append(idx)
             
-            // 2. 明暗重心 & 比率バケット
+            // 2. 連続量子化明暗重心 & 比率バケット (X, Y を 5分割: -1.0..1.0 -> 0..4)
             if let sig = photo.signature {
-                let darkQuad = (sig.darkCenterOfMassX >= 0 ? 1 : 0) + (sig.darkCenterOfMassY >= 0 ? 2 : 0)
-                let brightQuad = (sig.brightCenterOfMassX >= 0 ? 1 : 0) + (sig.brightCenterOfMassY >= 0 ? 2 : 0)
-                let ratioBin = Int(sig.darkRatio * 3.0)
-                let comKey = ratioBin * 100 + darkQuad * 10 + brightQuad
+                let darkXBin = min(4, max(0, Int((sig.darkCenterOfMassX + 1.0) * 2.5)))
+                let darkYBin = min(4, max(0, Int((sig.darkCenterOfMassY + 1.0) * 2.5)))
+                let ratioBin = min(3, max(0, Int(sig.darkRatio * 4.0)))
+                let comKey = ratioBin * 100 + darkXBin * 10 + darkYBin
                 comBuckets[comKey, default: []].append(idx)
                 
-                // 3. 勾配主方向バケット
-                var maxGradBin = 0
-                var maxGradVal: Float = -1
-                for hist in sig.gradientHistograms6x6 {
+                // 3. 画像全体加算勾配主方向バケット (36セル全体のヒストグラム合計)
+                var globalHist = [Float](repeating: 0, count: 8)
+                var globalMagSum: Float = 0
+                for c in 0..<sig.gradientHistograms6x6.count {
+                    let cellMag = c < sig.gradientMagnitudes6x6.count ? sig.gradientMagnitudes6x6[c] : 0.0
+                    globalMagSum += cellMag
                     for b in 0..<8 {
-                        if hist[b] > maxGradVal {
-                            maxGradVal = hist[b]
-                            maxGradBin = b
-                        }
+                        globalHist[b] += sig.gradientHistograms6x6[c][b] * cellMag
                     }
                 }
-                let gradMagBin = Int(min(3.0, maxGradVal / 15.0))
-                let gradKey = gradMagBin * 10 + maxGradBin
-                gradientBuckets[gradKey, default: []].append(idx)
+                
+                let meanGlobalMag = globalMagSum / Float(max(1, sig.gradientHistograms6x6.count))
+                if meanGlobalMag > 0.03 {
+                    var maxBin = 0
+                    var maxVal: Float = -1
+                    for b in 0..<8 {
+                        if globalHist[b] > maxVal {
+                            maxVal = globalHist[b]
+                            maxBin = b
+                        }
+                    }
+                    let magBin = min(3, Int(meanGlobalMag * 10.0))
+                    let gradKey = magBin * 10 + maxBin
+                    gradientBuckets[gradKey, default: []].append(idx)
+                }
             }
         }
     }
@@ -445,45 +456,64 @@ public struct MultiDimensionalPhotoIndex: Sendable {
                     if let list = labBuckets[key] {
                         for pIdx in list {
                             candidateIndices.insert(pIdx)
-                            if candidateIndices.count >= maxCandidates * 2 { break }
                         }
                     }
                 }
             }
         }
         
-        // 2. 明暗重心・比率バケット探索
+        // 2. 連続量子化重心近傍バケット探索 (±1)
         if let sig = signature {
-            let darkQuad = (sig.darkCenterOfMassX >= 0 ? 1 : 0) + (sig.darkCenterOfMassY >= 0 ? 2 : 0)
-            let brightQuad = (sig.brightCenterOfMassX >= 0 ? 1 : 0) + (sig.brightCenterOfMassY >= 0 ? 2 : 0)
-            let ratioBin = Int(sig.darkRatio * 3.0)
+            let darkXBin = min(4, max(0, Int((sig.darkCenterOfMassX + 1.0) * 2.5)))
+            let darkYBin = min(4, max(0, Int((sig.darkCenterOfMassY + 1.0) * 2.5)))
+            let ratioBin = min(3, max(0, Int(sig.darkRatio * 4.0)))
+            
             for rB in max(0, ratioBin - 1)...min(3, ratioBin + 1) {
-                let comKey = rB * 100 + darkQuad * 10 + brightQuad
-                if let list = comBuckets[comKey] {
-                    for pIdx in list {
-                        candidateIndices.insert(pIdx)
-                        if candidateIndices.count >= maxCandidates * 3 { break }
+                for dx in -1...1 {
+                    let targetX = darkXBin + dx
+                    guard targetX >= 0 && targetX <= 4 else { continue }
+                    for dy in -1...1 {
+                        let targetY = darkYBin + dy
+                        guard targetY >= 0 && targetY <= 4 else { continue }
+                        let comKey = rB * 100 + targetX * 10 + targetY
+                        if let list = comBuckets[comKey] {
+                            for pIdx in list {
+                                candidateIndices.insert(pIdx)
+                            }
+                        }
                     }
                 }
             }
             
-            // 3. 勾配主方向バケット探索
-            var maxGradBin = 0
-            var maxGradVal: Float = -1
-            for hist in sig.gradientHistograms6x6 {
+            // 3. 画像全体加算勾配主方向バケット探索 (±1)
+            var globalHist = [Float](repeating: 0, count: 8)
+            var globalMagSum: Float = 0
+            for c in 0..<sig.gradientHistograms6x6.count {
+                let cellMag = c < sig.gradientMagnitudes6x6.count ? sig.gradientMagnitudes6x6[c] : 0.0
+                globalMagSum += cellMag
                 for b in 0..<8 {
-                    if hist[b] > maxGradVal {
-                        maxGradVal = hist[b]
-                        maxGradBin = b
-                    }
+                    globalHist[b] += sig.gradientHistograms6x6[c][b] * cellMag
                 }
             }
-            let gradMagBin = Int(min(3.0, maxGradVal / 15.0))
-            for b in [ (maxGradBin + 7) % 8, maxGradBin, (maxGradBin + 1) % 8 ] {
-                let gradKey = gradMagBin * 10 + b
-                if let list = gradientBuckets[gradKey] {
-                    for pIdx in list {
-                        candidateIndices.insert(pIdx)
+            let meanGlobalMag = globalMagSum / Float(max(1, sig.gradientHistograms6x6.count))
+            if meanGlobalMag > 0.03 {
+                var maxBin = 0
+                var maxVal: Float = -1
+                for b in 0..<8 {
+                    if globalHist[b] > maxVal {
+                        maxVal = globalHist[b]
+                        maxBin = b
+                    }
+                }
+                let magBin = min(3, Int(meanGlobalMag * 10.0))
+                for mb in max(0, magBin - 1)...min(3, magBin + 1) {
+                    for b in [ (maxBin + 7) % 8, maxBin, (maxBin + 1) % 8 ] {
+                        let gradKey = mb * 10 + b
+                        if let list = gradientBuckets[gradKey] {
+                            for pIdx in list {
+                                candidateIndices.insert(pIdx)
+                            }
+                        }
                     }
                 }
             }
@@ -502,8 +532,23 @@ public struct MultiDimensionalPhotoIndex: Sendable {
             return rawCandidates
         }
         
-        return Array(rawCandidates.sorted {
-            targetColor.distance(to: $0.labColor) < targetColor.distance(to: $1.labColor)
+        // 平均色だけでなく、重心・比率を加味した O(1) 簡易複合スコアで上位 maxCandidates を抽出
+        return Array(rawCandidates.sorted { photoA, photoB in
+            let scoreA = quickCoarseScore(targetColor: targetColor, targetSig: signature, photo: photoA)
+            let scoreB = quickCoarseScore(targetColor: targetColor, targetSig: signature, photo: photoB)
+            return scoreA < scoreB
         }.prefix(maxCandidates))
+    }
+    
+    private func quickCoarseScore(targetColor: LabColor, targetSig: SpatialColorSignature?, photo: IndexedPhoto) -> Float {
+        let labDist = max(0.0, min(1.0, targetColor.distance(to: photo.labColor) / 40.0))
+        guard let tSig = targetSig, let pSig = photo.signature else {
+            return labDist
+        }
+        let darkDx = tSig.darkCenterOfMassX - pSig.darkCenterOfMassX
+        let darkDy = tSig.darkCenterOfMassY - pSig.darkCenterOfMassY
+        let comDist = min(1.0, sqrt(darkDx * darkDx + darkDy * darkDy) / 2.0)
+        let ratioDist = min(1.0, abs(tSig.darkRatio - pSig.darkRatio))
+        return labDist * 0.40 + comDist * 0.35 + ratioDist * 0.25
     }
 }

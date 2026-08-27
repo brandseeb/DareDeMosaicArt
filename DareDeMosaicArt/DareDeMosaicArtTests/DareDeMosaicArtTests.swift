@@ -443,7 +443,7 @@ final class DareDeMosaicArtTests: XCTestCase {
         let distV1toV2 = decodedV1.distance(to: v2Sig)
         XCTAssertEqual(distV1toV2, 0.0, accuracy: 0.001, "v1とv2の互換計算が正常に動作するはず")
 
-        // 3. 不正な配列サイズ（破損データ）のデコード
+        // 3. 不正な配列サイズ（破損データ）のデコード -> 偽の36セル補間を行わず、version 1 に安全降格
         let corruptJSON = """
         {
             "version": 2,
@@ -453,7 +453,9 @@ final class DareDeMosaicArtTests: XCTestCase {
         """.data(using: .utf8)!
 
         let decodedCorrupt = try JSONDecoder().decode(SpatialColorSignature.self, from: corruptJSON)
-        XCTAssertEqual(decodedCorrupt.cells6x6.count, 36, "不正な配列長でも36個に安全パディングされるはず")
+        XCTAssertEqual(decodedCorrupt.version, 1, "36セル揃っていない不完全なデータは安全にv1へ降格されるはず")
+        XCTAssertTrue(decodedCorrupt.cells6x6.isEmpty, "降格されたデータのcells6x6は空配列になるはず")
+        XCTAssertEqual(decodedCorrupt.cells3x3.count, 9, "3x3データとして安全に機能するはず")
     }
 
     func testMultiDimensionalIndexUnionCandidates() throws {

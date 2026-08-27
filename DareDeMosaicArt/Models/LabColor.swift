@@ -188,8 +188,10 @@ public struct SpatialColorSignature: Codable, Equatable, Hashable, Sendable {
     public let average: LabColor
     public let cells3x3: [LabColor]
     public let cells6x6: [LabColor]
-    /// 6×6 各セルの 8方向 (0°〜360°, 45°刻み) 勾配ヒストグラム
+    /// 6×6 各セルの 8方向 (0°〜360°, 45°刻み) L1正規化勾配ヒストグラム（各セル合計 1.0 または 0.0）
     public let gradientHistograms6x6: [[Float]]
+    /// 6×6 各セルの正規化平均勾配強度 ([0.0, 1.0])
+    public let gradientMagnitudes6x6: [Float]
     /// 暗部重心 ([-1.0, 1.0]) & 信頼度 (0.0〜1.0)
     public let darkCenterOfMassX: Float
     public let darkCenterOfMassY: Float
@@ -205,9 +207,9 @@ public struct SpatialColorSignature: Codable, Equatable, Hashable, Sendable {
     /// L* の標準偏差
     public let contrast: Float
 
-    /// 既存コード互換用プロパティ（version 2 の場合は 6×6 または 3×3 を返す）
+    /// 既存コード互換用プロパティ（version 2 の場合は 6×6、version 1 の場合は 3×3 を返す）
     public var cells: [LabColor] {
-        return cells6x6.isEmpty ? cells3x3 : cells6x6
+        return (version >= 2 && cells6x6.count == Self.cellCountV2) ? cells6x6 : cells3x3
     }
 
     public init(
@@ -216,6 +218,7 @@ public struct SpatialColorSignature: Codable, Equatable, Hashable, Sendable {
         cells3x3: [LabColor],
         cells6x6: [LabColor] = [],
         gradientHistograms6x6: [[Float]] = [],
+        gradientMagnitudes6x6: [Float] = [],
         darkCenterOfMass: (x: Float, y: Float) = (0, 0),
         darkConfidence: Float = 0,
         brightCenterOfMass: (x: Float, y: Float) = (0, 0),
@@ -223,46 +226,43 @@ public struct SpatialColorSignature: Codable, Equatable, Hashable, Sendable {
         luminanceRatios: (dark: Float, mid: Float, bright: Float) = (0.33, 0.34, 0.33),
         contrast: Float? = nil
     ) {
-        self.version = version
-        self.average = average
-        
         // 3×3 セルの安全な初期化
+        let safe3x3: [LabColor]
         if cells3x3.count == Self.cellCountV1 {
-            self.cells3x3 = cells3x3
+            safe3x3 = cells3x3
         } else {
-            self.cells3x3 = Array(cells3x3.prefix(Self.cellCountV1))
+            safe3x3 = Array(cells3x3.prefix(Self.cellCountV1))
                 + Array(repeating: average, count: max(0, Self.cellCountV1 - cells3x3.count))
         }
+        self.cells3x3 = safe3x3
+        self.average = average
         
-        // 6×6 セルの安全な初期化
-        if cells6x6.count == Self.cellCountV2 {
+        // 6×6 / 勾配データが完全か判定（不完全な場合は偽の補間を行わず v1 へ降格）
+        let isCompleteV2 = (version >= 2)
+            && (cells6x6.count == Self.cellCountV2)
+            && (gradientHistograms6x6.count == Self.cellCountV2)
+            && (gradientMagnitudes6x6.count == Self.cellCountV2)
+        
+        if isCompleteV2 {
+            self.version = 2
             self.cells6x6 = cells6x6
-        } else if !cells6x6.isEmpty {
-            self.cells6x6 = Array(cells6x6.prefix(Self.cellCountV2))
-                + Array(repeating: average, count: max(0, Self.cellCountV2 - cells6x6.count))
-        } else if version >= 2 {
-            // 3×3 からの初期化
-            var upsampled: [LabColor] = []
-            upsampled.reserveCapacity(36)
-            for y in 0..<6 {
-                for x in 0..<6 {
-                    let srcX = min(2, x / 2)
-                    let srcY = min(2, y / 2)
-                    upsampled.append(self.cells3x3[srcY * 3 + srcX])
+            self.gradientMagnitudes6x6 = gradientMagnitudes6x6.map { max(0.0, min(1.0, $0)) }
+            
+            // 8方向ヒストグラムを L1 正規化（合計 1.0 または 0.0）
+            self.gradientHistograms6x6 = gradientHistograms6x6.map { hist in
+                let sum = hist.reduce(0, +)
+                if sum > 0.0001 {
+                    return hist.map { $0 / sum }
+                } else {
+                    return Array(repeating: 0.0, count: Self.gradientBinCount)
                 }
             }
-            self.cells6x6 = upsampled
         } else {
+            // 不完全なデータまたは旧データは v1 として扱う
+            self.version = 1
             self.cells6x6 = []
-        }
-        
-        // 勾配ヒストグラムの安全な初期化
-        if gradientHistograms6x6.count == Self.cellCountV2 {
-            self.gradientHistograms6x6 = gradientHistograms6x6.map { hist in
-                hist.count == Self.gradientBinCount ? hist : Array(hist.prefix(Self.gradientBinCount)) + Array(repeating: 0.0, count: max(0, Self.gradientBinCount - hist.count))
-            }
-        } else {
-            self.gradientHistograms6x6 = Array(repeating: Array(repeating: 0.0, count: Self.gradientBinCount), count: Self.cellCountV2)
+            self.gradientHistograms6x6 = []
+            self.gradientMagnitudes6x6 = []
         }
         
         self.darkCenterOfMassX = max(-1.0, min(1.0, darkCenterOfMass.x))
@@ -280,7 +280,7 @@ public struct SpatialColorSignature: Codable, Equatable, Hashable, Sendable {
         if let contrast {
             self.contrast = max(0, contrast)
         } else {
-            let activeCells = self.cells6x6.isEmpty ? self.cells3x3 : self.cells6x6
+            let activeCells = (self.version >= 2 && !self.cells6x6.isEmpty) ? self.cells6x6 : self.cells3x3
             let mean = activeCells.map(\.l).reduce(0, +) / Float(max(1, activeCells.count))
             let variance = activeCells.reduce(Float.zero) { partial, color in
                 let delta = color.l - mean
@@ -297,11 +297,13 @@ public struct SpatialColorSignature: Codable, Equatable, Hashable, Sendable {
             average: average,
             cells3x3: cells,
             cells6x6: [],
+            gradientHistograms6x6: [],
+            gradientMagnitudes6x6: [],
             contrast: contrast
         )
     }
 
-    // MARK: - Codable (後方互換性明示デコード)
+    // MARK: - Codable (後方互換性明示デコード & 不完全v2の安全降格)
     
     private enum CodingKeys: String, CodingKey {
         case version
@@ -310,6 +312,7 @@ public struct SpatialColorSignature: Codable, Equatable, Hashable, Sendable {
         case cells3x3
         case cells6x6
         case gradientHistograms6x6
+        case gradientMagnitudes6x6
         case darkCenterOfMassX
         case darkCenterOfMassY
         case darkConfidence
@@ -325,7 +328,6 @@ public struct SpatialColorSignature: Codable, Equatable, Hashable, Sendable {
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         let ver = try container.decodeIfPresent(Int.self, forKey: .version) ?? 1
-        self.version = ver
         self.average = try container.decode(LabColor.self, forKey: .average)
         
         let c3 = try container.decodeIfPresent([LabColor].self, forKey: .cells3x3)
@@ -338,21 +340,28 @@ public struct SpatialColorSignature: Codable, Equatable, Hashable, Sendable {
         }
         
         let c6 = try container.decodeIfPresent([LabColor].self, forKey: .cells6x6) ?? []
-        if c6.count == Self.cellCountV2 {
-            self.cells6x6 = c6
-        } else if !c6.isEmpty {
-            self.cells6x6 = Array(c6.prefix(Self.cellCountV2)) + Array(repeating: self.average, count: max(0, Self.cellCountV2 - c6.count))
-        } else {
-            self.cells6x6 = []
-        }
-        
         let gh = try container.decodeIfPresent([[Float]].self, forKey: .gradientHistograms6x6) ?? []
-        if gh.count == Self.cellCountV2 {
+        let gm = try container.decodeIfPresent([Float].self, forKey: .gradientMagnitudes6x6) ?? []
+        
+        // 完全な 36 セルがある場合のみ v2 として承認
+        if ver >= 2 && c6.count == Self.cellCountV2 && gh.count == Self.cellCountV2 && gm.count == Self.cellCountV2 {
+            self.version = 2
+            self.cells6x6 = c6
+            self.gradientMagnitudes6x6 = gm.map { max(0.0, min(1.0, $0)) }
             self.gradientHistograms6x6 = gh.map { hist in
-                hist.count == Self.gradientBinCount ? hist : Array(hist.prefix(Self.gradientBinCount)) + Array(repeating: 0.0, count: max(0, Self.gradientBinCount - hist.count))
+                let sum = hist.reduce(0, +)
+                if sum > 0.0001 {
+                    return hist.map { $0 / sum }
+                } else {
+                    return Array(repeating: 0.0, count: Self.gradientBinCount)
+                }
             }
         } else {
-            self.gradientHistograms6x6 = Array(repeating: Array(repeating: 0.0, count: Self.gradientBinCount), count: Self.cellCountV2)
+            // 不完全な場合は v1 に降格
+            self.version = 1
+            self.cells6x6 = []
+            self.gradientHistograms6x6 = []
+            self.gradientMagnitudes6x6 = []
         }
         
         self.darkCenterOfMassX = try container.decodeIfPresent(Float.self, forKey: .darkCenterOfMassX) ?? 0.0
@@ -388,6 +397,7 @@ public struct SpatialColorSignature: Codable, Equatable, Hashable, Sendable {
         try container.encode(cells3x3, forKey: .cells) // v1 互換用
         try container.encode(cells6x6, forKey: .cells6x6)
         try container.encode(gradientHistograms6x6, forKey: .gradientHistograms6x6)
+        try container.encode(gradientMagnitudes6x6, forKey: .gradientMagnitudes6x6)
         try container.encode(darkCenterOfMassX, forKey: .darkCenterOfMassX)
         try container.encode(darkCenterOfMassY, forKey: .darkCenterOfMassY)
         try container.encode(darkConfidence, forKey: .darkConfidence)
@@ -405,7 +415,7 @@ public struct SpatialColorSignature: Codable, Equatable, Hashable, Sendable {
     /// 全体平均色、3×3/6×6空間色、8方向Sobel勾配、明暗面積比率、明暗重心を統合した [0, 1] 正規化距離。
     public func distance(to other: SpatialColorSignature) -> Float {
         // v1 同士 または 片方が v1 の場合は v1 距離を [0, 1] 正規化して返す
-        if self.version < 2 || other.version < 2 || self.cells6x6.isEmpty || other.cells6x6.isEmpty {
+        if self.version < 2 || other.version < 2 || self.cells6x6.count != Self.cellCountV2 || other.cells6x6.count != Self.cellCountV2 {
             let avgDist = average.distance(to: other.average)
             let sCount = min(self.cells3x3.count, other.cells3x3.count)
             let spatialDist: Float
@@ -427,30 +437,28 @@ public struct SpatialColorSignature: Codable, Equatable, Hashable, Sendable {
         let d6x6Raw = (0..<Self.cellCountV2).reduce(Float.zero) { $0 + cells6x6[$1].distance(to: other.cells6x6[$1]) } / Float(Self.cellCountV2)
         let dSpatial = max(0.0, min(1.0, (d3x3Raw * 0.35 + d6x6Raw * 0.65) / 40.0))
 
-        // 3. 8方向 Sobel 勾配ヒストグラム距離 (0〜1)
+        // 3. 8方向 Sobel 勾配ヒストグラム & 強度距離 (0〜1)
         var gradientDistSum: Float = 0.0
         for c in 0..<Self.cellCountV2 {
+            let magA = gradientMagnitudes6x6[c]
+            let magB = other.gradientMagnitudes6x6[c]
+            let magDiff = abs(magA - magB) // [0, 1]
+            
             let hA = gradientHistograms6x6[c]
             let hB = other.gradientHistograms6x6[c]
-            let sumA = hA.reduce(0, +)
-            let sumB = hB.reduce(0, +)
             
-            // 強度差 (0〜1)
-            let magDiff = max(0.0, min(1.0, abs(sumA - sumB) / 40.0))
-            
-            // 方向分布差 (低勾配ゲート適用)
-            let gate = min(1.0, min(sumA, sumB) / 8.0) // 勾配が弱い領域では方向を評価しない
+            // 低勾配ゲート: 両方の強度が一定以上ある場合のみ方向差を評価
+            let gate = min(1.0, min(magA, magB) / 0.15)
             var dirDiff: Float = 0.0
-            if gate > 0.01 && sumA > 0.001 && sumB > 0.001 {
-                // 正規化ヒストグラムのマンハッタン距離
+            if gate > 0.01 {
+                // L1 正規化ヒストグラムのマンハッタン距離 / 2.0 -> [0, 1]
                 var l1: Float = 0.0
                 for b in 0..<Self.gradientBinCount {
-                    let pA = hA[b] / sumA
-                    let pB = hB[b] / sumB
-                    l1 += abs(pA - pB)
+                    l1 += abs(hA[b] - hB[b])
                 }
-                dirDiff = l1 * 0.5 // [0, 1]
+                dirDiff = l1 * 0.5
             }
+            
             let cellGradDist = magDiff * 0.4 + (dirDiff * gate + magDiff * (1.0 - gate)) * 0.6
             gradientDistSum += cellGradDist
         }

@@ -149,7 +149,8 @@ public final class ColorAnalysisService: Sendable {
         }
         
         // 3. 48×48 輝度への 3×3 Sobel 畳み込み & 6×6 領域への 8方向符号付きヒストグラム集約
-        var gradientHistograms6x6 = Array(repeating: Array(repeating: Float(0), count: 8), count: 36)
+        var rawGradientHistograms6x6 = Array(repeating: Array(repeating: Float(0), count: 8), count: 36)
+        var rawGradientSum6x6 = [Float](repeating: 0, count: 36)
         
         func getLum(_ px: Int, _ py: Int) -> Float {
             let cx = max(0, min(sampleSize - 1, px))
@@ -170,12 +171,31 @@ public final class ColorAnalysisService: Sendable {
                        - (getLum(x - 1, y - 1) + 2.0 * getLum(x, y - 1) + getLum(x + 1, y - 1))
                 
                 let mag = sqrt(gx * gx + gy * gy)
+                rawGradientSum6x6[c6Idx] += mag
                 if mag > 0.001 {
                     var angle = atan2(gy, gx) // [-pi, pi]
                     if angle < 0 { angle += 2.0 * .pi } // [0, 2*pi)
                     let bin = Int(floor((angle / (2.0 * .pi)) * 8.0)) % 8
-                    gradientHistograms6x6[c6Idx][bin] += mag
+                    rawGradientHistograms6x6[c6Idx][bin] += mag
                 }
+            }
+        }
+        
+        // 6×6 各セルの平均勾配強度 ([0.0, 1.0]) & L1正規化ヒストグラム
+        var gradientMagnitudes6x6 = [Float](repeating: 0, count: 36)
+        var gradientHistograms6x6 = Array(repeating: Array(repeating: Float(0), count: 8), count: 36)
+        
+        for c in 0..<36 {
+            let cellPixelCount: Float = 64.0 // 8x8 px
+            let meanMag = rawGradientSum6x6[c] / cellPixelCount
+            // 理論最大勾配強度(~565)に対して実用上限を ~80.0 とし、[0, 1] に正規化
+            gradientMagnitudes6x6[c] = max(0.0, min(1.0, meanMag / 80.0))
+            
+            let sum = rawGradientHistograms6x6[c].reduce(0, +)
+            if sum > 0.0001 {
+                gradientHistograms6x6[c] = rawGradientHistograms6x6[c].map { $0 / sum }
+            } else {
+                gradientHistograms6x6[c] = Array(repeating: 0.0, count: 8)
             }
         }
         
@@ -210,6 +230,7 @@ public final class ColorAnalysisService: Sendable {
             cells3x3: cells3x3,
             cells6x6: cells6x6,
             gradientHistograms6x6: gradientHistograms6x6,
+            gradientMagnitudes6x6: gradientMagnitudes6x6,
             darkCenterOfMass: darkCoM,
             darkConfidence: darkConf,
             brightCenterOfMass: brightCoM,

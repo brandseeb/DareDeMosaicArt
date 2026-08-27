@@ -81,8 +81,8 @@ func runVerification() {
         ]
     )
 
-    assert(targetSignature.distance(to: matchingSignature) < 1, "同一配置のシグネチャ距離はほぼ0のはずです")
-    assert(targetSignature.distance(to: wrongPositionSignature) > 10, "平均色が同じでも明暗の位置違いを検出するはずです")
+    assert(targetSignature.distance(to: matchingSignature) < 0.05, "同一配置のシグネチャ距離はほぼ0のはずです")
+    assert(targetSignature.distance(to: wrongPositionSignature) > 0.20, "平均色が同じでも明暗の位置違いを検出するはずです")
 
     let spatialTile = MosaicTile(
         gridX: 0,
@@ -97,7 +97,7 @@ func runVerification() {
     let spatialResult = MosaicEngine.shared.matchTiles(
         tiles: [spatialTile],
         availablePhotos: spatialPhotos,
-        passDistanceThreshold: 20
+        passDistanceThreshold: 0.50
     )
     assert(spatialResult[0].placedPhotoIdentifier == "correct-layout", "3×3の色配置が合う写真が選ばれるはずです")
 
