@@ -12,6 +12,7 @@ public struct AutoFillSheetView: View {
     @State private var allowDuplicates: Bool = false
     @State private var selectedLevel: AutoFillLevel = .completeMax
     @State private var simulations: [AutoFillSimulation] = []
+    @State private var loadedPhotos: [IndexedPhoto] = []
     @State private var isLoading: Bool = true
     @State private var showStaleAlert: Bool = false
     @State private var showResetConfirmAlert: Bool = false
@@ -302,13 +303,22 @@ public struct AutoFillSheetView: View {
         isLoading = true
         
         let currentProject = project
-        let photos = availablePhotos
+        let initialPhotos = !loadedPhotos.isEmpty ? loadedPhotos : availablePhotos
         let duplicates = allowDuplicates
         
         simulationTask = Task {
+            var effectivePhotos = initialPhotos
+            // 親ビューからの写真ロードがまだ完了していない場合はここでロード
+            if effectivePhotos.isEmpty {
+                effectivePhotos = (try? await PhotoLibraryScanner.shared.photos(for: currentProject.photoSource)) ?? []
+                await MainActor.run {
+                    self.loadedPhotos = effectivePhotos
+                }
+            }
+            
             let results = await MosaicEngine.shared.simulateAutoFill(
                 project: currentProject,
-                availablePhotos: photos,
+                availablePhotos: effectivePhotos,
                 allowDuplicates: duplicates
             )
             
