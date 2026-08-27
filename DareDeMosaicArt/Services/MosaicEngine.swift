@@ -456,13 +456,8 @@ public struct MultiDimensionalPhotoIndex: Sendable {
     }
     
     public func candidates(for targetColor: LabColor, signature: SpatialColorSignature?, maxCandidates: Int = 200) -> [IndexedPhoto] {
-        var candidateIndices = Set<Int>()
-        
         // 1. Lab 近傍バケット探索 (±1)
         var labCandidateIndices = Set<Int>()
-        var comCandidateIndices = Set<Int>()
-        var gradCandidateIndices = Set<Int>()
-        
         let targetL = Int(targetColor.l / 15.0)
         let targetA = Int((targetColor.a + 128.0) / 20.0)
         let targetB = Int((targetColor.b + 128.0) / 20.0)
@@ -479,6 +474,24 @@ public struct MultiDimensionalPhotoIndex: Sendable {
                 }
             }
         }
+        
+        // signature が nil の場合（または写真側にシグネチャがない場合）は Lab 距離のみで即座に上位を抽出して超高速リターン
+        guard let tSig = signature, !tSig.cells6x6.isEmpty else {
+            if labCandidateIndices.count < min(30, allPhotos.count) {
+                for i in 0..<allPhotos.count {
+                    labCandidateIndices.insert(i)
+                    if labCandidateIndices.count >= maxCandidates { break }
+                }
+            }
+            let sortedLab = labCandidateIndices.map { (idx: $0, dist: targetColor.distance(to: allPhotos[$0].labColor)) }
+                .sorted { $0.dist < $1.dist }
+                .prefix(maxCandidates)
+                .map { allPhotos[$0.idx] }
+            return Array(sortedLab)
+        }
+        
+        var comCandidateIndices = Set<Int>()
+        var gradCandidateIndices = Set<Int>()
         
         // 2. 連続量子化重心近傍バケット探索 (±1)
         if let sig = signature {
@@ -537,6 +550,15 @@ public struct MultiDimensionalPhotoIndex: Sendable {
             }
         }
         
+        // signature が nil の場合（または写真側にシグネチャがない場合）は Lab 距離のみで即座に上位を抽出して高速リターン
+        guard let tSig = signature, !tSig.cells6x6.isEmpty else {
+            let sortedLab = labCandidateIndices.map { (idx: $0, dist: targetColor.distance(to: allPhotos[$0].labColor)) }
+                .sorted { $0.dist < $1.dist }
+                .prefix(maxCandidates)
+                .map { allPhotos[$0.idx] }
+            return Array(sortedLab)
+        }
+        
         // フォールバック（候補が少なすぎる場合は全体から補充）
         let allUniqueCount = labCandidateIndices.union(comCandidateIndices).union(gradCandidateIndices).count
         if allUniqueCount < min(30, allPhotos.count) {
@@ -547,9 +569,9 @@ public struct MultiDimensionalPhotoIndex: Sendable {
         }
         
         // 予約枠の割り振りと各ソースごとの上位抽出（Lab 40%, CoM 30%, 勾配 30%）
-        let labQuota = Int(Float(maxCandidates) * 0.40)  // 例: 80枚
-        let comQuota = Int(Float(maxCandidates) * 0.30)  // 例: 60枚
-        let gradQuota = Int(Float(maxCandidates) * 0.30) // 例: 60枚
+        let labQuota = max(1, Int(Float(maxCandidates) * 0.40))  // 例: 80枚
+        let comQuota = max(1, Int(Float(maxCandidates) * 0.30))  // 例: 60枚
+        let gradQuota = max(1, Int(Float(maxCandidates) * 0.30)) // 例: 60枚
         
         let topLab = Array(labCandidateIndices.map { (idx: $0, dist: targetColor.distance(to: allPhotos[$0].labColor)) }
             .sorted { $0.dist < $1.dist }
@@ -557,7 +579,7 @@ public struct MultiDimensionalPhotoIndex: Sendable {
             .map(\.idx))
             
         let topCom = Array(comCandidateIndices.map { idx -> (idx: Int, dist: Float) in
-            guard let tSig = signature, let pSig = allPhotos[idx].signature else {
+            guard let pSig = allPhotos[idx].signature else {
                 return (idx, targetColor.distance(to: allPhotos[idx].labColor))
             }
             let dx = tSig.darkCenterOfMassX - pSig.darkCenterOfMassX
@@ -568,8 +590,9 @@ public struct MultiDimensionalPhotoIndex: Sendable {
         .prefix(comQuota)
         .map(\.idx))
         
+        let hasGradHist = !tSig.gradientHistograms6x6.isEmpty
         let topGrad = Array(gradCandidateIndices.map { idx -> (idx: Int, dist: Float) in
-            guard let tSig = signature, let pSig = allPhotos[idx].signature else {
+            guard hasGradHist, let pSig = allPhotos[idx].signature, !pSig.gradientHistograms6x6.isEmpty else {
                 return (idx, targetColor.distance(to: allPhotos[idx].labColor))
             }
             var sumDiff: Float = 0
@@ -589,12 +612,12 @@ public struct MultiDimensionalPhotoIndex: Sendable {
         finalCandidateIndices.formUnion(topCom)
         finalCandidateIndices.formUnion(topGrad)
         
-        // もし 200 枚に達していなければ、全プールから簡易複合スコア順で補充
+        // もし maxCandidates に達していなければ、全プールから簡易複合スコア順で補充
         if finalCandidateIndices.count < maxCandidates {
             let remainingPool = labCandidateIndices.union(comCandidateIndices).union(gradCandidateIndices)
                 .subtracting(finalCandidateIndices)
             let sortedRemaining = remainingPool.map { idx -> (idx: Int, score: Float) in
-                (idx, quickCoarseScore(targetColor: targetColor, targetSig: signature, photo: allPhotos[idx]))
+                (idx, quickCoarseScore(targetColor: targetColor, targetSig: tSig, photo: allPhotos[idx]))
             }.sorted { $0.score < $1.score }
             
             for item in sortedRemaining {
@@ -829,16 +852,18 @@ extension MosaicEngine {
             )
         }
         
-        // 4. 重複許可の場合の割り当て
+        let photoIndexMap = Dictionary(uniqueKeysWithValues: usablePhotos.enumerated().map { ($1.id, $0) })
+        let photoIndex = MultiDimensionalPhotoIndex(photos: usablePhotos)
+        
+        // 4. 重複許可の場合の割り当て（高速1-pass探索）
         if allowDuplicates {
-            let photoIndex = MultiDimensionalPhotoIndex(photos: usablePhotos)
             var assignments: [AutoFillAssignment] = []
             assignments.reserveCapacity(targetTiles.count)
             
             for tile in targetTiles {
                 if Task.isCancelled { throw CancellationError() }
                 
-                let candidates = photoIndex.candidates(for: tile.targetLabColor, signature: tile.targetSignature, maxCandidates: 200)
+                let candidates = photoIndex.candidates(for: tile.targetLabColor, signature: tile.targetSignature, maxCandidates: 64)
                 var bestPhoto: IndexedPhoto? = nil
                 var bestScore = Float.infinity
                 
@@ -852,7 +877,7 @@ extension MosaicEngine {
                     }
                 }
                 
-                // level == .completeMax で万一200候補内で見つからない場合、全写真から探索
+                // level == .completeMax で万一候補内で見つからない場合、全写真から探索
                 if bestPhoto == nil && level == .completeMax {
                     for photo in usablePhotos {
                         let score = matchScore(targetColor: tile.targetLabColor, targetSignature: tile.targetSignature, photo: photo)
@@ -884,85 +909,74 @@ extension MosaicEngine {
             )
         }
         
-        // 5. 重複不許可の場合（Kuhn 最大二部マッチング ＆ 候補拡張 ＆ 2-opt）
-        let photoIndexMap = Dictionary(uniqueKeysWithValues: usablePhotos.enumerated().map { ($1.id, $0) })
-        let photoIndex = MultiDimensionalPhotoIndex(photos: usablePhotos)
+        // 5. 重複不許可の場合（高速 Kuhn 最大二部マッチング ＆ 局所 2-opt）
+        var adjList: [[(photoIdx: Int, score: Float)]] = Array(repeating: [], count: targetTiles.count)
+        var scoreCache: [Int: [Int: Float]] = [:]
         
-        // 段階的な候補探索（16 -> 32 -> 64 -> 200）
-        let edgeLimits = [16, 32, 64, 200]
-        var bestMatchingTtoP: [Int: Int] = [:] // targetTiles の index -> usablePhotos の index
-        var bestScoreMap: [Int: [Int: Float]] = [:]
-        
-        for edgeLimit in edgeLimits {
+        for (tIdx, tile) in targetTiles.enumerated() {
             if Task.isCancelled { throw CancellationError() }
+            let candidates = photoIndex.candidates(for: tile.targetLabColor, signature: tile.targetSignature, maxCandidates: 32)
+            var validEdges: [(photoIdx: Int, score: Float)] = []
+            validEdges.reserveCapacity(candidates.count)
             
-            var adjList: [[(photoIdx: Int, score: Float)]] = Array(repeating: [], count: targetTiles.count)
-            var currentScoreMap: [Int: [Int: Float]] = [:]
-            
-            for (tIdx, tile) in targetTiles.enumerated() {
-                let candidates = photoIndex.candidates(for: tile.targetLabColor, signature: tile.targetSignature, maxCandidates: 200)
-                var validEdges: [(photoIdx: Int, score: Float)] = []
-                
-                for photo in candidates {
-                    let score = matchScore(targetColor: tile.targetLabColor, targetSignature: tile.targetSignature, photo: photo)
-                    if score.isFinite && !score.isNaN && score <= threshold, let pIdx = photoIndexMap[photo.id] {
-                        validEdges.append((photoIdx: pIdx, score: score))
-                    }
+            for photo in candidates {
+                let score = matchScore(targetColor: tile.targetLabColor, targetSignature: tile.targetSignature, photo: photo)
+                if score.isFinite && !score.isNaN && score <= threshold, let pIdx = photoIndexMap[photo.id] {
+                    validEdges.append((photoIdx: pIdx, score: score))
                 }
-                // スコア昇順、同点は photo.id 昇順でタイブレーク
-                validEdges.sort {
-                    if $0.score != $1.score { return $0.score < $1.score }
-                    return usablePhotos[$0.photoIdx].id < usablePhotos[$1.photoIdx].id
-                }
-                
-                let topEdges = Array(validEdges.prefix(edgeLimit))
-                adjList[tIdx] = topEdges
-                currentScoreMap[tIdx] = Dictionary(uniqueKeysWithValues: topEdges.map { ($0.photoIdx, $0.score) })
+            }
+            validEdges.sort {
+                if $0.score != $1.score { return $0.score < $1.score }
+                return usablePhotos[$0.photoIdx].id < usablePhotos[$1.photoIdx].id
             }
             
-            var matchPtoT: [Int: Int] = [:]
-            var matchTtoP: [Int: Int] = [:]
-            
-            func dfs(tIdx: Int, visited: inout [Bool]) -> Bool {
-                for edge in adjList[tIdx] {
-                    let pIdx = edge.photoIdx
-                    if visited[pIdx] { continue }
-                    visited[pIdx] = true
-                    
-                    if let currentOwner = matchPtoT[pIdx] {
-                        if dfs(tIdx: currentOwner, visited: &visited) {
-                            matchPtoT[pIdx] = tIdx
-                            matchTtoP[tIdx] = pIdx
-                            return true
-                        }
-                    } else {
+            let topEdges = Array(validEdges.prefix(24))
+            adjList[tIdx] = topEdges
+            scoreCache[tIdx] = Dictionary(uniqueKeysWithValues: topEdges.map { ($0.photoIdx, $0.score) })
+        }
+        
+        var matchPtoT = Array<Int?>(repeating: nil, count: usablePhotos.count)
+        var matchTtoP = Array<Int?>(repeating: nil, count: targetTiles.count)
+        var visitedToken = Array(repeating: 0, count: usablePhotos.count)
+        var currentToken = 0
+        
+        func dfs(tIdx: Int, token: Int) -> Bool {
+            for edge in adjList[tIdx] {
+                let pIdx = edge.photoIdx
+                if visitedToken[pIdx] == token { continue }
+                visitedToken[pIdx] = token
+                
+                if let currentOwner = matchPtoT[pIdx] {
+                    if dfs(tIdx: currentOwner, token: token) {
                         matchPtoT[pIdx] = tIdx
                         matchTtoP[tIdx] = pIdx
                         return true
                     }
+                } else {
+                    matchPtoT[pIdx] = tIdx
+                    matchTtoP[tIdx] = pIdx
+                    return true
                 }
-                return false
             }
-            
-            // 決定的なタイル順でマッチング実行
-            let sortedIndices = Array(0..<targetTiles.count).sorted {
-                adjList[$0].count < adjList[$1].count
-            }
-            for tIdx in sortedIndices {
-                var visited = Array(repeating: false, count: usablePhotos.count)
-                _ = dfs(tIdx: tIdx, visited: &visited)
-            }
-            
-            bestMatchingTtoP = matchTtoP
-            bestScoreMap = currentScoreMap
-            
-            // 理論上の最大可能数（min(空きマス数, 未使用写真数)）に達した場合はこれ以上候補を広げない
-            if bestMatchingTtoP.count >= min(targetTiles.count, usablePhotos.count) {
-                break
+            return false
+        }
+        
+        let sortedIndices = Array(0..<targetTiles.count).sorted {
+            adjList[$0].count < adjList[$1].count
+        }
+        for tIdx in sortedIndices {
+            currentToken += 1
+            _ = dfs(tIdx: tIdx, token: currentToken)
+        }
+        
+        var bestMatchingTtoP: [Int: Int] = [:]
+        for (tIdx, maybePIdx) in matchTtoP.enumerated() {
+            if let pIdx = maybePIdx {
+                bestMatchingTtoP[tIdx] = pIdx
             }
         }
         
-        // .completeMax で 200 候補でも不足する場合、未割り当てタイルと未使用写真をストリーミングで補完
+        // .completeMax で 48 候補でも不足する場合、未割り当てタイルと未使用写真をストリーミングで補完
         if level == .completeMax && bestMatchingTtoP.count < min(targetTiles.count, usablePhotos.count) {
             if Task.isCancelled { throw CancellationError() }
             
@@ -995,19 +1009,20 @@ extension MosaicEngine {
                     bestMatchingTtoP[tIdx] = pIdx
                     assignedPhotos.insert(pIdx)
                     photoPool.remove(at: poolIdx)
-                    if bestScoreMap[tIdx] == nil { bestScoreMap[tIdx] = [:] }
-                    bestScoreMap[tIdx]?[pIdx] = bestScore
+                    if scoreCache[tIdx] == nil { scoreCache[tIdx] = [:] }
+                    scoreCache[tIdx]?[pIdx] = bestScore
                 }
             }
         }
         
-        // 6. 2-opt スワップ改善（オンデマンドスコア計算）
+        // 6. 高速局所 2-opt スワップ改善
         if bestMatchingTtoP.count > 1 {
             bestMatchingTtoP = optimizeAutoFill2Opt(
                 matching: bestMatchingTtoP,
                 tiles: targetTiles,
                 photos: usablePhotos,
-                scoreCache: &bestScoreMap
+                scoreCache: &scoreCache,
+                adjList: adjList
             )
         }
         
@@ -1019,7 +1034,7 @@ extension MosaicEngine {
             if let pIdx = bestMatchingTtoP[tIdx] {
                 let tile = targetTiles[tIdx]
                 let photo = usablePhotos[pIdx]
-                let score = bestScoreMap[tIdx]?[pIdx] ?? matchScore(targetColor: tile.targetLabColor, targetSignature: tile.targetSignature, photo: photo)
+                let score = scoreCache[tIdx]?[pIdx] ?? matchScore(targetColor: tile.targetLabColor, targetSignature: tile.targetSignature, photo: photo)
                 assignments.append(AutoFillAssignment(tileID: tile.id, photo: photo, score: score))
             }
         }
@@ -1038,17 +1053,17 @@ extension MosaicEngine {
         )
     }
     
-    /// 2-opt 局所スワップ最適化（割り当て件数を変えずに合計スコアを改善）
+    /// 高速局所 2-opt 最適化（自身の候補リストに含まれる写真を持つタイル間のみ評価して O(N * K) に短縮）
     private func optimizeAutoFill2Opt(
         matching: [Int: Int],
         tiles: [MosaicTile],
         photos: [IndexedPhoto],
-        scoreCache: inout [Int: [Int: Float]]
+        scoreCache: inout [Int: [Int: Float]],
+        adjList: [[(photoIdx: Int, score: Float)]]
     ) -> [Int: Int] {
         var currentMatching = matching
+        var photoToTileMap = Dictionary(uniqueKeysWithValues: currentMatching.map { ($1, $0) })
         let matchedTileIndices = Array(currentMatching.keys).sorted()
-        var improved = true
-        var passes = 0
         
         func getScore(tIdx: Int, pIdx: Int) -> Float {
             if let cached = scoreCache[tIdx]?[pIdx] { return cached }
@@ -1058,18 +1073,17 @@ extension MosaicEngine {
             return s
         }
         
-        while improved && passes < 3 {
-            improved = false
-            passes += 1
+        for _ in 0..<2 {
+            if Task.isCancelled { break }
+            var passImproved = false
             
-            for i in 0..<matchedTileIndices.count {
-                if Task.isCancelled { break }
-                let t1 = matchedTileIndices[i]
+            for t1 in matchedTileIndices {
                 guard let p1 = currentMatching[t1] else { continue }
                 
-                for j in (i + 1)..<matchedTileIndices.count {
-                    let t2 = matchedTileIndices[j]
-                    guard let p2 = currentMatching[t2] else { continue }
+                // t1 の上位候補に含まれる写真を持つ相手タイル t2 のみを評価
+                let candidatePhotoIdxs = adjList[t1].prefix(8).map(\.photoIdx)
+                for p2 in candidatePhotoIdxs {
+                    guard p2 != p1, let t2 = photoToTileMap[p2] else { continue }
                     
                     let curScore = getScore(tIdx: t1, pIdx: p1) + getScore(tIdx: t2, pIdx: p2)
                     let swappedScore = getScore(tIdx: t1, pIdx: p2) + getScore(tIdx: t2, pIdx: p1)
@@ -1077,10 +1091,14 @@ extension MosaicEngine {
                     if swappedScore + 0.0001 < curScore {
                         currentMatching[t1] = p2
                         currentMatching[t2] = p1
-                        improved = true
+                        photoToTileMap[p2] = t1
+                        photoToTileMap[p1] = t2
+                        passImproved = true
+                        break
                     }
                 }
             }
+            if !passImproved { break }
         }
         
         return currentMatching
@@ -1158,81 +1176,313 @@ extension MosaicEngine {
         return .applied(project: newProject, placedCount: plan.assignments.count)
     }
     
-    /// 全レベルのシミュレーション結果を配列で安全生成
+    /// 全レベルのシミュレーション結果を一括高速生成（1-pass 候補キャッシュ共有）
     public func simulateAutoFill(
         project: MosaicProject,
         availablePhotos: [IndexedPhoto],
         allowDuplicates: Bool,
         baseThreshold: Float = 0.38
     ) async -> [AutoFillSimulation] {
-        var simulations: [AutoFillSimulation] = []
-        simulations.reserveCapacity(AutoFillLevel.allCases.count)
+        if Task.isCancelled { return [] }
         
-        let emptyCount = project.tiles.filter { !$0.isFilled && !$0.isLocked }.count
-        let usedPhotoIDs = Set(project.tiles.compactMap(\.placedPhotoIdentifier))
-        var uniqueUsablePhotos: [IndexedPhoto] = []
-        var seenIDs = Set<String>()
-        for p in availablePhotos where !seenIDs.contains(p.id) {
-            seenIDs.insert(p.id)
-            if allowDuplicates || !usedPhotoIDs.contains(p.id) {
-                uniqueUsablePhotos.append(p)
+        // 1. 写真 ID の完全な重複排除
+        var seenPhotoIDs = Set<String>()
+        var uniquePhotos: [IndexedPhoto] = []
+        for photo in availablePhotos.sorted(by: { $0.id < $1.id }) {
+            if !seenPhotoIDs.contains(photo.id) {
+                seenPhotoIDs.insert(photo.id)
+                uniquePhotos.append(photo)
             }
         }
         
+        let initialFilledCount = project.filledCount
+        let totalCount = project.totalTilesCount
+        let emptyTiles = project.tiles.filter { !$0.isFilled && !$0.isLocked }.sorted {
+            if $0.gridY != $1.gridY { return $0.gridY < $1.gridY }
+            if $0.gridX != $1.gridX { return $0.gridX < $1.gridX }
+            return $0.id.uuidString < $1.id.uuidString
+        }
+        
+        let usedPhotoIDs = Set(project.tiles.compactMap(\.placedPhotoIdentifier))
+        let usablePhotos = allowDuplicates ? uniquePhotos : uniquePhotos.filter { !usedPhotoIDs.contains($0.id) }
+        
+        guard !emptyTiles.isEmpty && !usablePhotos.isEmpty else {
+            return AutoFillLevel.allCases.map { level in
+                let plan = AutoFillPlan(
+                    projectId: project.id,
+                    projectUpdatedAt: project.updatedAt,
+                    allowDuplicates: allowDuplicates,
+                    level: level,
+                    assignments: [],
+                    newFilledCount: initialFilledCount,
+                    totalTilesCount: totalCount,
+                    projectedProgress: project.progress
+                )
+                return AutoFillSimulation(
+                    level: level,
+                    title: level.shortTitle,
+                    detail: level.detailDescription,
+                    additionalCount: 0,
+                    newFilledCount: initialFilledCount,
+                    totalTilesCount: totalCount,
+                    projectedProgress: project.progress,
+                    isFullCompletion: initialFilledCount >= totalCount && totalCount > 0,
+                    statusMessage: "配置可能な写真がありません",
+                    isExecutable: false,
+                    plan: plan
+                )
+            }
+        }
+        
+        // 2. 候補抽出 ＆ スコア計算を 1 回だけ行い全レベルで共有
+        // 2. 候補抽出 ＆ スコア計算を並列・高速に 1 回だけ行い全レベルで共有
+        let photoIndexMap = Dictionary(uniqueKeysWithValues: usablePhotos.enumerated().map { ($1.id, $0) })
+        let photoIndex = MultiDimensionalPhotoIndex(photos: usablePhotos)
+        
+        let emptyTilesCount = emptyTiles.count
+        var tileCandidates: [[(photoIdx: Int, score: Float)]] = Array(repeating: [], count: emptyTilesCount)
+        var globalScoreCache: [Int: [Int: Float]] = [:]
+        
+        // チャンク並列化で CPU 全コアを活用
+        let chunkSize = max(1, emptyTilesCount / 8)
+        let chunks = stride(from: 0, to: emptyTilesCount, by: chunkSize).map {
+            Array($0..<min($0 + chunkSize, emptyTilesCount))
+        }
+        
+        let calculatedChunks: [[(Int, [(photoIdx: Int, score: Float)])]] = await withTaskGroup(
+            of: [(Int, [(photoIdx: Int, score: Float)])].self,
+            returning: [[(Int, [(photoIdx: Int, score: Float)])]].self
+        ) { group in
+            for chunkIndices in chunks {
+                group.addTask {
+                    var localResults: [(Int, [(photoIdx: Int, score: Float)])] = []
+                    localResults.reserveCapacity(chunkIndices.count)
+                    
+                    for tIdx in chunkIndices {
+                        let tile = emptyTiles[tIdx]
+                        let candidates = photoIndex.candidates(for: tile.targetLabColor, signature: tile.targetSignature, maxCandidates: 48)
+                        var validEdges: [(photoIdx: Int, score: Float)] = []
+                        validEdges.reserveCapacity(candidates.count)
+                        
+                        for photo in candidates {
+                            let score = self.matchScore(targetColor: tile.targetLabColor, targetSignature: tile.targetSignature, photo: photo)
+                            if score.isFinite && !score.isNaN, let pIdx = photoIndexMap[photo.id] {
+                                validEdges.append((photoIdx: pIdx, score: score))
+                            }
+                        }
+                        validEdges.sort {
+                            if $0.score != $1.score { return $0.score < $1.score }
+                            return usablePhotos[$0.photoIdx].id < usablePhotos[$1.photoIdx].id
+                        }
+                        localResults.append((tIdx, Array(validEdges.prefix(32))))
+                    }
+                    return localResults
+                }
+            }
+            
+            var allChunks: [[(Int, [(photoIdx: Int, score: Float)])]] = []
+            for await chunkResult in group {
+                allChunks.append(chunkResult)
+            }
+            return allChunks
+        }
+        
+        for chunk in calculatedChunks {
+            for (tIdx, topEdges) in chunk {
+                tileCandidates[tIdx] = topEdges
+                globalScoreCache[tIdx] = Dictionary(uniqueKeysWithValues: topEdges.map { ($0.photoIdx, $0.score) })
+            }
+        }
+        
+        var simulations: [AutoFillSimulation] = []
+        simulations.reserveCapacity(AutoFillLevel.allCases.count)
+        
         for level in AutoFillLevel.allCases {
             if Task.isCancelled { return [] }
+            let threshold = level.threshold(baseThreshold: baseThreshold)
             
-            do {
-                let plan = try makeAutoFillPlan(
-                    project: project,
-                    availablePhotos: availablePhotos,
-                    level: level,
-                    allowDuplicates: allowDuplicates,
-                    baseThreshold: baseThreshold
-                )
-                
-                let additional = plan.assignments.count
-                let newTotal = plan.newFilledCount
-                let total = plan.totalTilesCount
-                let progress = plan.projectedProgress
-                let isFull = (newTotal >= total && total > 0)
-                
-                let title: String
-                let statusMessage: String
-                let isExecutable = additional > 0
-                
-                if level == .completeMax {
-                    if allowDuplicates && !uniqueUsablePhotos.isEmpty {
-                        title = "100% 完全完成"
-                        statusMessage = isExecutable ? "残り \(additional) マスすべてを配置して完成させます" : "すでにすべてのマスが埋まっています"
-                    } else if !allowDuplicates && uniqueUsablePhotos.count < emptyCount {
-                        title = "可能な限り埋める"
-                        statusMessage = isExecutable ? "写真上限まで最大 \(additional) マス配置します (進捗 \(Int(progress * 100))%)" : "利用可能な写真がありません"
-                    } else {
-                        title = "100% 完全完成"
-                        statusMessage = isExecutable ? "残り \(additional) マスすべてを配置して完成させます" : "すでにすべてのマスが埋まっています"
+            let plan: AutoFillPlan
+            if allowDuplicates {
+                var assignments: [AutoFillAssignment] = []
+                assignments.reserveCapacity(emptyTiles.count)
+                for (tIdx, tile) in emptyTiles.enumerated() {
+                    let filtered = tileCandidates[tIdx].filter { $0.score <= threshold }
+                    if let best = filtered.first {
+                        assignments.append(AutoFillAssignment(tileID: tile.id, photo: usablePhotos[best.photoIdx], score: best.score))
+                    } else if level == .completeMax, let fallback = tileCandidates[tIdx].first {
+                        assignments.append(AutoFillAssignment(tileID: tile.id, photo: usablePhotos[fallback.photoIdx], score: fallback.score))
                     }
-                } else {
-                    title = level.shortTitle
-                    statusMessage = isExecutable ? "あと \(additional) マス埋まります (進捗 \(Int(progress * 100))%)" : "この許容度では追加配置できる写真がありません"
+                }
+                let newTotal = initialFilledCount + assignments.count
+                let projected = totalCount > 0 ? Float(newTotal) / Float(totalCount) : 1.0
+                plan = AutoFillPlan(
+                    projectId: project.id,
+                    projectUpdatedAt: project.updatedAt,
+                    allowDuplicates: allowDuplicates,
+                    level: level,
+                    assignments: assignments,
+                    newFilledCount: newTotal,
+                    totalTilesCount: totalCount,
+                    projectedProgress: projected
+                )
+            } else {
+                // 重複なし Kuhn マッチング (O(1) Token visited による超高速探索)
+                var adjList: [[(photoIdx: Int, score: Float)]] = Array(repeating: [], count: emptyTiles.count)
+                for (tIdx, edges) in tileCandidates.enumerated() {
+                    let valid = edges.filter { $0.score <= threshold }
+                    if valid.isEmpty && level == .completeMax {
+                        adjList[tIdx] = edges // 可能な限り埋める
+                    } else {
+                        adjList[tIdx] = valid
+                    }
                 }
                 
-                simulations.append(AutoFillSimulation(
+                var matchPtoT = Array<Int?>(repeating: nil, count: usablePhotos.count)
+                var matchTtoP = Array<Int?>(repeating: nil, count: emptyTiles.count)
+                var visitedToken = Array(repeating: 0, count: usablePhotos.count)
+                var currentToken = 0
+                
+                func dfs(tIdx: Int, token: Int) -> Bool {
+                    for edge in adjList[tIdx] {
+                        let pIdx = edge.photoIdx
+                        if visitedToken[pIdx] == token { continue }
+                        visitedToken[pIdx] = token
+                        
+                        if let currentOwner = matchPtoT[pIdx] {
+                            if dfs(tIdx: currentOwner, token: token) {
+                                matchPtoT[pIdx] = tIdx
+                                matchTtoP[tIdx] = pIdx
+                                return true
+                            }
+                        } else {
+                            matchPtoT[pIdx] = tIdx
+                            matchTtoP[tIdx] = pIdx
+                            return true
+                        }
+                    }
+                    return false
+                }
+                
+                let sortedIndices = Array(0..<emptyTiles.count).sorted {
+                    adjList[$0].count < adjList[$1].count
+                }
+                for tIdx in sortedIndices {
+                    currentToken += 1
+                    _ = dfs(tIdx: tIdx, token: currentToken)
+                }
+                
+                var matching: [Int: Int] = [:]
+                for (tIdx, maybePIdx) in matchTtoP.enumerated() {
+                    if let pIdx = maybePIdx {
+                        matching[tIdx] = pIdx
+                    }
+                }
+                
+                // .completeMax 高速補完
+                if level == .completeMax && matching.count < min(emptyTiles.count, usablePhotos.count) {
+                    var assignedPhotos = Set(matching.values)
+                    let unassigned = (0..<emptyTiles.count).filter { matching[$0] == nil }
+                    var remainingPool = (0..<usablePhotos.count).filter { !assignedPhotos.contains($0) }
+                    
+                    for tIdx in unassigned {
+                        if remainingPool.isEmpty { break }
+                        let tile = emptyTiles[tIdx]
+                        
+                        // 高速なクイックスコアで残存プールから最良を選択
+                        var bestPoolIdx = 0
+                        var bestScore: Float = Float.infinity
+                        for (idx, pIdx) in remainingPool.enumerated() {
+                            let p = usablePhotos[pIdx]
+                            let s = max(0.0, min(1.0, tile.targetLabColor.distance(to: p.labColor) / 40.0))
+                            if s < bestScore {
+                                bestScore = s
+                                bestPoolIdx = idx
+                            }
+                        }
+                        
+                        let chosenPIdx = remainingPool.remove(at: bestPoolIdx)
+                        matching[tIdx] = chosenPIdx
+                        assignedPhotos.insert(chosenPIdx)
+                        if globalScoreCache[tIdx] == nil { globalScoreCache[tIdx] = [:] }
+                        globalScoreCache[tIdx]?[chosenPIdx] = bestScore
+                    }
+                }
+                
+                // 高速局所 2-opt
+                if matching.count > 1 {
+                    matching = optimizeAutoFill2Opt(
+                        matching: matching,
+                        tiles: emptyTiles,
+                        photos: usablePhotos,
+                        scoreCache: &globalScoreCache,
+                        adjList: adjList
+                    )
+                }
+                
+                var assignments: [AutoFillAssignment] = []
+                assignments.reserveCapacity(matching.count)
+                for tIdx in 0..<emptyTiles.count {
+                    if let pIdx = matching[tIdx] {
+                        let tile = emptyTiles[tIdx]
+                        let photo = usablePhotos[pIdx]
+                        let score = globalScoreCache[tIdx]?[pIdx] ?? matchScore(targetColor: tile.targetLabColor, targetSignature: tile.targetSignature, photo: photo)
+                        assignments.append(AutoFillAssignment(tileID: tile.id, photo: photo, score: score))
+                    }
+                }
+                
+                let newTotal = initialFilledCount + assignments.count
+                let projected = totalCount > 0 ? Float(newTotal) / Float(totalCount) : 1.0
+                plan = AutoFillPlan(
+                    projectId: project.id,
+                    projectUpdatedAt: project.updatedAt,
+                    allowDuplicates: allowDuplicates,
                     level: level,
-                    title: title,
-                    detail: level.detailDescription,
-                    additionalCount: additional,
+                    assignments: assignments,
                     newFilledCount: newTotal,
-                    totalTilesCount: total,
-                    projectedProgress: progress,
-                    isFullCompletion: isFull,
-                    statusMessage: statusMessage,
-                    isExecutable: isExecutable,
-                    plan: plan
-                ))
-            } catch {
-                if Task.isCancelled { return [] }
+                    totalTilesCount: totalCount,
+                    projectedProgress: projected
+                )
             }
+            
+            let additional = plan.assignments.count
+            let newTotal = plan.newFilledCount
+            let total = plan.totalTilesCount
+            let progress = plan.projectedProgress
+            let isFull = (newTotal >= total && total > 0)
+            
+            let title: String
+            let statusMessage: String
+            let isExecutable = additional > 0
+            
+            if level == .completeMax {
+                if allowDuplicates && !usablePhotos.isEmpty {
+                    title = "100% 完全完成"
+                    statusMessage = isExecutable ? "残り \(additional) マスすべてを配置して完成させます" : "すでにすべてのマスが埋まっています"
+                } else if !allowDuplicates && usablePhotos.count < emptyTiles.count {
+                    title = "可能な限り埋める"
+                    statusMessage = isExecutable ? "写真上限まで最大 \(additional) マス配置します (進捗 \(Int(progress * 100))%)" : "利用可能な写真がありません"
+                } else {
+                    title = "100% 完全完成"
+                    statusMessage = isExecutable ? "残り \(additional) マスすべてを配置して完成させます" : "すでにすべてのマスが埋まっています"
+                }
+            } else {
+                title = level.shortTitle
+                statusMessage = isExecutable ? "あと \(additional) マス埋まります (進捗 \(Int(progress * 100))%)" : "この許容度では追加配置できる写真がありません"
+            }
+            
+            simulations.append(AutoFillSimulation(
+                level: level,
+                title: title,
+                detail: level.detailDescription,
+                additionalCount: additional,
+                newFilledCount: newTotal,
+                totalTilesCount: total,
+                projectedProgress: progress,
+                isFullCompletion: isFull,
+                statusMessage: statusMessage,
+                isExecutable: isExecutable,
+                plan: plan
+            ))
         }
         
         return simulations

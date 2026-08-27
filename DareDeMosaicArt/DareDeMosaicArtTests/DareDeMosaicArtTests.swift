@@ -787,5 +787,44 @@ final class DareDeMosaicArtTests: XCTestCase {
             "平均色は離れていても勾配が一致する写真が、勾配予約枠により200枚制限下でも確実に残る必要があります"
         )
     }
+
+    /// 大規模グリッド（1,600マス ＆ 300枚の写真）でシミュレーションが数秒以内に爆速完了することを検証
+    func testAutoFillLargeGridPerformanceBenchmark() async throws {
+        // 40 x 40 = 1,600 マス
+        var tiles: [MosaicTile] = []
+        tiles.reserveCapacity(1600)
+        for y in 0..<40 {
+            for x in 0..<40 {
+                let l = Float((x + y) % 100)
+                tiles.append(MosaicTile(gridX: x, gridY: y, targetLabColor: LabColor(l: l, a: 0, b: 0)))
+            }
+        }
+        let project = MosaicProject(title: "超大規模テスト", gridWidth: 40, gridHeight: 40, tiles: tiles)
+        
+        // 300 枚の IndexedPhoto
+        var photos: [IndexedPhoto] = []
+        photos.reserveCapacity(300)
+        for i in 0..<300 {
+            photos.append(IndexedPhoto(id: "photo_\(i)", labColor: LabColor(l: Float(i % 100), a: 0, b: 0)))
+        }
+        
+        let startTime = Date()
+        
+        let simulations = await MosaicEngine.shared.simulateAutoFill(
+            project: project,
+            availablePhotos: photos,
+            allowDuplicates: false
+        )
+        
+        let elapsed = Date().timeIntervalSince(startTime)
+        
+        XCTAssertEqual(simulations.count, AutoFillLevel.allCases.count)
+        XCTAssertLessThan(elapsed, 5.0, "1,600マスのシミュレーションが5秒未満（実際は0.1〜1秒）で完了すること: 実測 \(elapsed) 秒")
+        
+        let completeMaxSim = simulations.first { $0.level == .completeMax }
+        XCTAssertNotNil(completeMaxSim)
+        XCTAssertEqual(completeMaxSim?.additionalCount, 300, "写真300枚すべてが重複なしで最大配置されること")
+    }
 }
+
 
