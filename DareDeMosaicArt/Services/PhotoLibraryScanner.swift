@@ -35,6 +35,10 @@ public final class PhotoLibraryScanner: ObservableObject {
     @Published public var localAvailableCount: Int = 0
     @Published public var scannedPhotos: [IndexedPhoto] = []
     @Published public var authorizationStatus: PHAuthorizationStatus = .notDetermined
+
+    /// 同じ写真ソースを画面ごとに再スキャンしないためのセッションキャッシュ。
+    private var lastScannedSource: PhotoSource?
+    private var hasCompletedScan = false
     
     private init() {
         checkPermission()
@@ -116,12 +120,17 @@ public final class PhotoLibraryScanner: ObservableObject {
         self.totalPhotoCount = totalCount
         
         guard totalCount > 0 else {
+            self.scannedPhotos = []
+            self.lastScannedSource = source
+            self.hasCompletedScan = true
             self.isScanning = false
             return []
         }
         
         // 既存キャッシュを読み込み
-        let cachedEntries = PhotoColorIndexCache.load()
+        let cachedEntries = await Task.detached(priority: .utility) {
+            PhotoColorIndexCache.load()
+        }.value
         var newlyProcessedEntries: [CachedPhotoIndexEntry] = []
         var results: [IndexedPhoto] = []
         results.reserveCapacity(totalCount)
@@ -137,6 +146,14 @@ public final class PhotoLibraryScanner: ObservableObject {
             
             let batchResults = await withTaskGroup(of: CachedPhotoIndexEntry?.self) { group in
                 for asset in batchAssets {
+                    // 完全な v2 特徴量がキャッシュ済みなら Photos への画像要求と再解析を省略する。
+                    if let cached = cachedEntries[asset.localIdentifier],
+                       cached.modificationDate == asset.modificationDate,
+                       (cached.photo.signature?.version ?? 1) >= 2 {
+                        group.addTask { cached }
+                        continue
+                    }
+
                     group.addTask {
                         let requestOptions = PHImageRequestOptions()
                         requestOptions.isSynchronous = false
@@ -166,26 +183,20 @@ public final class PhotoLibraryScanner: ObservableObject {
                                         return
                                     }
                                     
-                                    // 端末内に完全な画像が存在する場合
-                                    if let cached = cachedEntries[asset.localIdentifier],
-                                       cached.modificationDate == asset.modificationDate,
-                                       (cached.photo.signature?.version ?? 1) >= 2 {
-                                        gate.resume(returning: cached)
-                                    } else {
-                                        let signature = ColorAnalysisService.shared.extractSpatialSignature(from: uiImage)
-                                        let thumbData = uiImage.jpegData(compressionQuality: 0.6)
-                                        let item = IndexedPhoto(
-                                            id: asset.localIdentifier,
-                                            labColor: signature.average,
-                                            signature: signature,
-                                            thumbnailData: thumbData
-                                        )
-                                        gate.resume(returning: CachedPhotoIndexEntry(
-                                            id: asset.localIdentifier,
-                                            modificationDate: asset.modificationDate,
-                                            photo: item
-                                        ))
-                                    }
+                                    // 未解析または更新された写真だけを解析する。
+                                    let signature = ColorAnalysisService.shared.extractSpatialSignature(from: uiImage)
+                                    let thumbData = uiImage.jpegData(compressionQuality: 0.6)
+                                    let item = IndexedPhoto(
+                                        id: asset.localIdentifier,
+                                        labColor: signature.average,
+                                        signature: signature,
+                                        thumbnailData: thumbData
+                                    )
+                                    gate.resume(returning: CachedPhotoIndexEntry(
+                                        id: asset.localIdentifier,
+                                        modificationDate: asset.modificationDate,
+                                        photo: item
+                                    ))
                                 } else {
                                     gate.resume(returning: nil)
                                 }
@@ -212,18 +223,67 @@ public final class PhotoLibraryScanner: ObservableObject {
         }
         
         self.scannedPhotos = results
+        self.lastScannedSource = source
+        self.hasCompletedScan = true
         self.isScanning = false
 
         // キャッシュに差分マージ
         let newEntries = newlyProcessedEntries
-        Task {
+        Task.detached(priority: .utility) {
             PhotoColorIndexCache.merge(newEntries)
         }
         return results
     }
+
+    /// 永続キャッシュを先に返す。Photosとの最新状態照合は行わないため、UIの先行表示専用。
+    public func cachedPhotos(for source: PhotoSource) async -> [IndexedPhoto] {
+        if lastScannedSource == source, !scannedPhotos.isEmpty {
+            return scannedPhotos
+        }
+
+        let cachedEntries = await Task.detached(priority: .userInitiated) {
+            PhotoColorIndexCache.load()
+        }.value
+        guard !cachedEntries.isEmpty else { return [] }
+
+        let photos: [IndexedPhoto]
+        switch source {
+        case .allLocalPhotos:
+            photos = cachedEntries.values.map(\.photo).sorted { $0.id < $1.id }
+
+        case .album(let localIdentifier, _):
+            let collections = PHAssetCollection.fetchAssetCollections(
+                withLocalIdentifiers: [localIdentifier],
+                options: nil
+            )
+            guard let collection = collections.firstObject else { return [] }
+
+            let fetchOptions = PHFetchOptions()
+            fetchOptions.predicate = NSPredicate(format: "mediaType == %d", PHAssetMediaType.image.rawValue)
+            let assets = PHAsset.fetchAssets(in: collection, options: fetchOptions)
+            var assetIDs = Set<String>()
+            assetIDs.reserveCapacity(assets.count)
+            assets.enumerateObjects { asset, _, _ in
+                assetIDs.insert(asset.localIdentifier)
+            }
+            photos = cachedEntries.values
+                .filter { assetIDs.contains($0.id) }
+                .map(\.photo)
+                .sorted { $0.id < $1.id }
+        }
+
+        scannedPhotos = photos
+        lastScannedSource = source
+        // 先行キャッシュは最新照合済みではないため、photos(for:) では引き続き差分更新する。
+        hasCompletedScan = false
+        return photos
+    }
     
     /// ソースに該当する写真群を取得
     public func photos(for source: PhotoSource) async throws -> [IndexedPhoto] {
+        if hasCompletedScan, lastScannedSource == source {
+            return scannedPhotos
+        }
         return try await scanPhotos(source: source)
     }
 }

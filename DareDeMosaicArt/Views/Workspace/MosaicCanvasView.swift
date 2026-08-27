@@ -60,8 +60,19 @@ private enum MosaicPreviewRenderer {
 }
 
 /// UIImageView 1枚だけをUIScrollViewのネイティブエンジンで拡大・移動する。
+private final class NativeMosaicScrollView: UIScrollView {
+    var onLayout: (() -> Void)?
+
+    override func layoutSubviews() {
+        super.layoutSubviews()
+        onLayout?()
+    }
+}
+
 private struct NativeZoomMosaicView: UIViewRepresentable {
     let image: UIImage
+    let originalImage: UIImage?
+    let isShowingOriginal: Bool
     let gridWidth: Int
     let gridHeight: Int
     let selectedTile: MosaicTile?
@@ -74,7 +85,7 @@ private struct NativeZoomMosaicView: UIViewRepresentable {
     }
 
     func makeUIView(context: Context) -> UIScrollView {
-        let scrollView = UIScrollView()
+        let scrollView = NativeMosaicScrollView()
         scrollView.delegate = context.coordinator
         scrollView.minimumZoomScale = 1
         scrollView.maximumZoomScale = 6
@@ -85,7 +96,7 @@ private struct NativeZoomMosaicView: UIViewRepresentable {
         scrollView.backgroundColor = .black
 
         let imageView = context.coordinator.imageView
-        imageView.image = image
+        imageView.image = isShowingOriginal ? (originalImage ?? image) : image
         imageView.contentMode = .scaleToFill
         imageView.isUserInteractionEnabled = true
         scrollView.addSubview(imageView)
@@ -98,24 +109,23 @@ private struct NativeZoomMosaicView: UIViewRepresentable {
         imageView.addGestureRecognizer(doubleTap)
 
         context.coordinator.scrollView = scrollView
+        scrollView.onLayout = { [weak scrollView, weak coordinator = context.coordinator] in
+            guard let scrollView, let coordinator else { return }
+            coordinator.layoutContent(in: scrollView)
+        }
         return scrollView
     }
 
     func updateUIView(_ scrollView: UIScrollView, context: Context) {
         context.coordinator.parent = self
-        context.coordinator.imageView.image = image
-
-        let side = min(scrollView.bounds.width, scrollView.bounds.height)
-        if side > 0, context.coordinator.baseSide != side || scrollView.zoomScale <= 1.001 {
-            context.coordinator.baseSide = side
-            context.coordinator.imageView.frame = CGRect(
-                x: (scrollView.bounds.width - side) / 2,
-                y: (scrollView.bounds.height - side) / 2,
-                width: side,
-                height: side
-            )
-            scrollView.contentSize = context.coordinator.imageView.frame.size
+        
+        let targetImg = (isShowingOriginal ? originalImage : image) ?? image
+        if context.coordinator.imageView.image !== targetImg {
+            context.coordinator.imageView.image = targetImg
         }
+        context.coordinator.selectionLayer.isHidden = isShowingOriginal
+        
+        context.coordinator.layoutContent(in: scrollView)
 
         if zoomScale <= 1.001, scrollView.zoomScale > 1.001 {
             scrollView.setZoomScale(1, animated: true)
@@ -141,6 +151,31 @@ private struct NativeZoomMosaicView: UIViewRepresentable {
 
         func viewForZooming(in scrollView: UIScrollView) -> UIView? {
             imageView
+        }
+
+        /// UIViewRepresentable の初回更新時に bounds が 0 でも、UIKit の実レイアウト確定後に必ず再配置する。
+        func layoutContent(in scrollView: UIScrollView) {
+            let side = min(scrollView.bounds.width, scrollView.bounds.height)
+            guard side > 0 else { return }
+
+            let desiredFrame = CGRect(
+                x: (scrollView.bounds.width - side) / 2,
+                y: (scrollView.bounds.height - side) / 2,
+                width: side,
+                height: side
+            )
+            let sizeChanged = abs(baseSide - side) > 0.5
+            let frameChanged = abs(imageView.frame.minX - desiredFrame.minX) > 0.5
+                || abs(imageView.frame.minY - desiredFrame.minY) > 0.5
+                || abs(imageView.frame.width - desiredFrame.width) > 0.5
+                || abs(imageView.frame.height - desiredFrame.height) > 0.5
+
+            if sizeChanged || (scrollView.zoomScale <= 1.001 && frameChanged) {
+                baseSide = side
+                imageView.frame = desiredFrame
+                scrollView.contentSize = CGSize(width: side, height: side)
+                updateSelection()
+            }
         }
 
         func scrollViewDidZoom(_ scrollView: UIScrollView) {
@@ -207,11 +242,13 @@ public struct MosaicCanvasView: View {
     public let selectedTileId: UUID?
     public let showGuideImage: Bool
     public let guideOpacity: Double
+    public let isShowingOriginalImage: Bool
     public let onSelectTile: (MosaicTile) -> Void
 
     @Binding public var zoomScale: CGFloat
     @Binding public var offset: CGSize
     @State private var previewImage: UIImage?
+    @State private var targetUIImage: UIImage?
     @State private var renderTask: Task<Void, Never>?
 
     public init(
@@ -219,6 +256,7 @@ public struct MosaicCanvasView: View {
         selectedTileId: UUID? = nil,
         showGuideImage: Bool = false,
         guideOpacity: Double = 0.4,
+        isShowingOriginalImage: Bool = false,
         zoomScale: Binding<CGFloat>,
         offset: Binding<CGSize>,
         onSelectTile: @escaping (MosaicTile) -> Void
@@ -227,6 +265,7 @@ public struct MosaicCanvasView: View {
         self.selectedTileId = selectedTileId
         self.showGuideImage = showGuideImage
         self.guideOpacity = guideOpacity
+        self.isShowingOriginalImage = isShowingOriginalImage
         self._zoomScale = zoomScale
         self._offset = offset
         self.onSelectTile = onSelectTile
@@ -250,6 +289,8 @@ public struct MosaicCanvasView: View {
                     #if canImport(UIKit)
                     NativeZoomMosaicView(
                         image: previewImage,
+                        originalImage: targetUIImage,
+                        isShowingOriginal: isShowingOriginalImage,
                         gridWidth: max(1, project.gridWidth),
                         gridHeight: max(1, project.gridHeight),
                         selectedTile: selectedTile,
@@ -265,6 +306,11 @@ public struct MosaicCanvasView: View {
                 }
             }
             .frame(width: geometry.size.width, height: geometry.size.height)
+        }
+        .task(id: project.targetImageData) {
+            if !project.targetImageData.isEmpty {
+                targetUIImage = UIImage(data: project.targetImageData)
+            }
         }
         .task(id: renderKey) {
             renderTask?.cancel()

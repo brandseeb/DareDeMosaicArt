@@ -21,12 +21,17 @@ public struct MosaicWorkspaceView: View {
     // 手動差し替え用の候補リスト
     @State private var replacementCandidates: [PhotoMatchCandidate] = []
     @State private var isLoadingCandidates: Bool = false
+    @State private var candidateLoadTask: Task<Void, Never>?
     @State private var allSourcePhotos: [IndexedPhoto] = []
     @State private var isLoadingSourcePhotos: Bool = false
+    @State private var hasFullyLoadedSourcePhotos: Bool = false
+    @State private var candidateSearchIndex: MultiDimensionalPhotoIndex?
+    @State private var candidateSearchIndexPhotoCount: Int = 0
     
     // キャンバス表示スケールと位置
     @State private var canvasScale: CGFloat = 1.0
     @State private var canvasOffset: CGSize = .zero
+    @State private var isPressingOriginalImage: Bool = false
     
     public init(project: Binding<MosaicProject>) {
         self._project = project
@@ -55,6 +60,7 @@ public struct MosaicWorkspaceView: View {
                     MosaicCanvasView(
                         project: project,
                         selectedTileId: selectedTile?.id,
+                        isShowingOriginalImage: isPressingOriginalImage,
                         zoomScale: $canvasScale,
                         offset: $canvasOffset,
                         onSelectTile: { tile in
@@ -111,6 +117,10 @@ public struct MosaicWorkspaceView: View {
             .sheet(item: $selectedTile) { tile in
                 tileDetailSheet(for: tile)
                     .presentationDetents([.medium, .large])
+                    .onDisappear {
+                        candidateLoadTask?.cancel()
+                        isLoadingCandidates = false
+                    }
             }
             .sheet(isPresented: $showAutoFillSheet) {
                 AutoFillSheetView(
@@ -152,6 +162,10 @@ public struct MosaicWorkspaceView: View {
             .alert("アルバムが見つかりません", isPresented: $showAlbumMissingAlert) {
                 Button("端末内の全写真に切り替える") {
                     project.photoSource = .allLocalPhotos
+                    allSourcePhotos = []
+                    hasFullyLoadedSourcePhotos = false
+                    candidateSearchIndex = nil
+                    candidateSearchIndexPhotoCount = 0
                     Task {
                         await loadSourcePhotos()
                     }
@@ -160,12 +174,43 @@ public struct MosaicWorkspaceView: View {
             } message: {
                 Text(albumMissingMessage)
             }
+            .task(id: project.photoSource) {
+                await prewarmCachedSourcePhotos()
+            }
         }
+    }
+
+    /// 作品を開いた直後に永続キャッシュだけを先読みし、ピース初回タップの待ち時間を隠す。
+    private func prewarmCachedSourcePhotos() async {
+        guard allSourcePhotos.isEmpty else { return }
+        let source = project.photoSource
+        let cached = await PhotoLibraryScanner.shared.cachedPhotos(for: source)
+        guard !Task.isCancelled, project.photoSource == source, allSourcePhotos.isEmpty else { return }
+        allSourcePhotos = cached
+    }
+
+    /// 同じライブラリ集合では多次元検索インデックスを使い回す。
+    private func preparedCandidateIndex(
+        for photos: [IndexedPhoto],
+        forceRebuild: Bool = false
+    ) async -> MultiDimensionalPhotoIndex {
+        if !forceRebuild,
+           let candidateSearchIndex,
+           candidateSearchIndexPhotoCount == photos.count {
+            return candidateSearchIndex
+        }
+
+        let built = await Task.detached(priority: .userInitiated) {
+            MultiDimensionalPhotoIndex(photos: photos)
+        }.value
+        candidateSearchIndex = built
+        candidateSearchIndexPhotoCount = photos.count
+        return built
     }
     
     // MARK: - ソース写真の事前ロード（バックグラウンド実行）
     private func loadSourcePhotos() async {
-        if !allSourcePhotos.isEmpty { return }
+        if hasFullyLoadedSourcePhotos { return }
         if isLoadingSourcePhotos {
             while isLoadingSourcePhotos && !Task.isCancelled {
                 try? await Task.sleep(for: .milliseconds(50))
@@ -178,18 +223,25 @@ public struct MosaicWorkspaceView: View {
             let loaded = try await PhotoLibraryScanner.shared.photos(for: project.photoSource)
             await MainActor.run {
                 self.allSourcePhotos = loaded
+                self.hasFullyLoadedSourcePhotos = true
             }
         } catch let error as PhotoLibraryScannerError {
             if case .albumNotFound(let albumTitle) = error {
                 await MainActor.run {
                     self.albumMissingMessage = "指定されたアルバム「\(albumTitle)」が見つかりません。削除された可能性があります。"
                     self.showAlbumMissingAlert = true
-                    self.allSourcePhotos = []
+                    if self.allSourcePhotos.isEmpty {
+                        self.allSourcePhotos = []
+                    }
+                    self.hasFullyLoadedSourcePhotos = false
                 }
             }
         } catch {
             await MainActor.run {
-                self.allSourcePhotos = []
+                if self.allSourcePhotos.isEmpty {
+                    self.allSourcePhotos = []
+                }
+                self.hasFullyLoadedSourcePhotos = false
             }
         }
     }
@@ -207,35 +259,65 @@ public struct MosaicWorkspaceView: View {
     private func handleTileSelected(_ tile: MosaicTile) {
         selectedTile = tile
         replacementCandidates = []
-        isLoadingCandidates = false
+        loadCandidates(for: tile)
     }
     
     private func loadCandidates(for tile: MosaicTile) {
+        candidateLoadTask?.cancel()
         isLoadingCandidates = true
         replacementCandidates = []
-        
-        Task {
+
+        candidateLoadTask = Task {
+            // 1. 前回の解析キャッシュを使い、候補を先に表示する。
             if allSourcePhotos.isEmpty {
-                await loadSourcePhotos()
+                let cached = await PhotoLibraryScanner.shared.cachedPhotos(for: project.photoSource)
+                guard !Task.isCancelled, selectedTile?.id == tile.id else { return }
+                allSourcePhotos = cached
             }
-            
+            guard !Task.isCancelled, selectedTile?.id == tile.id else { return }
+
             // 選択中タイル自身の現在の写真も含め、プロジェクト内で配置済みの全写真IDを除外
             var usedIDs = Set(project.tiles.compactMap(\.placedPhotoIdentifier))
             if let currentPhotoID = tile.placedPhotoIdentifier {
                 usedIDs.insert(currentPhotoID)
             }
-            
-            let candidates = MosaicEngine.shared.findBestMatchCandidates(
-                for: tile,
-                from: allSourcePhotos,
-                excluding: usedIDs,
-                topK: 8
-            )
-            
-            await MainActor.run {
-                self.replacementCandidates = candidates
-                self.isLoadingCandidates = false
+
+            if !allSourcePhotos.isEmpty {
+                let cachedPhotos = allSourcePhotos
+                let cachedIndex = await preparedCandidateIndex(for: cachedPhotos)
+                let cachedCandidates = await Task.detached(priority: .userInitiated) {
+                    MosaicEngine.shared.findBestMatchCandidates(
+                        for: tile,
+                        using: cachedIndex,
+                        excluding: usedIDs,
+                        topK: 8
+                    )
+                }.value
+                guard !Task.isCancelled, selectedTile?.id == tile.id else { return }
+                self.replacementCandidates = cachedCandidates
             }
+
+            // 2. 候補を表示したまま、裏側で新規・更新・削除写真との差分を照合する。
+            let neededLibraryRefresh = !hasFullyLoadedSourcePhotos
+            await loadSourcePhotos()
+            guard !Task.isCancelled, selectedTile?.id == tile.id else { return }
+
+            let refreshedPhotos = allSourcePhotos
+            let refreshedIndex = await preparedCandidateIndex(
+                for: refreshedPhotos,
+                forceRebuild: neededLibraryRefresh
+            )
+            let refreshedCandidates = await Task.detached(priority: .userInitiated) {
+                MosaicEngine.shared.findBestMatchCandidates(
+                    for: tile,
+                    using: refreshedIndex,
+                    excluding: usedIDs,
+                    topK: 8
+                )
+            }.value
+            guard !Task.isCancelled, selectedTile?.id == tile.id else { return }
+            self.replacementCandidates = refreshedCandidates
+            self.isLoadingCandidates = false
         }
     }
     
@@ -320,18 +402,36 @@ public struct MosaicWorkspaceView: View {
                 
                 Spacer()
                 
-                if !project.isCompleted && emptyTilesCount > 0 {
-                    Button {
-                        openAutoFill()
-                    } label: {
-                        HStack(spacing: 3) {
-                            Image(systemName: "wand.and.stars")
-                            Text("写真から自動穴埋め")
-                        }
+                // 元画像表示ボタン（長押ししている間だけ元画像を表示）
+                HStack(spacing: 4) {
+                    Image(systemName: isPressingOriginalImage ? "eye.fill" : "eye")
+                    Text("元画像を表示")
                         .font(.caption.bold())
-                        .foregroundColor(.accentColor)
-                    }
                 }
+                .foregroundColor(isPressingOriginalImage ? .white : .accentColor)
+                .padding(.horizontal, 10)
+                .padding(.vertical, 6)
+                .background(isPressingOriginalImage ? Color.accentColor : Color.accentColor.opacity(0.12))
+                .cornerRadius(8)
+                .simultaneousGesture(
+                    DragGesture(minimumDistance: 0)
+                        .onChanged { _ in
+                            if !isPressingOriginalImage {
+                                #if canImport(UIKit)
+                                UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                                #endif
+                                isPressingOriginalImage = true
+                            }
+                        }
+                        .onEnded { _ in
+                            if isPressingOriginalImage {
+                                #if canImport(UIKit)
+                                UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                                #endif
+                                isPressingOriginalImage = false
+                            }
+                        }
+                )
             }
             .padding(.horizontal)
             
@@ -487,29 +587,23 @@ public struct MosaicWorkspaceView: View {
                                 .foregroundColor(.accentColor)
                             Text("ライブラリから選び直す")
                                 .font(.headline)
-                            Spacer()
                             if isLoadingCandidates {
+                                Text("解析中…")
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
                                 ProgressView()
                                     .scaleEffect(0.8)
                             }
+                            Spacer()
                         }
                         .padding(.horizontal)
                         
                         if replacementCandidates.isEmpty && !isLoadingCandidates {
-                            Button {
-                                loadCandidates(for: tile)
-                            } label: {
-                                HStack {
-                                    Image(systemName: "photo.stack")
-                                    Text("類似する写真候補を読み込む")
-                                }
-                                .font(.subheadline.bold())
-                                .frame(maxWidth: .infinity)
-                                .padding(.vertical, 10)
-                                .background(Color.accentColor.opacity(0.12))
-                                .cornerRadius(10)
-                            }
-                            .padding(.horizontal)
+                            Text("利用可能な類似写真が見つかりませんでした")
+                                .font(.subheadline)
+                                .foregroundColor(.secondary)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .padding(.horizontal)
                         } else {
                             ScrollView(.horizontal, showsIndicators: false) {
                                 HStack(spacing: 12) {

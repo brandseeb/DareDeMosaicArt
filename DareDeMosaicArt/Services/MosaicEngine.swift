@@ -240,7 +240,22 @@ public final class MosaicEngine: Sendable {
         guard !usablePhotos.isEmpty else { return [] }
         
         let index = MultiDimensionalPhotoIndex(photos: usablePhotos)
-        let candidates = index.candidates(for: tile.targetLabColor, signature: tile.targetSignature, maxCandidates: 100)
+        return findBestMatchCandidates(for: tile, using: index, excluding: [], topK: topK)
+    }
+
+    /// 構築済みインデックスを再利用する候補探索。ピースを切り替えるたびの全写真再インデックス化を避ける。
+    public func findBestMatchCandidates(
+        for tile: MosaicTile,
+        using index: MultiDimensionalPhotoIndex,
+        excluding usedPhotoIDs: Set<String> = [],
+        topK: Int = 8
+    ) -> [PhotoMatchCandidate] {
+        let candidates = index.candidates(
+            for: tile.targetLabColor,
+            signature: tile.targetSignature,
+            maxCandidates: 100,
+            excluding: usedPhotoIDs
+        )
         
         var scoredList: [(IndexedPhoto, Float)] = []
         scoredList.reserveCapacity(candidates.count)
@@ -455,7 +470,12 @@ public struct MultiDimensionalPhotoIndex: Sendable {
         }
     }
     
-    public func candidates(for targetColor: LabColor, signature: SpatialColorSignature?, maxCandidates: Int = 200) -> [IndexedPhoto] {
+    public func candidates(
+        for targetColor: LabColor,
+        signature: SpatialColorSignature?,
+        maxCandidates: Int = 200,
+        excluding excludedPhotoIDs: Set<String> = []
+    ) -> [IndexedPhoto] {
         // 1. Lab 近傍バケット探索 (±1)
         var labCandidateIndices = Set<Int>()
         let targetL = Int(targetColor.l / 15.0)
@@ -477,8 +497,12 @@ public struct MultiDimensionalPhotoIndex: Sendable {
         
         // signature が nil の場合（または写真側にシグネチャがない場合）は Lab 距離のみで即座に上位を抽出して超高速リターン
         guard let tSig = signature, !tSig.cells6x6.isEmpty else {
+            if !excludedPhotoIDs.isEmpty {
+                labCandidateIndices = labCandidateIndices.filter { !excludedPhotoIDs.contains(allPhotos[$0].id) }
+            }
             if labCandidateIndices.count < min(30, allPhotos.count) {
                 for i in 0..<allPhotos.count {
+                    if excludedPhotoIDs.contains(allPhotos[i].id) { continue }
                     labCandidateIndices.insert(i)
                     if labCandidateIndices.count >= maxCandidates { break }
                 }
@@ -552,6 +576,9 @@ public struct MultiDimensionalPhotoIndex: Sendable {
         
         // signature が nil の場合（または写真側にシグネチャがない場合）は Lab 距離のみで即座に上位を抽出して高速リターン
         guard let tSig = signature, !tSig.cells6x6.isEmpty else {
+            if !excludedPhotoIDs.isEmpty {
+                labCandidateIndices = labCandidateIndices.filter { !excludedPhotoIDs.contains(allPhotos[$0].id) }
+            }
             let sortedLab = labCandidateIndices.map { (idx: $0, dist: targetColor.distance(to: allPhotos[$0].labColor)) }
                 .sorted { $0.dist < $1.dist }
                 .prefix(maxCandidates)
@@ -559,10 +586,17 @@ public struct MultiDimensionalPhotoIndex: Sendable {
             return Array(sortedLab)
         }
         
-        // フォールバック（候補が少なすぎる場合は全体から補充）
+        if !excludedPhotoIDs.isEmpty {
+            labCandidateIndices = labCandidateIndices.filter { !excludedPhotoIDs.contains(allPhotos[$0].id) }
+            comCandidateIndices = comCandidateIndices.filter { !excludedPhotoIDs.contains(allPhotos[$0].id) }
+            gradCandidateIndices = gradCandidateIndices.filter { !excludedPhotoIDs.contains(allPhotos[$0].id) }
+        }
+
+        // フォールバック（除外後の候補が少なすぎる場合は未使用写真から補充）
         let allUniqueCount = labCandidateIndices.union(comCandidateIndices).union(gradCandidateIndices).count
-        if allUniqueCount < min(30, allPhotos.count) {
+        if allUniqueCount < min(30, max(0, allPhotos.count - excludedPhotoIDs.count)) {
             for i in 0..<allPhotos.count {
+                if excludedPhotoIDs.contains(allPhotos[i].id) { continue }
                 labCandidateIndices.insert(i)
                 if labCandidateIndices.count >= maxCandidates { break }
             }

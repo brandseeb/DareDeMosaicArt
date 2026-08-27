@@ -20,7 +20,7 @@ public enum GameMode: String, Codable, CaseIterable, Sendable {
 }
 
 /// 写真ソース種別
-public enum PhotoSource: Codable, Sendable, Equatable {
+public enum PhotoSource: Codable, Sendable, Equatable, Hashable {
     case allLocalPhotos
     case album(localIdentifier: String, title: String)
     
