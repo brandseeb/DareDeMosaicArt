@@ -478,12 +478,265 @@ final class DareDeMosaicArtTests: XCTestCase {
         XCTAssertTrue(decodedInnerCorrupt.cells6x6.isEmpty)
     }
 
+    // MARK: - スマート・オートフィル（段階的近似自動配置）網羅テスト
+
+    /// 1. 写真不足 ＋ 重複なし: 未使用写真数を超えるマスは埋まらず、成立可能最大数まで配置されること
+    func testAutoFillPhotoShortageWithoutDuplicates() async throws {
+        // 4マスのプロジェクト（すべて未配置）
+        let tiles = [
+            MosaicTile(gridX: 0, gridY: 0, targetLabColor: LabColor(l: 10, a: 0, b: 0)),
+            MosaicTile(gridX: 1, gridY: 0, targetLabColor: LabColor(l: 30, a: 0, b: 0)),
+            MosaicTile(gridX: 0, gridY: 1, targetLabColor: LabColor(l: 60, a: 0, b: 0)),
+            MosaicTile(gridX: 1, gridY: 1, targetLabColor: LabColor(l: 90, a: 0, b: 0))
+        ]
+        let project = MosaicProject(title: "テスト", gridWidth: 2, gridHeight: 2, tiles: tiles)
+        
+        // 写真は 2 枚しかない（不足）
+        let photos = [
+            IndexedPhoto(id: "p1", labColor: LabColor(l: 15, a: 0, b: 0)),
+            IndexedPhoto(id: "p2", labColor: LabColor(l: 85, a: 0, b: 0))
+        ]
+        
+        let plan = try MosaicEngine.shared.makeAutoFillPlan(
+            project: project,
+            availablePhotos: photos,
+            level: .completeMax,
+            allowDuplicates: false
+        )
+        
+        XCTAssertEqual(plan.assignments.count, 2, "写真が2枚しかないため、重複なしでは最大2マスしか埋まらないはず")
+        XCTAssertEqual(plan.newFilledCount, 2)
+        XCTAssertEqual(plan.projectedProgress, 0.5, accuracy: 0.001)
+    }
+
+    /// 2. 写真不足 ＋ 重複あり: 写真が 1 枚でもあれば 100% 全マスが埋まること
+    func testAutoFillPhotoShortageWithDuplicates() async throws {
+        let tiles = [
+            MosaicTile(gridX: 0, gridY: 0, targetLabColor: LabColor(l: 10, a: 0, b: 0)),
+            MosaicTile(gridX: 1, gridY: 0, targetLabColor: LabColor(l: 30, a: 0, b: 0)),
+            MosaicTile(gridX: 0, gridY: 1, targetLabColor: LabColor(l: 60, a: 0, b: 0)),
+            MosaicTile(gridX: 1, gridY: 1, targetLabColor: LabColor(l: 90, a: 0, b: 0))
+        ]
+        let project = MosaicProject(title: "テスト", gridWidth: 2, gridHeight: 2, tiles: tiles)
+        
+        // 写真は 1 枚のみ
+        let photos = [
+            IndexedPhoto(id: "p1", labColor: LabColor(l: 50, a: 0, b: 0))
+        ]
+        
+        let plan = try MosaicEngine.shared.makeAutoFillPlan(
+            project: project,
+            availablePhotos: photos,
+            level: .completeMax,
+            allowDuplicates: true
+        )
+        
+        XCTAssertEqual(plan.assignments.count, 4, "重複許可時は1枚の写真で4マスすべて埋まるはず")
+        XCTAssertEqual(plan.newFilledCount, 4)
+        XCTAssertEqual(plan.projectedProgress, 1.0, accuracy: 0.001)
+    }
+
+    /// 3. 既存タイルの保護: 初期配置済み（未ロック含む）、手動差し替え済み、カメラ撮影済みタイルが一切上書きされないこと
+    func testAutoFillPreservesExistingTiles() async throws {
+        var tiles = [
+            // タイル0: 初期配置済み（未ロック）
+            MosaicTile(gridX: 0, gridY: 0, targetLabColor: LabColor(l: 10, a: 0, b: 0), placedPhotoIdentifier: "initial_photo", origin: .automatic),
+            // タイル1: 手動差し替え済み
+            MosaicTile(gridX: 1, gridY: 0, targetLabColor: LabColor(l: 30, a: 0, b: 0), placedPhotoIdentifier: "manual_photo", origin: PlacementOrigin.manuallySelected),
+            // タイル2: カメラ撮影済み
+            MosaicTile(gridX: 0, gridY: 1, targetLabColor: LabColor(l: 60, a: 0, b: 0), placedPhotoIdentifier: "captured_photo", origin: PlacementOrigin.captured),
+            // タイル3: 未配置（空き）
+            MosaicTile(gridX: 1, gridY: 1, targetLabColor: LabColor(l: 90, a: 0, b: 0))
+        ]
+        let project = MosaicProject(title: "保護テスト", gridWidth: 2, gridHeight: 2, tiles: tiles)
+        
+        let photos = [
+            IndexedPhoto(id: "new_photo", labColor: LabColor(l: 90, a: 0, b: 0))
+        ]
+        
+        let plan = try MosaicEngine.shared.makeAutoFillPlan(
+            project: project,
+            availablePhotos: photos,
+            level: .completeMax,
+            allowDuplicates: true
+        )
+        
+        XCTAssertEqual(plan.assignments.count, 1, "未配置のタイル3のみが対象になるはず")
+        XCTAssertEqual(plan.assignments.first?.tileID, tiles[3].id)
+        
+        let result = MosaicEngine.shared.applyAutoFillPlan(project: project, plan: plan)
+        guard case .applied(let updatedProject, let count) = result else {
+            XCTFail("適用に失敗しました")
+            return
+        }
+        XCTAssertEqual(count, 1)
+        XCTAssertEqual(updatedProject.tiles[0].placedPhotoIdentifier, "initial_photo", "初期配置タイルは維持される")
+        XCTAssertEqual(updatedProject.tiles[1].placedPhotoIdentifier, "manual_photo", "手動選択タイルは維持される")
+        XCTAssertEqual(updatedProject.tiles[2].placedPhotoIdentifier, "captured_photo", "撮影タイルは維持される")
+        XCTAssertEqual(updatedProject.tiles[3].placedPhotoIdentifier, "new_photo", "空きマスのみ新規配置される")
+    }
+
+    /// 4. プレビューと実配置の一致: 不変状態下で simulateAutoFill と applyAutoFillPlan の配置件数が 100% 一致すること
+    func testAutoFillPreviewAndExecutionMatch() async throws {
+        let tiles = [
+            MosaicTile(gridX: 0, gridY: 0, targetLabColor: LabColor(l: 20, a: 0, b: 0)),
+            MosaicTile(gridX: 1, gridY: 0, targetLabColor: LabColor(l: 40, a: 0, b: 0)),
+            MosaicTile(gridX: 0, gridY: 1, targetLabColor: LabColor(l: 60, a: 0, b: 0)),
+            MosaicTile(gridX: 1, gridY: 1, targetLabColor: LabColor(l: 80, a: 0, b: 0))
+        ]
+        let project = MosaicProject(title: "一致テスト", gridWidth: 2, gridHeight: 2, tiles: tiles)
+        let photos = [
+            IndexedPhoto(id: "p1", labColor: LabColor(l: 21, a: 0, b: 0)),
+            IndexedPhoto(id: "p2", labColor: LabColor(l: 42, a: 0, b: 0)),
+            IndexedPhoto(id: "p3", labColor: LabColor(l: 75, a: 0, b: 0))
+        ]
+        
+        let simulations = await MosaicEngine.shared.simulateAutoFill(
+            project: project,
+            availablePhotos: photos,
+            allowDuplicates: false
+        )
+        
+        XCTAssertEqual(simulations.count, AutoFillLevel.allCases.count)
+        
+        for sim in simulations {
+            let result = MosaicEngine.shared.applyAutoFillPlan(project: project, plan: sim.plan)
+            guard case .applied(let updatedProject, let placedCount) = result else {
+                XCTFail("シミュレーションプランの適用に失敗")
+                continue
+            }
+            XCTAssertEqual(placedCount, sim.additionalCount, "プレビュー件数と実配置件数が完全に一致すること")
+            XCTAssertEqual(updatedProject.filledCount, sim.newFilledCount, "プレビュー後の埋まりマス数が一致すること")
+        }
+    }
+
+    /// 5. ステイルプランの検知: プロジェクトが更新された後の古いプラン適用時に、勝手に適用されず .stale が返ること
+    func testAutoFillStalePlanDetection() async throws {
+        let tiles = [
+            MosaicTile(gridX: 0, gridY: 0, targetLabColor: LabColor(l: 20, a: 0, b: 0)),
+            MosaicTile(gridX: 1, gridY: 0, targetLabColor: LabColor(l: 40, a: 0, b: 0))
+        ]
+        var project = MosaicProject(title: "ステイルテスト", gridWidth: 2, gridHeight: 1, tiles: tiles)
+        let photos = [IndexedPhoto(id: "p1", labColor: LabColor(l: 20, a: 0, b: 0))]
+        
+        // プランを生成
+        let plan = try MosaicEngine.shared.makeAutoFillPlan(
+            project: project,
+            availablePhotos: photos,
+            level: .completeMax,
+            allowDuplicates: false
+        )
+        
+        // 外部でプロジェクトが更新された（例: ユーザーが手動操作）
+        try? await Task.sleep(for: .milliseconds(10))
+        project.updatedAt = Date()
+        project.tiles[0].placedPhotoIdentifier = "another_photo"
+        
+        // 古いプランを適用しようとすると .stale になる
+        let result = MosaicEngine.shared.applyAutoFillPlan(project: project, plan: plan)
+        guard case .stale = result else {
+            XCTFail(".stale が返されるべき")
+            return
+        }
+    }
+
+    /// 6. オートフィル後のロック保護・手動差し替え保護 ＆ リセット機能
+    func testAutoFillResetProtectsLockedAndManualTiles() async throws {
+        let tiles = [
+            MosaicTile(gridX: 0, gridY: 0, targetLabColor: LabColor(l: 10, a: 0, b: 0)),
+            MosaicTile(gridX: 1, gridY: 0, targetLabColor: LabColor(l: 20, a: 0, b: 0)),
+            MosaicTile(gridX: 0, gridY: 1, targetLabColor: LabColor(l: 30, a: 0, b: 0)),
+            MosaicTile(gridX: 1, gridY: 1, targetLabColor: LabColor(l: 40, a: 0, b: 0))
+        ]
+        let project = MosaicProject(title: "リセットテスト", gridWidth: 2, gridHeight: 2, tiles: tiles)
+        let photos = [
+            IndexedPhoto(id: "p1", labColor: LabColor(l: 10, a: 0, b: 0)),
+            IndexedPhoto(id: "p2", labColor: LabColor(l: 20, a: 0, b: 0)),
+            IndexedPhoto(id: "p3", labColor: LabColor(l: 30, a: 0, b: 0)),
+            IndexedPhoto(id: "p4", labColor: LabColor(l: 40, a: 0, b: 0))
+        ]
+        
+        let plan = try MosaicEngine.shared.makeAutoFillPlan(
+            project: project,
+            availablePhotos: photos,
+            level: .completeMax,
+            allowDuplicates: false
+        )
+        
+        guard case .applied(var filledProject, _) = MosaicEngine.shared.applyAutoFillPlan(project: project, plan: plan) else {
+            XCTFail("適用失敗")
+            return
+        }
+        XCTAssertEqual(filledProject.filledCount, 4)
+        XCTAssertTrue(filledProject.isCompleted)
+        
+        // ユーザーが タイル0 をロックし、タイル1 を手動差し替えした
+        filledProject.tiles[0].isLocked = true
+        filledProject.tiles[1].origin = PlacementOrigin.manuallySelected
+        
+        // リセットを実行
+        let (resetProject, resetCount) = MosaicEngine.shared.resetAutoFilledTiles(project: filledProject)
+        
+        XCTAssertEqual(resetCount, 2, "タイル2, 3 の2マスのみリセットされるはず")
+        XCTAssertEqual(resetProject.filledCount, 2, "ロック済みタイル0と手動タイル1は保持される")
+        XCTAssertEqual(resetProject.tiles[0].placedPhotoIdentifier, "p1", "ロック済みタイル0は消えない")
+        XCTAssertEqual(resetProject.tiles[1].placedPhotoIdentifier, "p2", "手動差し替えタイル1は消えない")
+        XCTAssertNil(resetProject.tiles[2].placedPhotoIdentifier, "タイル2はリセットされる")
+        XCTAssertNil(resetProject.tiles[3].placedPhotoIdentifier, "タイル3はリセットされる")
+        XCTAssertFalse(resetProject.isCompleted, "未配置マスがあるため完成フラグはfalseに再計算される")
+        XCTAssertFalse(resetProject.missions.isEmpty, "不足色ミッションが再生成される")
+    }
+
+    /// 7. 決定的採番順の検証: 同一入力から常に同一の割り当てと昇順 placementSequence が得られること
+    func testAutoFillDeterministicSequenceAndAssignments() async throws {
+        let tiles = [
+            MosaicTile(gridX: 0, gridY: 0, targetLabColor: LabColor(l: 10, a: 0, b: 0)),
+            MosaicTile(gridX: 1, gridY: 0, targetLabColor: LabColor(l: 20, a: 0, b: 0)),
+            MosaicTile(gridX: 0, gridY: 1, targetLabColor: LabColor(l: 30, a: 0, b: 0))
+        ]
+        let project = MosaicProject(title: "決定性テスト", gridWidth: 2, gridHeight: 2, tiles: tiles)
+        let photos = [
+            IndexedPhoto(id: "p3", labColor: LabColor(l: 30, a: 0, b: 0)),
+            IndexedPhoto(id: "p1", labColor: LabColor(l: 10, a: 0, b: 0)),
+            IndexedPhoto(id: "p2", labColor: LabColor(l: 20, a: 0, b: 0))
+        ]
+        
+        let plan1 = try MosaicEngine.shared.makeAutoFillPlan(project: project, availablePhotos: photos, level: .completeMax, allowDuplicates: false)
+        let plan2 = try MosaicEngine.shared.makeAutoFillPlan(project: project, availablePhotos: photos, level: .completeMax, allowDuplicates: false)
+        
+        XCTAssertEqual(plan1.assignments, plan2.assignments, "2回の計算で完全に同一の割り当てが得られること")
+        
+        guard case .applied(let updated, _) = MosaicEngine.shared.applyAutoFillPlan(project: project, plan: plan1) else {
+            XCTFail("適用失敗")
+            return
+        }
+        
+        let sequences = updated.tiles.compactMap(\.placementSequence)
+        XCTAssertEqual(sequences, [0, 1, 2], "placementSequenceが決定的な昇順で採番されること")
+    }
+
+    /// 8. 写真0枚および写真ID重複への耐性
+    func testAutoFillHandlesEmptyPhotosAndDuplicateIDs() async throws {
+        let tiles = [MosaicTile(gridX: 0, gridY: 0, targetLabColor: LabColor(l: 50, a: 0, b: 0))]
+        let project = MosaicProject(title: "耐性テスト", gridWidth: 1, gridHeight: 1, tiles: tiles)
+        
+        // 0枚
+        let planEmpty = try MosaicEngine.shared.makeAutoFillPlan(project: project, availablePhotos: [], level: .completeMax, allowDuplicates: false)
+        XCTAssertEqual(planEmpty.assignments.count, 0)
+        
+        // 重複ID（同じ "p1" が3つ）
+        let duplicatePhotos = [
+            IndexedPhoto(id: "p1", labColor: LabColor(l: 50, a: 0, b: 0)),
+            IndexedPhoto(id: "p1", labColor: LabColor(l: 50, a: 0, b: 0)),
+            IndexedPhoto(id: "p1", labColor: LabColor(l: 50, a: 0, b: 0))
+        ]
+        let planDup = try MosaicEngine.shared.makeAutoFillPlan(project: project, availablePhotos: duplicatePhotos, level: .completeMax, allowDuplicates: false)
+        XCTAssertEqual(planDup.assignments.count, 1, "重複IDが安全に除外されて1件のみ割り当てられること")
+    }
+
     func testMultiDimensionalIndexUnionCandidates() throws {
         // 完全な 36 セル・36x8 勾配・36 勾配強度を持つ完全な v2 写真群（300枚）を生成
         var photos: [IndexedPhoto] = []
-        photos.reserveCapacity(300)
-
-        // ターゲット: L=50, 主勾配は bin 1 (対角線方向)
         var targetDiagHist = Array(repeating: Array(repeating: Float(0), count: 8), count: 36)
         for c in 0..<36 { targetDiagHist[c][1] = 1.0 }
         let targetSig = SpatialColorSignature(

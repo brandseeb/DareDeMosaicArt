@@ -368,8 +368,9 @@ public struct TimelapseTimeline: Sendable {
     private static func originRank(_ origin: PlacementOrigin) -> Int {
         switch origin {
         case .automatic: return 0
-        case .captured: return 1
-        case .manuallySelected: return 2
+        case .autoFilled: return 1
+        case .captured: return 2
+        case .manuallySelected: return 3
         }
     }
 }

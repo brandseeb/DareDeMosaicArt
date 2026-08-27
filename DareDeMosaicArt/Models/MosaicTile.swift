@@ -9,6 +9,7 @@ public enum PlacementOrigin: String, Codable, Sendable {
     case automatic          // ライブラリからの自動マッチング
     case captured           // カメラによるミッション撮影
     case manuallySelected   // 類似色候補からの手動選択（再マッチングで上書きされない）
+    case autoFilled         // 空きマスの段階的近似自動配置（リセット可能）
 }
 
 /// モザイクアートを構成する1マス（タイル）の情報

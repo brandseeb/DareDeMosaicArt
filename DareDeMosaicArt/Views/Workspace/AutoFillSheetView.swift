@@ -1,0 +1,361 @@
+import SwiftUI
+
+/// スマート・オートフィル（空きマスの段階的近似自動配置）シート画面
+public struct AutoFillSheetView: View {
+    @Binding public var project: MosaicProject
+    public let availablePhotos: [IndexedPhoto]
+    public let onApplied: (Int) -> Void
+    public let onReset: (Int) -> Void
+    
+    @Environment(\.dismiss) private var dismiss
+    
+    @State private var allowDuplicates: Bool = false
+    @State private var selectedLevel: AutoFillLevel = .completeMax
+    @State private var simulations: [AutoFillSimulation] = []
+    @State private var isLoading: Bool = true
+    @State private var showStaleAlert: Bool = false
+    @State private var showResetConfirmAlert: Bool = false
+    @State private var simulationTask: Task<Void, Never>? = nil
+    
+    public init(
+        project: Binding<MosaicProject>,
+        availablePhotos: [IndexedPhoto],
+        onApplied: @escaping (Int) -> Void,
+        onReset: @escaping (Int) -> Void
+    ) {
+        self._project = project
+        self.availablePhotos = availablePhotos
+        self.onApplied = onApplied
+        self.onReset = onReset
+    }
+    
+    /// 現在自動配置（.autoFilled かつ未ロック）されているマス数
+    private var autoFilledCount: Int {
+        project.tiles.filter { $0.origin == .autoFilled && !$0.isLocked }.count
+    }
+    
+    /// 未配置の空きマス数
+    private var emptyCount: Int {
+        project.tiles.filter { !$0.isFilled && !$0.isLocked }.count
+    }
+    
+    public var body: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 20) {
+                    // 1. 現在のステータス
+                    currentStatusHeader
+                    
+                    // 2. オプション設定（重複許可）
+                    optionsSection
+                    
+                    // 3. 4段階のオートフィルレベル選択
+                    simulationLevelsSection
+                    
+                    // 4. 自動配置リセットボタン（該当タイルがある場合のみ）
+                    if autoFilledCount > 0 {
+                        resetSection
+                    }
+                }
+                .padding()
+            }
+            .navigationTitle("✨ スマート・オートフィル")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("閉じる") {
+                        simulationTask?.cancel()
+                        dismiss()
+                    }
+                }
+            }
+            .safeAreaInset(edge: .bottom) {
+                applyButtonBottomBar
+            }
+            .alert("プロジェクトが更新されました", isPresented: $showStaleAlert) {
+                Button("OK") {
+                    startSimulation()
+                }
+            } message: {
+                Text("ワークスペースの状態が変更されたため、最新の状態でプレビューを再計算しました。内容を確認して再度お試しください。")
+            }
+            .alert("自動配置をリセットしますか？", isPresented: $showResetConfirmAlert) {
+                Button("リセットする", role: .destructive) {
+                    handleReset()
+                }
+                Button("キャンセル", role: .cancel) {}
+            } message: {
+                Text("自動配置（オートフィル）によって埋められた \(autoFilledCount) マスを空き状態に戻します。自分で撮影した写真やロックしたマスはそのまま維持されます。")
+            }
+            .onAppear {
+                startSimulation()
+            }
+            .onDisappear {
+                simulationTask?.cancel()
+            }
+        }
+    }
+    
+    // MARK: - 現在のステータスヘッダー
+    private var currentStatusHeader: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("空いているマスに、手持ちの写真から最も近い写真を自動で配置します。")
+                .font(.subheadline)
+                .foregroundColor(.secondary)
+            
+            HStack {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("現在の進捗: \(project.progressPercentageString)")
+                        .font(.headline)
+                    Text("残り \(emptyCount) マスが未配置です")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+                Spacer()
+                ProgressView(value: Double(project.progress))
+                    .frame(width: 100)
+            }
+            .padding()
+            .background(Color(.secondarySystemBackground))
+            .cornerRadius(12)
+        }
+    }
+    
+    // MARK: - オプション設定
+    private var optionsSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Toggle(isOn: $allowDuplicates) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("写真の重複使用を許可する")
+                        .font(.subheadline.bold())
+                    Text("手持ちの写真枚数が少ない場合でも、同じ写真を使い回して確実に 100% 埋めることができます。")
+                        .font(.caption2)
+                        .foregroundColor(.secondary)
+                }
+            }
+            .onChange(of: allowDuplicates) { _, _ in
+                startSimulation()
+            }
+            .padding()
+            .background(Color(.secondarySystemBackground))
+            .cornerRadius(12)
+        }
+    }
+    
+    // MARK: - シミュレーションレベル一覧
+    private var simulationLevelsSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Text("配置レベルの選択")
+                    .font(.headline)
+                Spacer()
+                if isLoading {
+                    ProgressView()
+                        .scaleEffect(0.8)
+                }
+            }
+            
+            if isLoading && simulations.isEmpty {
+                VStack(spacing: 12) {
+                    ProgressView()
+                    Text("最適な写真の配置を計算中...")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 32)
+            } else {
+                ForEach(simulations) { sim in
+                    levelCard(for: sim)
+                }
+            }
+        }
+    }
+    
+    // MARK: - レベルカード
+    private func levelCard(for sim: AutoFillSimulation) -> some View {
+        let isSelected = (selectedLevel == sim.level)
+        
+        return Button {
+            withAnimation(.spring(response: 0.25, dampingFraction: 0.8)) {
+                selectedLevel = sim.level
+            }
+        } label: {
+            VStack(alignment: .leading, spacing: 8) {
+                HStack(alignment: .top) {
+                    VStack(alignment: .leading, spacing: 3) {
+                        HStack(spacing: 6) {
+                            Text(sim.title)
+                                .font(.headline)
+                                .foregroundColor(.primary)
+                            
+                            if sim.isFullCompletion {
+                                Text("🎉 100%完成")
+                                    .font(.caption2.bold())
+                                    .foregroundColor(.white)
+                                    .padding(.horizontal, 6)
+                                    .padding(.vertical, 2)
+                                    .background(Color.green)
+                                    .cornerRadius(6)
+                            }
+                        }
+                        
+                        Text(sim.detail)
+                            .font(.caption2)
+                            .foregroundColor(.secondary)
+                    }
+                    
+                    Spacer()
+                    
+                    Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
+                        .foregroundColor(isSelected ? .accentColor : .secondary.opacity(0.4))
+                        .font(.title3)
+                }
+                
+                Divider()
+                
+                HStack {
+                    HStack(spacing: 4) {
+                        Image(systemName: sim.additionalCount > 0 ? "plus.circle.fill" : "minus.circle")
+                            .font(.caption)
+                            .foregroundColor(sim.additionalCount > 0 ? .accentColor : .secondary)
+                        Text(sim.statusMessage)
+                            .font(.caption.bold())
+                            .foregroundColor(sim.additionalCount > 0 ? .primary : .secondary)
+                    }
+                    Spacer()
+                    Text("配置後: \(Int(sim.projectedProgress * 100))%")
+                        .font(.system(.caption, design: .monospaced).bold())
+                        .foregroundColor(sim.isFullCompletion ? .green : .accentColor)
+                }
+            }
+            .padding(14)
+            .background(
+                RoundedRectangle(cornerRadius: 12)
+                    .fill(Color(.secondarySystemBackground))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 12)
+                            .stroke(isSelected ? Color.accentColor : Color.clear, lineWidth: 2)
+                    )
+            )
+        }
+        .buttonStyle(.plain)
+        .disabled(!sim.isExecutable && sim.additionalCount == 0)
+        .opacity(sim.isExecutable || sim.additionalCount > 0 ? 1.0 : 0.6)
+    }
+    
+    // MARK: - リセットセクション
+    private var resetSection: some View {
+        VStack(spacing: 8) {
+            Divider()
+                .padding(.vertical, 4)
+            
+            Button {
+                showResetConfirmAlert = true
+            } label: {
+                HStack(spacing: 6) {
+                    Image(systemName: "arrow.counterclockwise")
+                    Text("自動配置した \(autoFilledCount) マスを元に戻す（リセット）")
+                }
+                .font(.subheadline)
+                .foregroundColor(.red)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 8)
+            }
+        }
+    }
+    
+    // MARK: - 適用ボタン（ボトムバー）
+    private var applyButtonBottomBar: some View {
+        let currentSim = simulations.first(where: { $0.level == selectedLevel })
+        let canApply = (currentSim?.additionalCount ?? 0) > 0
+        let count = currentSim?.additionalCount ?? 0
+        
+        return VStack(spacing: 0) {
+            Divider()
+            VStack(spacing: 8) {
+                Button {
+                    handleApply()
+                } label: {
+                    HStack {
+                        Image(systemName: "wand.and.stars")
+                        Text(canApply ? "選択した設定で自動配置する (\(count)マス)" : "配置可能な写真がありません")
+                    }
+                    .font(.headline)
+                    .foregroundColor(.white)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 14)
+                    .background(canApply ? Color.accentColor : Color.gray)
+                    .cornerRadius(12)
+                }
+                .disabled(!canApply || isLoading)
+            }
+            .padding(.horizontal)
+            .padding(.vertical, 10)
+            .background(Color(.systemBackground).ignoresSafeArea(edges: .bottom))
+        }
+    }
+    
+    // MARK: - 非同期シミュレーション開始
+    private func startSimulation() {
+        simulationTask?.cancel()
+        isLoading = true
+        
+        let currentProject = project
+        let photos = availablePhotos
+        let duplicates = allowDuplicates
+        
+        simulationTask = Task {
+            let results = await MosaicEngine.shared.simulateAutoFill(
+                project: currentProject,
+                availablePhotos: photos,
+                allowDuplicates: duplicates
+            )
+            
+            guard !Task.isCancelled else { return }
+            
+            await MainActor.run {
+                self.simulations = results
+                self.isLoading = false
+                
+                // 実行可能な最初のレベルを選択
+                if let firstExecutable = results.first(where: { $0.isExecutable && $0.level == self.selectedLevel }) {
+                    self.selectedLevel = firstExecutable.level
+                } else if let fallback = results.first(where: { $0.isExecutable }) {
+                    self.selectedLevel = fallback.level
+                }
+            }
+        }
+    }
+    
+    // MARK: - 適用ハンドラ
+    private func handleApply() {
+        guard let currentSim = simulations.first(where: { $0.level == selectedLevel }) else { return }
+        
+        let result = MosaicEngine.shared.applyAutoFillPlan(
+            project: project,
+            plan: currentSim.plan
+        )
+        
+        switch result {
+        case .applied(let updatedProject, let placedCount):
+            self.project = updatedProject
+            self.onApplied(placedCount)
+            dismiss()
+            
+        case .stale:
+            self.showStaleAlert = true
+            
+        case .invalid:
+            self.startSimulation()
+        }
+    }
+    
+    // MARK: - リセットハンドラ
+    private func handleReset() {
+        let (updatedProject, resetCount) = MosaicEngine.shared.resetAutoFilledTiles(project: project)
+        self.project = updatedProject
+        self.onReset(resetCount)
+        dismiss()
+    }
+}

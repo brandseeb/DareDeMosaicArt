@@ -14,6 +14,7 @@ public struct MosaicWorkspaceView: View {
     @State private var activeMission: ColorMission? = nil
     @State private var showCompletion: Bool = false
     @State private var showPaywall: Bool = false
+    @State private var showAutoFillSheet: Bool = false
     @State private var showAlbumMissingAlert: Bool = false
     @State private var albumMissingMessage: String = ""
     
@@ -28,6 +29,16 @@ public struct MosaicWorkspaceView: View {
     
     public init(project: Binding<MosaicProject>) {
         self._project = project
+    }
+    
+    /// 空きマス数
+    private var emptyTilesCount: Int {
+        project.tiles.filter { !$0.isFilled && !$0.isLocked }.count
+    }
+    
+    /// オートフィル済みマス数
+    private var autoFilledTilesCount: Int {
+        project.tiles.filter { $0.origin == .autoFilled && !$0.isLocked }.count
     }
     
     public var body: some View {
@@ -67,6 +78,19 @@ public struct MosaicWorkspaceView: View {
                 
                 ToolbarItem(placement: .topBarTrailing) {
                     HStack(spacing: 8) {
+                        if !project.isCompleted {
+                            Button {
+                                showAutoFillSheet = true
+                            } label: {
+                                HStack(spacing: 4) {
+                                    Image(systemName: "wand.and.stars")
+                                    Text("自動配置")
+                                }
+                                .font(.subheadline.bold())
+                                .foregroundColor(.accentColor)
+                            }
+                        }
+                        
                         Button {
                             showCompletion = true
                         } label: {
@@ -82,6 +106,19 @@ public struct MosaicWorkspaceView: View {
             .sheet(item: $selectedTile) { tile in
                 tileDetailSheet(for: tile)
                     .presentationDetents([.medium, .large])
+            }
+            .sheet(isPresented: $showAutoFillSheet) {
+                AutoFillSheetView(
+                    project: $project,
+                    availablePhotos: allSourcePhotos,
+                    onApplied: { placedCount in
+                        if project.isCompleted {
+                            showCompletion = true
+                        }
+                    },
+                    onReset: { _ in }
+                )
+                .presentationDetents([.large])
             }
             .fullScreenCover(item: $activeMission) { mission in
                 MissionCameraView(
@@ -188,10 +225,34 @@ public struct MosaicWorkspaceView: View {
                 }
                 
                 ProgressView(value: Double(project.progress))
-                    .frame(width: 140)
+                    .frame(width: 130)
             }
             
             Spacer()
+            
+            if !project.isCompleted && emptyTilesCount > 0 {
+                Button {
+                    showAutoFillSheet = true
+                } label: {
+                    HStack(spacing: 4) {
+                        Image(systemName: "wand.and.stars")
+                        Text("残り\(emptyTilesCount)マス自動配置")
+                    }
+                    .font(.caption.bold())
+                    .foregroundColor(.white)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 6)
+                    .background(
+                        LinearGradient(
+                            colors: [Color.accentColor, Color.accentColor.opacity(0.85)],
+                            startPoint: .leading,
+                            endPoint: .trailing
+                        )
+                    )
+                    .cornerRadius(8)
+                }
+                .buttonStyle(.plain)
+            }
             
             if canvasScale > 1.05 {
                 Button {
@@ -202,21 +263,17 @@ public struct MosaicWorkspaceView: View {
                 } label: {
                     HStack(spacing: 5) {
                         Image(systemName: "arrow.down.right.and.arrow.up.left")
-                        Text("全体表示")
+                        Text("全体")
                     }
                     .font(.caption.bold())
                     .foregroundColor(.white)
-                    .padding(.horizontal, 10)
+                    .padding(.horizontal, 8)
                     .padding(.vertical, 6)
-                    .background(Color.accentColor)
+                    .background(Color.secondary)
                     .cornerRadius(8)
                 }
                 .buttonStyle(.plain)
                 .contentShape(Rectangle())
-            } else {
-                Text("ピンチで拡大 / タップで詳細")
-                    .font(.caption2)
-                    .foregroundColor(.secondary)
             }
         }
         .padding(.horizontal)
@@ -235,6 +292,19 @@ public struct MosaicWorkspaceView: View {
                     .font(.headline)
                 
                 Spacer()
+                
+                if !project.isCompleted && emptyTilesCount > 0 {
+                    Button {
+                        showAutoFillSheet = true
+                    } label: {
+                        HStack(spacing: 3) {
+                            Image(systemName: "wand.and.stars")
+                            Text("写真から自動穴埋め")
+                        }
+                        .font(.caption.bold())
+                        .foregroundColor(.accentColor)
+                    }
+                }
             }
             .padding(.horizontal)
             

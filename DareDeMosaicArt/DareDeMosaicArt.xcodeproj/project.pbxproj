@@ -42,6 +42,7 @@
 		E1A2B3C4D5E60718293A4B5C /* TimelapseTimeline.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1A2B3C4D5E60718293A4B5D /* TimelapseTimeline.swift */; };
 		E2A2B3C4D5E60718293A4B5E /* TimelapseExportService.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2A2B3C4D5E60718293A4B5F /* TimelapseExportService.swift */; };
 		E3A2B3C4D5E60718293A4B60 /* TimelapseExportView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F3A2B3C4D5E60718293A4B61 /* TimelapseExportView.swift */; };
+		F4A2B3C4D5E60718293A4B62 /* AutoFillSheetView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F5A2B3C4D5E60718293A4B63 /* AutoFillSheetView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -74,6 +75,7 @@
 		F1A2B3C4D5E60718293A4B5D /* TimelapseTimeline.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TimelapseTimeline.swift; sourceTree = "<group>"; };
 		F2A2B3C4D5E60718293A4B5F /* TimelapseExportService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TimelapseExportService.swift; sourceTree = "<group>"; };
 		F3A2B3C4D5E60718293A4B61 /* TimelapseExportView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TimelapseExportView.swift; sourceTree = "<group>"; };
+		F5A2B3C4D5E60718293A4B63 /* AutoFillSheetView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AutoFillSheetView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -191,6 +193,7 @@
 			children = (
 				42A223887F8D47BAA6CB6F02 /* MosaicWorkspaceView.swift */,
 				E67B44FC18614016829B0065 /* MosaicCanvasView.swift */,
+				F5A2B3C4D5E60718293A4B63 /* AutoFillSheetView.swift */,
 			);
 			path = Workspace;
 			sourceTree = "<group>";
@@ -355,6 +358,7 @@
 				E1A2B3C4D5E60718293A4B5C /* TimelapseTimeline.swift in Sources */,
 				E2A2B3C4D5E60718293A4B5E /* TimelapseExportService.swift in Sources */,
 				E3A2B3C4D5E60718293A4B60 /* TimelapseExportView.swift in Sources */,
+				F4A2B3C4D5E60718293A4B62 /* AutoFillSheetView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
