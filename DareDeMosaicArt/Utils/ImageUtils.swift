@@ -7,6 +7,32 @@ import UIKit
 
 /// 画像操作ユーティリティ（メモリ安全 & オリエンテーション正規化）
 public enum ImageUtils {
+
+    /// 画像の縦横比を保ったまま描画先を完全に覆う中央クロップ用矩形。
+    /// CompletionView とタイムラプスで同じ計算を使い、素材写真の変形を防ぐ。
+    public static func aspectFillRect(imageSize: CGSize, destinationRect: CGRect) -> CGRect {
+        guard imageSize.width > 0,
+              imageSize.height > 0,
+              destinationRect.width > 0,
+              destinationRect.height > 0 else {
+            return destinationRect
+        }
+
+        let scale = max(
+            destinationRect.width / imageSize.width,
+            destinationRect.height / imageSize.height
+        )
+        let drawSize = CGSize(
+            width: imageSize.width * scale,
+            height: imageSize.height * scale
+        )
+        return CGRect(
+            x: destinationRect.midX - drawSize.width / 2,
+            y: destinationRect.midY - drawSize.height / 2,
+            width: drawSize.width,
+            height: drawSize.height
+        )
+    }
     
     #if canImport(UIKit)
     /// EXIFオリエンテーションを実際のピクセル配列として.upに焼き直す（正規化）

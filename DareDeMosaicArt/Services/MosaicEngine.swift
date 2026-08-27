@@ -30,12 +30,11 @@ public final class MosaicEngine: Sendable {
         targetSignature: SpatialColorSignature?,
         photo: IndexedPhoto
     ) -> Float {
-        let labDist = targetColor.distance(to: photo.labColor)
-        guard let targetSig = targetSignature, let photoSig = photo.signature else {
-            return labDist
+        if let targetSig = targetSignature, let photoSig = photo.signature {
+            return targetSig.distance(to: photoSig)
         }
-        let spatialDist = targetSig.distance(to: photoSig)
-        return labDist * 0.35 + spatialDist * 0.65
+        let labDist = targetColor.distance(to: photo.labColor)
+        return max(0.0, min(1.0, labDist / 40.0))
     }
     
     // MARK: - タイル自動マッチング（疎グラフ上の Maximum Cardinality Matching ＋ 局所スワップ最適化）
@@ -43,7 +42,7 @@ public final class MosaicEngine: Sendable {
         tiles: [MosaicTile],
         availablePhotos: [IndexedPhoto],
         allowDuplicates: Bool = false,
-        passDistanceThreshold: Float = 14.0
+        passDistanceThreshold: Float = 0.38
     ) -> [MosaicTile] {
         guard !availablePhotos.isEmpty else { return tiles }
         
@@ -60,7 +59,7 @@ public final class MosaicEngine: Sendable {
         guard !usablePhotos.isEmpty else { return updatedTiles }
         
         let photoIndexMap = Dictionary(uniqueKeysWithValues: usablePhotos.enumerated().map { ($1.id, $0) })
-        let buckets = ColorBuckets(photos: usablePhotos)
+        let index = MultiDimensionalPhotoIndex(photos: usablePhotos)
         
         let assignableIndices = updatedTiles.indices.filter { !updatedTiles[$0].isLocked || !updatedTiles[$0].isFilled }
         
@@ -68,7 +67,7 @@ public final class MosaicEngine: Sendable {
             // 重複許可の場合: 各タイルのベストを直接適用
             for tileIdx in assignableIndices {
                 let tile = updatedTiles[tileIdx]
-                let candidates = buckets.candidates(for: tile.targetLabColor, maxRange: 28.0)
+                let candidates = index.candidates(for: tile.targetLabColor, signature: tile.targetSignature, maxCandidates: 200)
                 var bestPhoto: IndexedPhoto? = nil
                 var bestScore = Float.infinity
                 
@@ -94,12 +93,11 @@ public final class MosaicEngine: Sendable {
         // 重複不許可の場合: 疎グラフ構築 ＋ Kuhn's Maximum Cardinality Matching
         // 1. 各タイルごとに合格圏内（passDistanceThreshold以下）の上位候補エッジを抽出
         var adjList: [[(photoIdx: Int, score: Float)]] = Array(repeating: [], count: updatedTiles.count)
-        // O(1) スコア参照用のマップ: [タイルIndex: [写真Index: スコア]]
         var edgeScoreMap: [Int: [Int: Float]] = [:]
         
         for tileIdx in assignableIndices {
             let tile = updatedTiles[tileIdx]
-            let candidates = buckets.candidates(for: tile.targetLabColor, maxRange: 28.0)
+            let candidates = index.candidates(for: tile.targetLabColor, signature: tile.targetSignature, maxCandidates: 200)
             
             var validEdges: [(photoIdx: Int, score: Float)] = []
             for photo in candidates {
@@ -215,7 +213,7 @@ public final class MosaicEngine: Sendable {
         return updatedTiles
     }
     
-    // MARK: - 手動差し替え用の類似色候補探索（二段階探索: Labバケット粗探索 30〜50枚 -> 3×3空間評価）
+    // MARK: - 手動差し替え用の類似色候補探索（多次元和集合粗探索 -> 高精度詳細評価）
     public func findBestMatchCandidates(
         for tile: MosaicTile,
         from photos: [IndexedPhoto],
@@ -224,32 +222,16 @@ public final class MosaicEngine: Sendable {
     ) -> [PhotoMatchCandidate] {
         guard !photos.isEmpty else { return [] }
         
-        let buckets = ColorBuckets(photos: photos)
+        let usablePhotos = photos.filter { !usedPhotoIDs.contains($0.id) }
+        guard !usablePhotos.isEmpty else { return [] }
         
-        // 1. バケットから近傍写真を取得（除外写真を除く）
-        var rawBucketPhotos = buckets.candidates(for: tile.targetLabColor, maxRange: 28.0)
-            .filter { !usedPhotoIDs.contains($0.id) }
+        let index = MultiDimensionalPhotoIndex(photos: usablePhotos)
+        let candidates = index.candidates(for: tile.targetLabColor, signature: tile.targetSignature, maxCandidates: 100)
         
-        if rawBucketPhotos.count < 30 {
-            rawBucketPhotos = buckets.candidates(for: tile.targetLabColor, maxRange: 45.0)
-                .filter { !usedPhotoIDs.contains($0.id) }
-        }
-        
-        if rawBucketPhotos.count < topK {
-            rawBucketPhotos = photos.filter { !usedPhotoIDs.contains($0.id) }
-        }
-        
-        // 粗探索: 平均色距離でソートし、最大50枚に厳密制限
-        rawBucketPhotos.sort {
-            tile.targetLabColor.distance(to: $0.labColor) < tile.targetLabColor.distance(to: $1.labColor)
-        }
-        let coarseCandidates = Array(rawBucketPhotos.prefix(50))
-        
-        // 2. 厳選された30〜50枚に対してのみ 3×3空間シグネチャを詳細評価
         var scoredList: [(IndexedPhoto, Float)] = []
-        scoredList.reserveCapacity(coarseCandidates.count)
+        scoredList.reserveCapacity(candidates.count)
         
-        for photo in coarseCandidates {
+        for photo in candidates {
             let score = matchScore(targetColor: tile.targetLabColor, targetSignature: tile.targetSignature, photo: photo)
             scoredList.append((photo, score))
         }
@@ -259,7 +241,7 @@ public final class MosaicEngine: Sendable {
         let topSlice = scoredList.prefix(topK)
         
         return topSlice.map { photo, score in
-            let ratio = max(0.0, min(1.0, 1.0 - (score / 100.0)))
+            let ratio = max(0.0, min(1.0, 1.0 - (score / 0.38)))
             return PhotoMatchCandidate(photo: photo, score: score, matchRatio: ratio)
         }
     }
@@ -307,7 +289,7 @@ public final class MosaicEngine: Sendable {
         photoLabColor: LabColor,
         photoSignature: SpatialColorSignature? = nil,
         preferredTileID: UUID? = nil,
-        passDistanceThreshold: Float = 16.0
+        passDistanceThreshold: Float = 0.38
     ) -> (updatedProject: MosaicProject, matchedTile: MosaicTile?, message: String) {
         var updatedProject = project
         let nextSeq = (updatedProject.tiles.compactMap(\.placementSequence).max() ?? -1) + 1
@@ -318,7 +300,7 @@ public final class MosaicEngine: Sendable {
             let tile = updatedProject.tiles[index]
             let score = matchScore(targetColor: tile.targetLabColor, targetSignature: tile.targetSignature, photo: IndexedPhoto(id: "camera", labColor: photoLabColor, signature: photoSignature))
             
-            if score <= passDistanceThreshold + 10.0 {
+            if score <= passDistanceThreshold * 1.35 {
                 var updatedTile = tile
                 updatedTile.thumbnailData = photoData
                 updatedTile.placedLabColor = photoLabColor
@@ -405,45 +387,123 @@ public final class MosaicEngine: Sendable {
     }
 }
 
-/// 色探索バケットインデックス（Lab色空間での局所探索）
-private struct ColorBuckets {
-    private var buckets: [Int: [IndexedPhoto]] = [:]
+/// 3つの独立空間インデックス（Lab、明暗重心、勾配ヒストグラム）による和集合粗探索インデックス
+public struct MultiDimensionalPhotoIndex: Sendable {
+    private let allPhotos: [IndexedPhoto]
+    private var labBuckets: [Int: [Int]] = [:]
+    private var comBuckets: [Int: [Int]] = [:]
+    private var gradientBuckets: [Int: [Int]] = [:]
     
-    init(photos: [IndexedPhoto]) {
-        for photo in photos {
-            let key = bucketKey(for: photo.labColor)
-            buckets[key, default: []].append(photo)
+    public init(photos: [IndexedPhoto]) {
+        self.allPhotos = photos
+        for (idx, photo) in photos.enumerated() {
+            // 1. Lab バケット
+            let lK = Int(photo.labColor.l / 15.0)
+            let aK = Int((photo.labColor.a + 128.0) / 20.0)
+            let bK = Int((photo.labColor.b + 128.0) / 20.0)
+            let labKey = lK * 10000 + aK * 100 + bK
+            labBuckets[labKey, default: []].append(idx)
+            
+            // 2. 明暗重心 & 比率バケット
+            if let sig = photo.signature {
+                let darkQuad = (sig.darkCenterOfMassX >= 0 ? 1 : 0) + (sig.darkCenterOfMassY >= 0 ? 2 : 0)
+                let brightQuad = (sig.brightCenterOfMassX >= 0 ? 1 : 0) + (sig.brightCenterOfMassY >= 0 ? 2 : 0)
+                let ratioBin = Int(sig.darkRatio * 3.0)
+                let comKey = ratioBin * 100 + darkQuad * 10 + brightQuad
+                comBuckets[comKey, default: []].append(idx)
+                
+                // 3. 勾配主方向バケット
+                var maxGradBin = 0
+                var maxGradVal: Float = -1
+                for hist in sig.gradientHistograms6x6 {
+                    for b in 0..<8 {
+                        if hist[b] > maxGradVal {
+                            maxGradVal = hist[b]
+                            maxGradBin = b
+                        }
+                    }
+                }
+                let gradMagBin = Int(min(3.0, maxGradVal / 15.0))
+                let gradKey = gradMagBin * 10 + maxGradBin
+                gradientBuckets[gradKey, default: []].append(idx)
+            }
         }
     }
     
-    func candidates(for targetColor: LabColor, maxRange: Float) -> [IndexedPhoto] {
-        let lStep = max(1, Int(maxRange / 20.0))
-        let aStep = max(1, Int(maxRange / 25.0))
-        let bStep = max(1, Int(maxRange / 25.0))
+    public func candidates(for targetColor: LabColor, signature: SpatialColorSignature?, maxCandidates: Int = 200) -> [IndexedPhoto] {
+        var candidateIndices = Set<Int>()
         
-        var results: [IndexedPhoto] = []
-        let targetLIndex = Int(targetColor.l / 20.0)
-        let targetAIndex = Int((targetColor.a + 128.0) / 25.0)
-        let targetBIndex = Int((targetColor.b + 128.0) / 25.0)
+        // 1. Lab 近傍バケット探索 (±1)
+        let targetL = Int(targetColor.l / 15.0)
+        let targetA = Int((targetColor.a + 128.0) / 20.0)
+        let targetB = Int((targetColor.b + 128.0) / 20.0)
         
-        for dL in -lStep...lStep {
-            for da in -aStep...aStep {
-                for db in -bStep...bStep {
-                    let key = (targetLIndex + dL) * 10000 + (targetAIndex + da) * 100 + (targetBIndex + db)
-                    if let bucketPhotos = buckets[key] {
-                        results.append(contentsOf: bucketPhotos)
+        for dL in -1...1 {
+            for da in -1...1 {
+                for db in -1...1 {
+                    let key = (targetL + dL) * 10000 + (targetA + da) * 100 + (targetB + db)
+                    if let list = labBuckets[key] {
+                        for pIdx in list {
+                            candidateIndices.insert(pIdx)
+                            if candidateIndices.count >= maxCandidates * 2 { break }
+                        }
                     }
                 }
             }
         }
         
-        return results
-    }
-    
-    private func bucketKey(for color: LabColor) -> Int {
-        let lIndex = Int(color.l / 20.0)
-        let aIndex = Int((color.a + 128.0) / 25.0)
-        let bIndex = Int((color.b + 128.0) / 25.0)
-        return lIndex * 10000 + aIndex * 100 + bIndex
+        // 2. 明暗重心・比率バケット探索
+        if let sig = signature {
+            let darkQuad = (sig.darkCenterOfMassX >= 0 ? 1 : 0) + (sig.darkCenterOfMassY >= 0 ? 2 : 0)
+            let brightQuad = (sig.brightCenterOfMassX >= 0 ? 1 : 0) + (sig.brightCenterOfMassY >= 0 ? 2 : 0)
+            let ratioBin = Int(sig.darkRatio * 3.0)
+            for rB in max(0, ratioBin - 1)...min(3, ratioBin + 1) {
+                let comKey = rB * 100 + darkQuad * 10 + brightQuad
+                if let list = comBuckets[comKey] {
+                    for pIdx in list {
+                        candidateIndices.insert(pIdx)
+                        if candidateIndices.count >= maxCandidates * 3 { break }
+                    }
+                }
+            }
+            
+            // 3. 勾配主方向バケット探索
+            var maxGradBin = 0
+            var maxGradVal: Float = -1
+            for hist in sig.gradientHistograms6x6 {
+                for b in 0..<8 {
+                    if hist[b] > maxGradVal {
+                        maxGradVal = hist[b]
+                        maxGradBin = b
+                    }
+                }
+            }
+            let gradMagBin = Int(min(3.0, maxGradVal / 15.0))
+            for b in [ (maxGradBin + 7) % 8, maxGradBin, (maxGradBin + 1) % 8 ] {
+                let gradKey = gradMagBin * 10 + b
+                if let list = gradientBuckets[gradKey] {
+                    for pIdx in list {
+                        candidateIndices.insert(pIdx)
+                    }
+                }
+            }
+        }
+        
+        // フォールバック（候補が少なすぎる場合は全体から補充）
+        if candidateIndices.count < min(30, allPhotos.count) {
+            for i in 0..<allPhotos.count {
+                candidateIndices.insert(i)
+                if candidateIndices.count >= maxCandidates { break }
+            }
+        }
+        
+        let rawCandidates = candidateIndices.map { allPhotos[$0] }
+        if rawCandidates.count <= maxCandidates {
+            return rawCandidates
+        }
+        
+        return Array(rawCandidates.sorted {
+            targetColor.distance(to: $0.labColor) < targetColor.distance(to: $1.labColor)
+        }.prefix(maxCandidates))
     }
 }

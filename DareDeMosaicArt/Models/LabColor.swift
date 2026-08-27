@@ -178,49 +178,309 @@ public struct LabColor: Codable, Equatable, Hashable, Sendable {
     }
 }
 
-/// 画像内の色の「場所」まで表現する 3×3 空間色特徴。
+/// 画像内の色の「場所・グラデーション・明暗重心・8方向エッジ配向」まで表現する多段階空間色特徴。
 public struct SpatialColorSignature: Codable, Equatable, Hashable, Sendable {
-    public static let cellCount = 9
+    public static let cellCountV1 = 9
+    public static let cellCountV2 = 36
+    public static let gradientBinCount = 8
 
+    public let version: Int
     public let average: LabColor
-    /// 左上から右下への行優先順で並ぶ9色。
-    public let cells: [LabColor]
-    /// 9セルの L* の標準偏差。
+    public let cells3x3: [LabColor]
+    public let cells6x6: [LabColor]
+    /// 6×6 各セルの 8方向 (0°〜360°, 45°刻み) 勾配ヒストグラム
+    public let gradientHistograms6x6: [[Float]]
+    /// 暗部重心 ([-1.0, 1.0]) & 信頼度 (0.0〜1.0)
+    public let darkCenterOfMassX: Float
+    public let darkCenterOfMassY: Float
+    public let darkConfidence: Float
+    /// 明部重心 ([-1.0, 1.0]) & 信頼度 (0.0〜1.0)
+    public let brightCenterOfMassX: Float
+    public let brightCenterOfMassY: Float
+    public let brightConfidence: Float
+    /// 明暗比率 (dark, mid, bright: 合計 1.0)
+    public let darkRatio: Float
+    public let midRatio: Float
+    public let brightRatio: Float
+    /// L* の標準偏差
     public let contrast: Float
 
-    public init(average: LabColor, cells: [LabColor], contrast: Float? = nil) {
-        self.average = average
-        if cells.count == Self.cellCount {
-            self.cells = cells
-        } else {
-            self.cells = Array(cells.prefix(Self.cellCount))
-                + Array(repeating: average, count: max(0, Self.cellCount - cells.count))
-        }
+    /// 既存コード互換用プロパティ（version 2 の場合は 6×6 または 3×3 を返す）
+    public var cells: [LabColor] {
+        return cells6x6.isEmpty ? cells3x3 : cells6x6
+    }
 
+    public init(
+        version: Int = 2,
+        average: LabColor,
+        cells3x3: [LabColor],
+        cells6x6: [LabColor] = [],
+        gradientHistograms6x6: [[Float]] = [],
+        darkCenterOfMass: (x: Float, y: Float) = (0, 0),
+        darkConfidence: Float = 0,
+        brightCenterOfMass: (x: Float, y: Float) = (0, 0),
+        brightConfidence: Float = 0,
+        luminanceRatios: (dark: Float, mid: Float, bright: Float) = (0.33, 0.34, 0.33),
+        contrast: Float? = nil
+    ) {
+        self.version = version
+        self.average = average
+        
+        // 3×3 セルの安全な初期化
+        if cells3x3.count == Self.cellCountV1 {
+            self.cells3x3 = cells3x3
+        } else {
+            self.cells3x3 = Array(cells3x3.prefix(Self.cellCountV1))
+                + Array(repeating: average, count: max(0, Self.cellCountV1 - cells3x3.count))
+        }
+        
+        // 6×6 セルの安全な初期化
+        if cells6x6.count == Self.cellCountV2 {
+            self.cells6x6 = cells6x6
+        } else if !cells6x6.isEmpty {
+            self.cells6x6 = Array(cells6x6.prefix(Self.cellCountV2))
+                + Array(repeating: average, count: max(0, Self.cellCountV2 - cells6x6.count))
+        } else if version >= 2 {
+            // 3×3 からの初期化
+            var upsampled: [LabColor] = []
+            upsampled.reserveCapacity(36)
+            for y in 0..<6 {
+                for x in 0..<6 {
+                    let srcX = min(2, x / 2)
+                    let srcY = min(2, y / 2)
+                    upsampled.append(self.cells3x3[srcY * 3 + srcX])
+                }
+            }
+            self.cells6x6 = upsampled
+        } else {
+            self.cells6x6 = []
+        }
+        
+        // 勾配ヒストグラムの安全な初期化
+        if gradientHistograms6x6.count == Self.cellCountV2 {
+            self.gradientHistograms6x6 = gradientHistograms6x6.map { hist in
+                hist.count == Self.gradientBinCount ? hist : Array(hist.prefix(Self.gradientBinCount)) + Array(repeating: 0.0, count: max(0, Self.gradientBinCount - hist.count))
+            }
+        } else {
+            self.gradientHistograms6x6 = Array(repeating: Array(repeating: 0.0, count: Self.gradientBinCount), count: Self.cellCountV2)
+        }
+        
+        self.darkCenterOfMassX = max(-1.0, min(1.0, darkCenterOfMass.x))
+        self.darkCenterOfMassY = max(-1.0, min(1.0, darkCenterOfMass.y))
+        self.darkConfidence = max(0.0, min(1.0, darkConfidence))
+        
+        self.brightCenterOfMassX = max(-1.0, min(1.0, brightCenterOfMass.x))
+        self.brightCenterOfMassY = max(-1.0, min(1.0, brightCenterOfMass.y))
+        self.brightConfidence = max(0.0, min(1.0, brightConfidence))
+        
+        self.darkRatio = max(0.0, min(1.0, luminanceRatios.dark))
+        self.midRatio = max(0.0, min(1.0, luminanceRatios.mid))
+        self.brightRatio = max(0.0, min(1.0, luminanceRatios.bright))
+        
         if let contrast {
             self.contrast = max(0, contrast)
         } else {
-            let mean = self.cells.map(\.l).reduce(0, +) / Float(Self.cellCount)
-            let variance = self.cells.reduce(Float.zero) { partial, color in
+            let activeCells = self.cells6x6.isEmpty ? self.cells3x3 : self.cells6x6
+            let mean = activeCells.map(\.l).reduce(0, +) / Float(max(1, activeCells.count))
+            let variance = activeCells.reduce(Float.zero) { partial, color in
                 let delta = color.l - mean
                 return partial + delta * delta
-            } / Float(Self.cellCount)
+            } / Float(max(1, activeCells.count))
+            self.contrast = sqrt(variance)
+        }
+    }
+    
+    // v1 互換イニシャライザ
+    public init(average: LabColor, cells: [LabColor], contrast: Float? = nil) {
+        self.init(
+            version: 1,
+            average: average,
+            cells3x3: cells,
+            cells6x6: [],
+            contrast: contrast
+        )
+    }
+
+    // MARK: - Codable (後方互換性明示デコード)
+    
+    private enum CodingKeys: String, CodingKey {
+        case version
+        case average
+        case cells // v1 互換
+        case cells3x3
+        case cells6x6
+        case gradientHistograms6x6
+        case darkCenterOfMassX
+        case darkCenterOfMassY
+        case darkConfidence
+        case brightCenterOfMassX
+        case brightCenterOfMassY
+        case brightConfidence
+        case darkRatio
+        case midRatio
+        case brightRatio
+        case contrast
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        let ver = try container.decodeIfPresent(Int.self, forKey: .version) ?? 1
+        self.version = ver
+        self.average = try container.decode(LabColor.self, forKey: .average)
+        
+        let c3 = try container.decodeIfPresent([LabColor].self, forKey: .cells3x3)
+            ?? container.decodeIfPresent([LabColor].self, forKey: .cells)
+            ?? Array(repeating: self.average, count: Self.cellCountV1)
+        if c3.count == Self.cellCountV1 {
+            self.cells3x3 = c3
+        } else {
+            self.cells3x3 = Array(c3.prefix(Self.cellCountV1)) + Array(repeating: self.average, count: max(0, Self.cellCountV1 - c3.count))
+        }
+        
+        let c6 = try container.decodeIfPresent([LabColor].self, forKey: .cells6x6) ?? []
+        if c6.count == Self.cellCountV2 {
+            self.cells6x6 = c6
+        } else if !c6.isEmpty {
+            self.cells6x6 = Array(c6.prefix(Self.cellCountV2)) + Array(repeating: self.average, count: max(0, Self.cellCountV2 - c6.count))
+        } else {
+            self.cells6x6 = []
+        }
+        
+        let gh = try container.decodeIfPresent([[Float]].self, forKey: .gradientHistograms6x6) ?? []
+        if gh.count == Self.cellCountV2 {
+            self.gradientHistograms6x6 = gh.map { hist in
+                hist.count == Self.gradientBinCount ? hist : Array(hist.prefix(Self.gradientBinCount)) + Array(repeating: 0.0, count: max(0, Self.gradientBinCount - hist.count))
+            }
+        } else {
+            self.gradientHistograms6x6 = Array(repeating: Array(repeating: 0.0, count: Self.gradientBinCount), count: Self.cellCountV2)
+        }
+        
+        self.darkCenterOfMassX = try container.decodeIfPresent(Float.self, forKey: .darkCenterOfMassX) ?? 0.0
+        self.darkCenterOfMassY = try container.decodeIfPresent(Float.self, forKey: .darkCenterOfMassY) ?? 0.0
+        self.darkConfidence = try container.decodeIfPresent(Float.self, forKey: .darkConfidence) ?? 0.0
+        
+        self.brightCenterOfMassX = try container.decodeIfPresent(Float.self, forKey: .brightCenterOfMassX) ?? 0.0
+        self.brightCenterOfMassY = try container.decodeIfPresent(Float.self, forKey: .brightCenterOfMassY) ?? 0.0
+        self.brightConfidence = try container.decodeIfPresent(Float.self, forKey: .brightConfidence) ?? 0.0
+        
+        self.darkRatio = try container.decodeIfPresent(Float.self, forKey: .darkRatio) ?? 0.33
+        self.midRatio = try container.decodeIfPresent(Float.self, forKey: .midRatio) ?? 0.34
+        self.brightRatio = try container.decodeIfPresent(Float.self, forKey: .brightRatio) ?? 0.33
+        
+        let cnt = try container.decodeIfPresent(Float.self, forKey: .contrast)
+        if let cnt {
+            self.contrast = cnt
+        } else {
+            let mean = self.cells3x3.map(\.l).reduce(0, +) / Float(Self.cellCountV1)
+            let variance = self.cells3x3.reduce(Float.zero) { partial, color in
+                let delta = color.l - mean
+                return partial + delta * delta
+            } / Float(Self.cellCountV1)
             self.contrast = sqrt(variance)
         }
     }
 
-    /// 平均色、同じ位置の9色、コントラストを統合した距離。
-    public func distance(to other: SpatialColorSignature) -> Float {
-        let averageDistance = average.distance(to: other.average)
-        let spatialDistance = zip(cells, other.cells)
-            .reduce(Float.zero) { $0 + $1.0.distance(to: $1.1) }
-            / Float(Self.cellCount)
-        let contrastDistance = abs(contrast - other.contrast)
-        return averageDistance * 0.25 + spatialDistance * 0.65 + contrastDistance * 0.10
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(version, forKey: .version)
+        try container.encode(average, forKey: .average)
+        try container.encode(cells3x3, forKey: .cells3x3)
+        try container.encode(cells3x3, forKey: .cells) // v1 互換用
+        try container.encode(cells6x6, forKey: .cells6x6)
+        try container.encode(gradientHistograms6x6, forKey: .gradientHistograms6x6)
+        try container.encode(darkCenterOfMassX, forKey: .darkCenterOfMassX)
+        try container.encode(darkCenterOfMassY, forKey: .darkCenterOfMassY)
+        try container.encode(darkConfidence, forKey: .darkConfidence)
+        try container.encode(brightCenterOfMassX, forKey: .brightCenterOfMassX)
+        try container.encode(brightCenterOfMassY, forKey: .brightCenterOfMassY)
+        try container.encode(brightConfidence, forKey: .brightConfidence)
+        try container.encode(darkRatio, forKey: .darkRatio)
+        try container.encode(midRatio, forKey: .midRatio)
+        try container.encode(brightRatio, forKey: .brightRatio)
+        try container.encode(contrast, forKey: .contrast)
     }
 
-    public func matchRatio(to other: SpatialColorSignature, maxDistance: Float = 35) -> Float {
-        let value = 1 - distance(to: other) / maxDistance
-        return max(0, min(1, value))
+    // MARK: - [0, 1] 正規化距離計算
+
+    /// 全体平均色、3×3/6×6空間色、8方向Sobel勾配、明暗面積比率、明暗重心を統合した [0, 1] 正規化距離。
+    public func distance(to other: SpatialColorSignature) -> Float {
+        // v1 同士 または 片方が v1 の場合は v1 距離を [0, 1] 正規化して返す
+        if self.version < 2 || other.version < 2 || self.cells6x6.isEmpty || other.cells6x6.isEmpty {
+            let avgDist = average.distance(to: other.average)
+            let sCount = min(self.cells3x3.count, other.cells3x3.count)
+            let spatialDist: Float
+            if sCount > 0 {
+                spatialDist = (0..<sCount).reduce(Float.zero) { $0 + self.cells3x3[$1].distance(to: other.cells3x3[$1]) } / Float(sCount)
+            } else {
+                spatialDist = avgDist
+            }
+            let contrastDist = abs(contrast - other.contrast)
+            let rawV1 = avgDist * 0.25 + spatialDist * 0.65 + contrastDist * 0.10
+            return max(0.0, min(1.0, rawV1 / 40.0))
+        }
+
+        // 1. 全体平均 Lab 色距離 (0〜1)
+        let dAvg = max(0.0, min(1.0, average.distance(to: other.average) / 40.0))
+
+        // 2. 多段階空間色距離 (3×3: 35%, 6×6: 65%) (0〜1)
+        let d3x3Raw = (0..<Self.cellCountV1).reduce(Float.zero) { $0 + cells3x3[$1].distance(to: other.cells3x3[$1]) } / Float(Self.cellCountV1)
+        let d6x6Raw = (0..<Self.cellCountV2).reduce(Float.zero) { $0 + cells6x6[$1].distance(to: other.cells6x6[$1]) } / Float(Self.cellCountV2)
+        let dSpatial = max(0.0, min(1.0, (d3x3Raw * 0.35 + d6x6Raw * 0.65) / 40.0))
+
+        // 3. 8方向 Sobel 勾配ヒストグラム距離 (0〜1)
+        var gradientDistSum: Float = 0.0
+        for c in 0..<Self.cellCountV2 {
+            let hA = gradientHistograms6x6[c]
+            let hB = other.gradientHistograms6x6[c]
+            let sumA = hA.reduce(0, +)
+            let sumB = hB.reduce(0, +)
+            
+            // 強度差 (0〜1)
+            let magDiff = max(0.0, min(1.0, abs(sumA - sumB) / 40.0))
+            
+            // 方向分布差 (低勾配ゲート適用)
+            let gate = min(1.0, min(sumA, sumB) / 8.0) // 勾配が弱い領域では方向を評価しない
+            var dirDiff: Float = 0.0
+            if gate > 0.01 && sumA > 0.001 && sumB > 0.001 {
+                // 正規化ヒストグラムのマンハッタン距離
+                var l1: Float = 0.0
+                for b in 0..<Self.gradientBinCount {
+                    let pA = hA[b] / sumA
+                    let pB = hB[b] / sumB
+                    l1 += abs(pA - pB)
+                }
+                dirDiff = l1 * 0.5 // [0, 1]
+            }
+            let cellGradDist = magDiff * 0.4 + (dirDiff * gate + magDiff * (1.0 - gate)) * 0.6
+            gradientDistSum += cellGradDist
+        }
+        let dGradient = max(0.0, min(1.0, gradientDistSum / Float(Self.cellCountV2)))
+
+        // 4. 明暗面積比率距離 (0〜1)
+        let dRatio = max(0.0, min(1.0, (abs(darkRatio - other.darkRatio) + abs(midRatio - other.midRatio) + abs(brightRatio - other.brightRatio)) / 2.0))
+
+        // 5. 明暗重心距離 (0〜1)
+        let darkDx = darkCenterOfMassX - other.darkCenterOfMassX
+        let darkDy = darkCenterOfMassY - other.darkCenterOfMassY
+        let darkDist = sqrt(darkDx * darkDx + darkDy * darkDy) / 2.8284 // 最大距離 2*sqrt(2) で正規化
+        let darkGate = min(darkConfidence, other.darkConfidence)
+
+        let brightDx = brightCenterOfMassX - other.brightCenterOfMassX
+        let brightDy = brightCenterOfMassY - other.brightCenterOfMassY
+        let brightDist = sqrt(brightDx * brightDx + brightDy * brightDy) / 2.8284
+        let brightGate = min(brightConfidence, other.brightConfidence)
+
+        let contrastDiff = max(0.0, min(1.0, abs(contrast - other.contrast) / 35.0))
+        let comDistance = (darkDist * darkGate + brightDist * brightGate) / max(0.001, (darkGate + brightGate))
+        let dCoM = max(0.0, min(1.0, comDistance * 0.7 + contrastDiff * 0.3))
+
+        // 総合加重スコア: 全体平均色15% + 空間色45% + 勾配20% + 面積比率10% + 重心コントラスト10%
+        let total = dAvg * 0.15 + dSpatial * 0.45 + dGradient * 0.20 + dRatio * 0.10 + dCoM * 0.10
+        return max(0.0, min(1.0, total))
+    }
+
+    public func matchRatio(to other: SpatialColorSignature, maxDistance: Float = 0.38) -> Float {
+        let value = 1.0 - distance(to: other) / maxDistance
+        return max(0.0, min(1.0, value))
     }
 }

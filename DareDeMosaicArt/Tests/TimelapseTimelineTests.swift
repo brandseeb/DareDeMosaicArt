@@ -60,11 +60,12 @@ func runTimelapseVerification() {
         
         assert(schedules.count == count, "\(count) マスのアニメーションスケジュール数が一致する必要があります")
         
-        // すべてのピースが startFrame + duration - 1 <= 209 (第209ビルドフレーム＝8.0秒直前) で着地完了すること
+        // 208Fまでに着地し、209Fで全ピースが固定レイヤーへ焼き込めること
         for s in schedules {
             let landingFrame = s.startBuildFrame + s.durationFrames - 1
-            assert(landingFrame <= 209, "タイル \(s.tileIndex) の着地フレーム \(landingFrame) は 209 以下である必要があります")
+            assert(landingFrame <= 208, "タイル \(s.tileIndex) の着地フレーム \(landingFrame) は 208 以下である必要があります")
             assert(s.progress(atBuildFrame: 209) == 1.0, "第209フレームで全タイルが progress 1.0 に到達する必要があります")
+            assert(s.isFullyLandedAndSettled(atBuildFrame: 209), "第209フレームで全タイルが固定可能である必要があります")
             assert(s.progress(atBuildFrame: 0) >= 0.0, "第0フレームで progress は 0 以上である必要があります")
         }
         

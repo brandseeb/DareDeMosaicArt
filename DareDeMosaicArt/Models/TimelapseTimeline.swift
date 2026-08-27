@@ -106,13 +106,16 @@ public struct TimelapseTimeline: Sendable {
         }
     }
     
-    // MARK: - 全タイルのアニメーションスケジュール生成 (startFrame + duration - 1 <= 209 厳密保証)
+    // MARK: - 全タイルのアニメーションスケジュール生成
     public func generateTileSchedules() -> [TileAnimState] {
         var schedules: [TileAnimState] = []
         schedules.reserveCapacity(totalTilesCount)
         
         let dur = config.dropDurationFrames
-        let maxStartFrame = max(0, 210 - dur)
+        // 最後のピースは208Fまでに着地させ、209Fで固定レイヤーへ焼き込む。
+        // 着地を209Fにすると、次のフィナーレに最後の1枚が反映されない。
+        let lastLandingFrame = Self.buildFrames - 2
+        let maxStartFrame = max(0, lastLandingFrame - dur + 1)
         
         for i in 0..<totalTilesCount {
             let ratio = Double(i) / Double(max(1, totalTilesCount - 1))

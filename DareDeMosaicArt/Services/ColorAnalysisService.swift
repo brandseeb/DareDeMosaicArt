@@ -20,7 +20,7 @@ public final class ColorAnalysisService: Sendable {
         extractSpatialSignature(from: cgImage).average
     }
 
-    /// 画像を正方形に正規化し、左上から右下へ 3×3 の代表色を抽出する。
+    /// 画像を正方形アスペクトフィルに正規化し、多段階空間色・48×48 Sobel勾配ヒストグラム・明暗重心・面積比率を抽出する。
     public func extractSpatialSignature(from cgImage: CGImage) -> SpatialColorSignature {
         let sampleSize = signatureSampleSize
         let colorSpace = CGColorSpaceCreateDeviceRGB()
@@ -39,48 +39,183 @@ public final class ColorAnalysisService: Sendable {
             return SpatialColorSignature(average: fallback, cells: Array(repeating: fallback, count: 9))
         }
         
-        context.draw(cgImage, in: CGRect(x: 0, y: 0, width: sampleSize, height: sampleSize))
+        // 1. アスペクト比を維持した中央正方形フィル（Aspect-Fill）で 48×48 に描画
+        let imgW = CGFloat(cgImage.width)
+        let imgH = CGFloat(cgImage.height)
+        let maxSide = max(imgW, imgH)
+        let scale = CGFloat(sampleSize) / min(imgW, imgH) // 短辺を sampleSize に合わせる
+        let drawW = imgW * scale
+        let drawH = imgH * scale
+        let drawX = (CGFloat(sampleSize) - drawW) / 2.0
+        let drawY = (CGFloat(sampleSize) - drawH) / 2.0
         
-        var cellR = [Float](repeating: 0, count: 9)
-        var cellG = [Float](repeating: 0, count: 9)
-        var cellB = [Float](repeating: 0, count: 9)
-        var cellPixelCounts = [Float](repeating: 0, count: 9)
+        context.draw(cgImage, in: CGRect(x: drawX, y: drawY, width: drawW, height: drawH))
+        
+        // 2. 各ピクセル (48×48) の Lab 変換と明度・色彩バッファ
+        var lumMap = [Float](repeating: 0, count: sampleSize * sampleSize)
+        var labMap = [LabColor](repeating: LabColor(l: 50, a: 0, b: 0), count: sampleSize * sampleSize)
+        
         var totalR: Float = 0, totalG: Float = 0, totalB: Float = 0
         let totalPixels = Float(sampleSize * sampleSize)
         
+        // 3×3 (16×16 px) 用アキュムレータ
+        var cell3x3R = [Float](repeating: 0, count: 9)
+        var cell3x3G = [Float](repeating: 0, count: 9)
+        var cell3x3B = [Float](repeating: 0, count: 9)
+        var cell3x3Count = [Float](repeating: 0, count: 9)
+        
+        // 6×6 (8×8 px) 用アキュムレータ
+        var cell6x6R = [Float](repeating: 0, count: 36)
+        var cell6x6G = [Float](repeating: 0, count: 36)
+        var cell6x6B = [Float](repeating: 0, count: 36)
+        var cell6x6Count = [Float](repeating: 0, count: 36)
+        
+        // 連続重み明暗重心用アキュムレータ
+        var darkWeightSum: Float = 0
+        var darkWeightedX: Float = 0
+        var darkWeightedY: Float = 0
+        
+        var brightWeightSum: Float = 0
+        var brightWeightedX: Float = 0
+        var brightWeightedY: Float = 0
+        
         for y in 0..<sampleSize {
+            let normY = (Float(y) - 23.5) / 23.5 // [-1.0, 1.0]
+            let c3Y = min(2, y / 16)
+            let c6Y = min(5, y / 8)
+            
             for x in 0..<sampleSize {
-                let offset = (y * sampleSize + x) * 4
+                let normX = (Float(x) - 23.5) / 23.5 // [-1.0, 1.0]
+                let c3X = min(2, x / 16)
+                let c6X = min(5, x / 8)
+                
+                let idx = y * sampleSize + x
+                let offset = idx * 4
                 let r = Float(rawData[offset]) / 255.0
                 let g = Float(rawData[offset + 1]) / 255.0
                 let b = Float(rawData[offset + 2]) / 255.0
-                let cellX = min(2, x * 3 / sampleSize)
-                let cellY = min(2, y * 3 / sampleSize)
-                let cellIndex = cellY * 3 + cellX
-                cellR[cellIndex] += r
-                cellG[cellIndex] += g
-                cellB[cellIndex] += b
-                cellPixelCounts[cellIndex] += 1
+                
                 totalR += r
                 totalG += g
                 totalB += b
+                
+                let c3Idx = c3Y * 3 + c3X
+                cell3x3R[c3Idx] += r
+                cell3x3G[c3Idx] += g
+                cell3x3B[c3Idx] += b
+                cell3x3Count[c3Idx] += 1
+                
+                let c6Idx = c6Y * 6 + c6X
+                cell6x6R[c6Idx] += r
+                cell6x6G[c6Idx] += g
+                cell6x6B[c6Idx] += b
+                cell6x6Count[c6Idx] += 1
+                
+                let lab = LabColor.fromRGB(red: r, green: g, blue: b)
+                labMap[idx] = lab
+                let lum = lab.l
+                lumMap[idx] = lum
+                
+                // 連続重み重心計算
+                let darkW = max(0.0, (50.0 - lum) / 50.0)
+                if darkW > 0 {
+                    darkWeightSum += darkW
+                    darkWeightedX += normX * darkW
+                    darkWeightedY += normY * darkW
+                }
+                
+                let brightW = max(0.0, (lum - 50.0) / 50.0)
+                if brightW > 0 {
+                    brightWeightSum += brightW
+                    brightWeightedX += normX * brightW
+                    brightWeightedY += normY * brightW
+                }
             }
         }
         
         let avgR = totalR / totalPixels
         let avgG = totalG / totalPixels
         let avgB = totalB / totalPixels
-        
         let average = LabColor.fromRGB(red: avgR, green: avgG, blue: avgB)
-        let cells = (0..<9).map { index -> LabColor in
-            let count = max(1, cellPixelCounts[index])
-            return LabColor.fromRGB(
-                red: cellR[index] / count,
-                green: cellG[index] / count,
-                blue: cellB[index] / count
-            )
+        
+        let cells3x3 = (0..<9).map { index -> LabColor in
+            let count = max(1, cell3x3Count[index])
+            return LabColor.fromRGB(red: cell3x3R[index] / count, green: cell3x3G[index] / count, blue: cell3x3B[index] / count)
         }
-        return SpatialColorSignature(average: average, cells: cells)
+        
+        let cells6x6 = (0..<36).map { index -> LabColor in
+            let count = max(1, cell6x6Count[index])
+            return LabColor.fromRGB(red: cell6x6R[index] / count, green: cell6x6G[index] / count, blue: cell6x6B[index] / count)
+        }
+        
+        // 3. 48×48 輝度への 3×3 Sobel 畳み込み & 6×6 領域への 8方向符号付きヒストグラム集約
+        var gradientHistograms6x6 = Array(repeating: Array(repeating: Float(0), count: 8), count: 36)
+        
+        func getLum(_ px: Int, _ py: Int) -> Float {
+            let cx = max(0, min(sampleSize - 1, px))
+            let cy = max(0, min(sampleSize - 1, py))
+            return lumMap[cy * sampleSize + cx]
+        }
+        
+        for y in 0..<sampleSize {
+            let c6Y = min(5, y / 8)
+            for x in 0..<sampleSize {
+                let c6X = min(5, x / 8)
+                let c6Idx = c6Y * 6 + c6X
+                
+                // Sobel カーネル適用
+                let gx = getLum(x + 1, y - 1) + 2.0 * getLum(x + 1, y) + getLum(x + 1, y + 1)
+                       - (getLum(x - 1, y - 1) + 2.0 * getLum(x - 1, y) + getLum(x - 1, y + 1))
+                let gy = getLum(x - 1, y + 1) + 2.0 * getLum(x, y + 1) + getLum(x + 1, y + 1)
+                       - (getLum(x - 1, y - 1) + 2.0 * getLum(x, y - 1) + getLum(x + 1, y - 1))
+                
+                let mag = sqrt(gx * gx + gy * gy)
+                if mag > 0.001 {
+                    var angle = atan2(gy, gx) // [-pi, pi]
+                    if angle < 0 { angle += 2.0 * .pi } // [0, 2*pi)
+                    let bin = Int(floor((angle / (2.0 * .pi)) * 8.0)) % 8
+                    gradientHistograms6x6[c6Idx][bin] += mag
+                }
+            }
+        }
+        
+        // 4. 重心と信頼度
+        let darkCoM: (x: Float, y: Float)
+        let darkConf: Float
+        if darkWeightSum > 0.001 {
+            darkCoM = (x: darkWeightedX / darkWeightSum, y: darkWeightedY / darkWeightSum)
+            darkConf = min(1.0, darkWeightSum / (totalPixels * 0.20))
+        } else {
+            darkCoM = (0, 0)
+            darkConf = 0
+        }
+        
+        let brightCoM: (x: Float, y: Float)
+        let brightConf: Float
+        if brightWeightSum > 0.001 {
+            brightCoM = (x: brightWeightedX / brightWeightSum, y: brightWeightedY / brightWeightSum)
+            brightConf = min(1.0, brightWeightSum / (totalPixels * 0.20))
+        } else {
+            brightCoM = (0, 0)
+            brightConf = 0
+        }
+        
+        let darkRatio = darkWeightSum / totalPixels
+        let brightRatio = brightWeightSum / totalPixels
+        let midRatio = max(0.0, 1.0 - darkRatio - brightRatio)
+        
+        return SpatialColorSignature(
+            version: 2,
+            average: average,
+            cells3x3: cells3x3,
+            cells6x6: cells6x6,
+            gradientHistograms6x6: gradientHistograms6x6,
+            darkCenterOfMass: darkCoM,
+            darkConfidence: darkConf,
+            brightCenterOfMass: brightCoM,
+            brightConfidence: brightConf,
+            luminanceRatios: (dark: darkRatio, mid: midRatio, bright: brightRatio)
+        )
     }
     
     #if canImport(UIKit)

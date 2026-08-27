@@ -489,14 +489,9 @@ public struct CompletionView: View {
                         width: tileWidth,
                         height: tileHeight
                     )
-                    let imageSize = CGSize(width: cgImage.width, height: cgImage.height)
-                    let scale = max(rect.width / imageSize.width, rect.height / imageSize.height)
-                    let drawSize = CGSize(width: imageSize.width * scale, height: imageSize.height * scale)
-                    let drawRect = CGRect(
-                        x: rect.midX - drawSize.width / 2,
-                        y: rect.midY - drawSize.height / 2,
-                        width: drawSize.width,
-                        height: drawSize.height
+                    let drawRect = ImageUtils.aspectFillRect(
+                        imageSize: CGSize(width: cgImage.width, height: cgImage.height),
+                        destinationRect: rect
                     )
                     context.saveGState()
                     context.clip(to: rect)

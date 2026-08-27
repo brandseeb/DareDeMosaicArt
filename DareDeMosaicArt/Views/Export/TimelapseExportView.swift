@@ -27,6 +27,9 @@ public struct TimelapseExportView: View {
     @State private var shareItem: TimelapseShareItem? = nil
     
     @State private var renderTask: Task<Void, Never>? = nil
+    @State private var saveTask: Task<Void, Never>? = nil
+    @State private var deferredCleanupURL: URL? = nil
+    @State private var isViewVisible: Bool = false
     private let onClose: (() -> Void)?
     
     public init(project: MosaicProject, onClose: (() -> Void)? = nil) {
@@ -56,9 +59,11 @@ public struct TimelapseExportView: View {
                 }
             }
             .onAppear {
+                isViewVisible = true
                 startRendering()
             }
             .onDisappear {
+                isViewVisible = false
                 cleanupPlayerAndTask()
             }
             .alert("動画を保存できません", isPresented: Binding(
@@ -172,6 +177,7 @@ public struct TimelapseExportView: View {
                 Spacer()
                 Toggle("", isOn: $includeAudio)
                     .labelsHidden()
+                    .disabled(isSaving)
                     .onChange(of: includeAudio) { _, _ in
                         startRendering()
                     }
@@ -322,17 +328,30 @@ public struct TimelapseExportView: View {
     }
     
     private func performPhotoSave(url: URL) {
-        PHPhotoLibrary.shared().performChanges({
-            PHAssetChangeRequest.creationRequestForAssetFromVideo(atFileURL: url)
-        }) { success, error in
-            Task { @MainActor in
-                self.isSaving = false
-                if success {
-                    self.saveSuccess = true
-                } else {
-                    self.saveError = error?.localizedDescription ?? "動画の保存に失敗しました。"
-                }
+        // プレビューとPhotoKitが同一MP4を同時に読み続けないよう、取り込み中は再生を一時停止する。
+        player?.pause()
+        saveTask = Task {
+            do {
+                try await Task.detached(priority: .userInitiated) {
+                    try await TimelapseExportService.shared.saveVideoToPhotoLibrary(at: url)
+                }.value
+                isSaving = false
+                saveSuccess = true
+            } catch {
+                isSaving = false
+                saveError = error.localizedDescription
             }
+
+            if isViewVisible {
+                player?.play()
+            }
+
+            // 画面を閉じても、PhotoKitがファイルの取り込みを完了するまでMP4を保持する。
+            if let cleanupURL = deferredCleanupURL {
+                try? FileManager.default.removeItem(at: cleanupURL)
+                deferredCleanupURL = nil
+            }
+            saveTask = nil
         }
     }
     
@@ -360,15 +379,11 @@ public struct TimelapseExportView: View {
         player = nil
         playerLooper = nil
         if let url = videoURL {
-            let targetURL = url
             self.videoURL = nil
             if isSaving {
-                Task.detached(priority: .background) {
-                    try? await Task.sleep(nanoseconds: 8_000_000_000)
-                    try? FileManager.default.removeItem(at: targetURL)
-                }
+                deferredCleanupURL = url
             } else {
-                try? FileManager.default.removeItem(at: targetURL)
+                try? FileManager.default.removeItem(at: url)
             }
         }
     }

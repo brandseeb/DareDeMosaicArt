@@ -168,7 +168,8 @@ public final class PhotoLibraryScanner: ObservableObject {
                                     
                                     // 端末内に完全な画像が存在する場合
                                     if let cached = cachedEntries[asset.localIdentifier],
-                                       cached.modificationDate == asset.modificationDate {
+                                       cached.modificationDate == asset.modificationDate,
+                                       (cached.photo.signature?.version ?? 1) >= 2 {
                                         gate.resume(returning: cached)
                                     } else {
                                         let signature = ColorAnalysisService.shared.extractSpatialSignature(from: uiImage)
@@ -256,25 +257,42 @@ private final class PhotoRequestContinuationGate: @unchecked Sendable {
     }
 }
 
-/// 前回の色解析結果をCaches領域にバイナリProperty Listとして保存・マージする。
+/// 前回の色解析結果をCaches領域にバイナリProperty Listとして保存・マージする（v2優先・v1段階移行対応）。
 public enum PhotoColorIndexCache {
-    private static var fileURL: URL? {
+    private static var fileURLV2: URL? {
+        FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first?
+            .appendingPathComponent("DareDeMosaicArt", isDirectory: true)
+            .appendingPathComponent("photo-color-index-v2.plist")
+    }
+
+    private static var fileURLV1: URL? {
         FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first?
             .appendingPathComponent("DareDeMosaicArt", isDirectory: true)
             .appendingPathComponent("photo-color-index-v1.plist")
     }
 
     public static func load() -> [String: CachedPhotoIndexEntry] {
-        guard let fileURL,
-              let data = try? Data(contentsOf: fileURL),
-              let entries = try? PropertyListDecoder().decode([CachedPhotoIndexEntry].self, from: data) else {
-            return [:]
+        let decoder = PropertyListDecoder()
+        
+        // 1. v2 キャッシュが存在すれば優先ロード
+        if let fileURLV2,
+           let data = try? Data(contentsOf: fileURLV2),
+           let entries = try? decoder.decode([CachedPhotoIndexEntry].self, from: data) {
+            return Dictionary(uniqueKeysWithValues: entries.map { ($0.id, $0) })
         }
-        return Dictionary(uniqueKeysWithValues: entries.map { ($0.id, $0) })
+        
+        // 2. v2 がなければ v1 キャッシュをロード（後方互換）
+        if let fileURLV1,
+           let data = try? Data(contentsOf: fileURLV1),
+           let entries = try? decoder.decode([CachedPhotoIndexEntry].self, from: data) {
+            return Dictionary(uniqueKeysWithValues: entries.map { ($0.id, $0) })
+        }
+        
+        return [:]
     }
 
     public static func save(_ entries: [CachedPhotoIndexEntry]) {
-        guard let fileURL else { return }
+        guard let fileURL = fileURLV2 else { return }
         do {
             try FileManager.default.createDirectory(
                 at: fileURL.deletingLastPathComponent(),

@@ -20,6 +20,7 @@ public enum TimelapseExportError: LocalizedError, Sendable {
     case audioEncodingFailed(String)
     case photoLibraryAccessDenied
     case outputFileMissing
+    case photoLibrarySaveTimedOut
     
     public var errorDescription: String? {
         switch self {
@@ -39,6 +40,8 @@ public enum TimelapseExportError: LocalizedError, Sendable {
             return "写真ライブラリへのアクセスが許可されていません。"
         case .outputFileMissing:
             return "生成された動画ファイルが見つかりません。"
+        case .photoLibrarySaveTimedOut:
+            return "写真ライブラリへの保存がタイムアウトしました。少し待ってからもう一度お試しください。"
         }
     }
 }
@@ -74,14 +77,20 @@ public final class TimelapseExportService: Sendable {
         }
         
         try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
+            let gate = PhotoLibrarySaveGate(continuation)
             PHPhotoLibrary.shared().performChanges({
                 PHAssetChangeRequest.creationRequestForAssetFromVideo(atFileURL: url)
             }) { success, error in
                 if success {
-                    continuation.resume()
+                    gate.resume()
                 } else {
-                    continuation.resume(throwing: error ?? TimelapseExportError.photoLibraryAccessDenied)
+                    gate.resume(throwing: error ?? TimelapseExportError.photoLibraryAccessDenied)
                 }
+            }
+
+            // PhotoKit側から完了通知が返らない異常系でUIを永久に待機させない。
+            DispatchQueue.global(qos: .utility).asyncAfter(deadline: .now() + 30) {
+                gate.resume(throwing: TimelapseExportError.photoLibrarySaveTimedOut)
             }
         }
     }
@@ -375,7 +384,11 @@ public final class TimelapseExportService: Sendable {
                                 if let cg = cachedTileCGImages[tile.id] {
                                     baseContext.saveGState()
                                     baseContext.clip(to: targetRect)
-                                    baseContext.draw(cg, in: targetRect)
+                                    let imageRect = ImageUtils.aspectFillRect(
+                                        imageSize: CGSize(width: cg.width, height: cg.height),
+                                        destinationRect: targetRect
+                                    )
+                                    baseContext.draw(cg, in: imageRect)
                                     baseContext.restoreGState()
                                 }
                             }
@@ -433,7 +446,11 @@ public final class TimelapseExportService: Sendable {
                             if let cg = cachedTileCGImages[tile.id] {
                                 frameContext.saveGState()
                                 frameContext.clip(to: drawRect)
-                                frameContext.draw(cg, in: drawRect)
+                                let imageRect = ImageUtils.aspectFillRect(
+                                    imageSize: CGSize(width: cg.width, height: cg.height),
+                                    destinationRect: drawRect
+                                )
+                                frameContext.draw(cg, in: imageRect)
                                 frameContext.restoreGState()
                             }
                             
@@ -450,6 +467,39 @@ public final class TimelapseExportService: Sendable {
                     } else {
                         // フィナーレ
                         let finaleFrame = f - (TimelapseTimeline.openingFrames + TimelapseTimeline.buildFrames)
+
+                        // タイムラインの将来変更や境界値に対する最終ガード。
+                        // フィナーレ開始前に全タイルを必ず固定レイヤーへ反映する。
+                        if renderContext.currentFrame == TimelapseTimeline.openingFrames + TimelapseTimeline.buildFrames {
+                            for schedule in tileSchedules where !renderContext.bakedTiles.contains(schedule.tileIndex) {
+                                renderContext.bakedTiles.insert(schedule.tileIndex)
+                                let tile = sortedTiles[schedule.tileIndex]
+                                let targetRect = CGRect(
+                                    x: CGFloat(tile.gridX) * tilePixelWidth,
+                                    y: CGFloat(project.gridHeight - tile.gridY - 1) * tilePixelHeight,
+                                    width: tilePixelWidth,
+                                    height: tilePixelHeight
+                                )
+                                let rgb = tile.targetLabColor.toRGB()
+                                baseContext.setFillColor(
+                                    red: CGFloat(rgb.red),
+                                    green: CGFloat(rgb.green),
+                                    blue: CGFloat(rgb.blue),
+                                    alpha: 1.0
+                                )
+                                baseContext.fill(targetRect)
+                                if let cg = cachedTileCGImages[tile.id] {
+                                    baseContext.saveGState()
+                                    baseContext.clip(to: targetRect)
+                                    let imageRect = ImageUtils.aspectFillRect(
+                                        imageSize: CGSize(width: cg.width, height: cg.height),
+                                        destinationRect: targetRect
+                                    )
+                                    baseContext.draw(cg, in: imageRect)
+                                    baseContext.restoreGState()
+                                }
+                            }
+                        }
                         
                         guard let finalBaseSnapshot = baseContext.makeImage() else {
                             throw TimelapseExportError.contextCreationFailed
@@ -540,19 +590,28 @@ public final class TimelapseExportService: Sendable {
             renderContext.cancel()
         }
         
-        if renderContext.isCancelled {
+        let completionState = renderContext.terminalState()
+        if completionState.isCancelled {
             throw TimelapseExportError.cancelled
         }
         
-        if let err = renderContext.error {
+        if let err = completionState.error {
             throw err
         }
         
-        // 8. ファイルの書き込み終了
-        await withCheckedContinuation { continuation in
-            writer.finishWriting {
-                continuation.resume()
+        // 8. ファイルの書き込み終了。finishWriting の待機中も即時キャンセル可能にする。
+        await withTaskCancellationHandler {
+            await withCheckedContinuation { continuation in
+                writer.finishWriting {
+                    continuation.resume()
+                }
             }
+        } onCancel: {
+            renderContext.cancel()
+        }
+
+        if Task.isCancelled || renderContext.terminalState().isCancelled {
+            throw TimelapseExportError.cancelled
         }
         
         if writer.status != .completed {
@@ -741,8 +800,8 @@ private final class RenderContext: @unchecked Sendable {
     private let lock = NSLock()
     var currentFrame: Int = 0
     var bakedTiles = Set<Int>()
-    var error: Error? = nil
-    var isCancelled: Bool = false
+    private var storedError: Error? = nil
+    private var cancellationRequested: Bool = false
     var audioSampleOffset: Int = 0
     private var videoFinished: Bool = false
     private var audioFinished: Bool = false
@@ -757,14 +816,21 @@ private final class RenderContext: @unchecked Sendable {
     func shouldStop() -> Bool {
         lock.lock()
         defer { lock.unlock() }
-        return error != nil || isCancelled
+        return storedError != nil || cancellationRequested
+    }
+
+    /// 複数プロパティを同一ロック下で取得し、終了判定の競合を防ぐ。
+    func terminalState() -> (isCancelled: Bool, error: Error?) {
+        lock.lock()
+        defer { lock.unlock() }
+        return (cancellationRequested, storedError)
     }
     
     func setError(_ err: Error) {
         lock.lock()
         defer { lock.unlock() }
-        if error == nil {
-            error = err
+        if storedError == nil {
+            storedError = err
         }
         finishAll()
     }
@@ -772,7 +838,7 @@ private final class RenderContext: @unchecked Sendable {
     func cancel() {
         lock.lock()
         defer { lock.unlock() }
-        isCancelled = true
+        cancellationRequested = true
         finishAll()
     }
     
@@ -824,7 +890,8 @@ private final class AudioPcmHelper: Sendable {
         let totalDuration = TimelapseTimeline.totalDurationSeconds
         let totalSamplesCount = Int(sampleRate * totalDuration) // 480,000 サンプル
         self.totalSamples = totalSamplesCount
-        var pcm = [Float](repeating: 0.0, count: totalSamplesCount)
+        var leftPCM = [Float](repeating: 0.0, count: totalSamplesCount)
+        var rightPCM = [Float](repeating: 0.0, count: totalSamplesCount)
         
         // 1. グループ着地クリック音の合成
         var landingFrames = Set<Int>()
@@ -832,7 +899,10 @@ private final class AudioPcmHelper: Sendable {
             landingFrames.insert(schedule.startBuildFrame + schedule.durationFrames - 1)
         }
         let sortedLandingFrames = landingFrames.sorted()
-        let frequencies: [Float] = [880.0, 1174.66, 1479.98]
+        // G4 / B4 / D5。高い電子音ではなく、木製パネルのような落ち着いた音域にする。
+        let frequencies: [Float] = [392.00, 493.88, 587.33]
+        let stereoPans: [Float] = [-0.18, 0.12, 0.0]
+        var noiseState: UInt64 = 0x9E3779B97F4A7C15
         
         var lastSoundSample = -4800
         for (idx, buildFrame) in sortedLandingFrames.enumerated() {
@@ -843,12 +913,26 @@ private final class AudioPcmHelper: Sendable {
             lastSoundSample = startSample
             
             let freq = frequencies[idx % frequencies.count]
-            let soundDur = Int(0.025 * sampleRate) // 25ms
+            let pan = stereoPans[idx % stereoPans.count]
+            let leftGain = sqrt((1.0 - pan) * 0.5)
+            let rightGain = sqrt((1.0 + pan) * 0.5)
+            let soundDur = Int(0.070 * sampleRate) // 70ms: 短い余韻を持たせる
             for i in 0..<soundDur {
                 guard startSample + i < totalSamplesCount else { break }
                 let t = Float(i) / Float(sampleRate)
-                let env = exp(-t * 120.0)
-                pcm[startSample + i] += sin(2.0 * .pi * freq * t) * env * 0.22
+                let attack = min(1.0, t / 0.0015)
+                let bodyEnvelope = attack * exp(-t * 48.0)
+                let overtoneEnvelope = attack * exp(-t * 82.0)
+
+                noiseState = noiseState &* 6364136223846793005 &+ 1442695040888963407
+                let noise = Float(Int32(truncatingIfNeeded: noiseState >> 32)) / Float(Int32.max)
+                let transient = noise * exp(-t * 190.0) * 0.018
+
+                let body = sin(2.0 * .pi * freq * t) * bodyEnvelope * 0.115
+                let warmOvertone = sin(2.0 * .pi * freq * 2.01 * t) * overtoneEnvelope * 0.028
+                let sample = body + warmOvertone + transient
+                leftPCM[startSample + i] += sample * leftGain
+                rightPCM[startSample + i] += sample * rightGain
             }
         }
         
@@ -862,24 +946,34 @@ private final class AudioPcmHelper: Sendable {
                 let sIdx = chimeStart + offset + i
                 guard sIdx < totalSamplesCount else { break }
                 let t = Float(i) / Float(sampleRate)
-                let env = exp(-t * 2.2) * (1.0 - exp(-t * 80.0))
-                pcm[sIdx] += sin(2.0 * .pi * noteFreq * t) * env * 0.16
+                let env = exp(-t * 2.35) * (1.0 - exp(-t * 65.0))
+                let fundamental = sin(2.0 * .pi * noteFreq * t)
+                let softOvertone = sin(2.0 * .pi * noteFreq * 2.0 * t) * 0.12
+                let sample = (fundamental + softOvertone) * env * 0.105
+                let pan = (Float(noteIdx) - 1.5) * 0.10
+                leftPCM[sIdx] += sample * sqrt((1.0 - pan) * 0.5)
+                rightPCM[sIdx] += sample * sqrt((1.0 + pan) * 0.5)
             }
         }
         
         // 3. ピークリミッター (-1.0 dBFS)
-        let maxPeak = pcm.map { abs($0) }.max() ?? 0.0
+        let maxPeak = max(
+            leftPCM.map { abs($0) }.max() ?? 0.0,
+            rightPCM.map { abs($0) }.max() ?? 0.0
+        )
         if maxPeak > 0.891 {
             let gain = 0.891 / maxPeak
-            for i in 0..<totalSamplesCount { pcm[i] *= gain }
+            for i in 0..<totalSamplesCount {
+                leftPCM[i] *= gain
+                rightPCM[i] *= gain
+            }
         }
         
         // 4. 16-bit インターリーブステレオ PCM バッファ (1,920,000 bytes)
         var stereo = [Int16](repeating: 0, count: totalSamplesCount * 2)
         for i in 0..<totalSamplesCount {
-            let val = Int16(max(-1.0, min(1.0, pcm[i])) * 32767.0)
-            stereo[i * 2] = val
-            stereo[i * 2 + 1] = val
+            stereo[i * 2] = Int16(max(-1.0, min(1.0, leftPCM[i])) * 32767.0)
+            stereo[i * 2 + 1] = Int16(max(-1.0, min(1.0, rightPCM[i])) * 32767.0)
         }
         self.int16StereoBuffer = stereo
         
@@ -1006,6 +1100,32 @@ private struct PrecomputedRoundedRectShadowCache: Sendable {
 
 private final class WriterBox: @unchecked Sendable {
     var writer: AVAssetWriter? = nil
+}
+
+/// PhotoKitの完了通知とタイムアウトの競合時にContinuationを1回だけ完了させる。
+private final class PhotoLibrarySaveGate: @unchecked Sendable {
+    private let lock = NSLock()
+    private var continuation: CheckedContinuation<Void, Error>?
+
+    init(_ continuation: CheckedContinuation<Void, Error>) {
+        self.continuation = continuation
+    }
+
+    func resume() {
+        takeContinuation()?.resume()
+    }
+
+    func resume(throwing error: Error) {
+        takeContinuation()?.resume(throwing: error)
+    }
+
+    private func takeContinuation() -> CheckedContinuation<Void, Error>? {
+        lock.lock()
+        defer { lock.unlock() }
+        let value = continuation
+        continuation = nil
+        return value
+    }
 }
 
 private func sanitizeWatermarkText(_ rawText: String) -> String {
