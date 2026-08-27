@@ -144,10 +144,14 @@ public struct MosaicWorkspaceView: View {
                         photoData: photo.thumbnailData ?? Data(),
                         photoLabColor: photo.labColor,
                         photoSignature: photo.signature,
-                        preferredTileID: mission.targetTileIds.first
+                        preferredTileID: mission.targetTileIds.count == 1 ? mission.targetTileIds.first : nil,
+                        targetTileIDs: mission.targetTileIds
                     )
                     
                     self.project = result.updatedProject
+                    if let matched = result.matchedTile {
+                        self.selectedTile = matched
+                    }
                     if self.project.isCompleted {
                         self.showCompletion = true
                     }

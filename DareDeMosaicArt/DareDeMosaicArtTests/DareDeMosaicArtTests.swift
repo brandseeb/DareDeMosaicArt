@@ -861,6 +861,29 @@ final class DareDeMosaicArtTests: XCTestCase {
         XCTAssertEqual(updatedProject.tiles[0].placedPhotoIdentifier, "p_blue", "青いマスには青い写真が確実に割り当てられること")
         XCTAssertEqual(updatedProject.tiles[1].placedPhotoIdentifier, "p_yellow", "黄色いマスには黄色い写真が確実に割り当てられること")
     }
+
+    /// カメラ撮影ミッションで撮影された写真が、対象マスへ確実に配置され残りマスが減少すること
+    func testFitCapturedPhotoGuaranteesFittingForMissionTiles() throws {
+        let tile0 = MosaicTile(gridX: 0, gridY: 0, targetLabColor: LabColor(l: 60, a: 25, b: 30))
+        let tile1 = MosaicTile(gridX: 1, gridY: 0, targetLabColor: LabColor(l: 40, a: -20, b: -30))
+        let project = MosaicProject(title: "ミッション撮影テスト", gridWidth: 2, gridHeight: 1, tiles: [tile0, tile1])
+        
+        let dummyData = "testPhotoData".data(using: .utf8)!
+        let capturedColor = LabColor(l: 58, a: 22, b: 28) // tile0に非常に近い色
+        
+        let (updated, matched, _) = MosaicEngine.shared.fitCapturedPhoto(
+            project: project,
+            photoData: dummyData,
+            photoLabColor: capturedColor,
+            targetTileIDs: [tile0.id]
+        )
+        
+        XCTAssertNotNil(matched, "撮影ピースが確実にマッチすること")
+        XCTAssertEqual(matched?.id, tile0.id, "ミッション対象のタイル0に配置されること")
+        XCTAssertTrue(updated.tiles[0].isFilled, "タイル0が埋まり状態になること")
+        XCTAssertEqual(updated.filledCount, 1, "進捗が1マス進むこと")
+        XCTAssertEqual(updated.tiles[0].origin, .captured, "配置元がcapturedになること")
+    }
 }
 
 

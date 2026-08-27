@@ -318,49 +318,65 @@ public final class MosaicEngine: Sendable {
         photoLabColor: LabColor,
         photoSignature: SpatialColorSignature? = nil,
         preferredTileID: UUID? = nil,
+        targetTileIDs: [UUID] = [],
         passDistanceThreshold: Float = 0.38
     ) -> (updatedProject: MosaicProject, matchedTile: MosaicTile?, message: String) {
         var updatedProject = project
         let nextSeq = (updatedProject.tiles.compactMap(\.placementSequence).max() ?? -1) + 1
+        let cameraPhoto = IndexedPhoto(id: "camera", labColor: photoLabColor, signature: photoSignature)
         
         // 1. ユーザーが特定マスを選択して撮り直した場合はそのマスに最優先で当てはめる
         if let targetID = preferredTileID,
            let index = updatedProject.tiles.firstIndex(where: { $0.id == targetID }) {
-            let tile = updatedProject.tiles[index]
-            let score = matchScore(targetColor: tile.targetLabColor, targetSignature: tile.targetSignature, photo: IndexedPhoto(id: "camera", labColor: photoLabColor, signature: photoSignature))
+            var updatedTile = updatedProject.tiles[index]
+            updatedTile.thumbnailData = photoData
+            updatedTile.placedLabColor = photoLabColor
+            updatedTile.placedSignature = photoSignature
+            updatedTile.isLocked = true
+            updatedTile.origin = .captured
+            updatedTile.placementSequence = nextSeq
+            updatedProject.tiles[index] = updatedTile
             
-            if score <= passDistanceThreshold * 1.35 {
-                var updatedTile = tile
-                updatedTile.thumbnailData = photoData
-                updatedTile.placedLabColor = photoLabColor
-                updatedTile.placedSignature = photoSignature
-                updatedTile.isLocked = true
-                updatedTile.origin = .captured
-                updatedTile.placementSequence = nextSeq
-                updatedProject.tiles[index] = updatedTile
-                
-                updatedProject.missions = generateMissions(from: updatedProject.tiles)
-                updatedProject.isCompleted = updatedProject.tiles.allSatisfy { $0.isFilled }
-                updatedProject.updatedAt = Date()
-                
-                return (updatedProject, updatedTile, "ナイスショット！ピースを撮り直しました！")
+            updatedProject.missions = generateMissions(from: updatedProject.tiles)
+            updatedProject.isCompleted = updatedProject.tiles.allSatisfy { $0.isFilled }
+            updatedProject.updatedAt = Date()
+            
+            return (updatedProject, updatedTile, "ナイスショット！ピースを撮り直しました！")
+        }
+        
+        // 2. ミッション対象マス（targetTileIDs）の中の未埋めマスから最も合致するタイルを探す
+        let targetIdSet = Set(targetTileIDs)
+        var bestTargetIndex: Int? = nil
+        var bestTargetScore: Float = Float.infinity
+        
+        if !targetIdSet.isEmpty {
+            for (index, tile) in updatedProject.tiles.enumerated() {
+                if tile.isFilled || !targetIdSet.contains(tile.id) { continue }
+                let score = matchScore(targetColor: tile.targetLabColor, targetSignature: tile.targetSignature, photo: cameraPhoto)
+                if score < bestTargetScore {
+                    bestTargetScore = score
+                    bestTargetIndex = index
+                }
             }
         }
         
-        // 2. 未埋めタイルの中から最も合致するタイルを探す
-        var bestIndex: Int? = nil
-        var bestScore: Float = Float.infinity
+        // 3. プロジェクト全体の未埋めマスの中から最も合致するタイルを探す
+        var bestGlobalIndex: Int? = nil
+        var bestGlobalScore: Float = Float.infinity
         
         for (index, tile) in updatedProject.tiles.enumerated() {
             if tile.isFilled { continue }
-            let score = matchScore(targetColor: tile.targetLabColor, targetSignature: tile.targetSignature, photo: IndexedPhoto(id: "camera", labColor: photoLabColor, signature: photoSignature))
-            if score < bestScore {
-                bestScore = score
-                bestIndex = index
+            let score = matchScore(targetColor: tile.targetLabColor, targetSignature: tile.targetSignature, photo: cameraPhoto)
+            if score < bestGlobalScore {
+                bestGlobalScore = score
+                bestGlobalIndex = index
             }
         }
         
-        if let index = bestIndex, bestScore <= passDistanceThreshold {
+        // ミッション対象マスがあれば最優先、なければ全体の最良マスを選択
+        let chosenIndex = bestTargetIndex ?? bestGlobalIndex
+        
+        if let index = chosenIndex {
             var matchedTile = updatedProject.tiles[index]
             matchedTile.thumbnailData = photoData
             matchedTile.placedLabColor = photoLabColor
@@ -379,7 +395,7 @@ public final class MosaicEngine: Sendable {
             return (updatedProject, matchedTile, msg)
         }
         
-        return (updatedProject, nil, "惜しい！ぴったりのマスが見つかりませんでした。レティクルの中心に色を捉えてもう一度撮影してみよう！")
+        return (updatedProject, nil, "すべてのマスが既に埋まっています！")
     }
     
     // MARK: - ミッション自動生成
