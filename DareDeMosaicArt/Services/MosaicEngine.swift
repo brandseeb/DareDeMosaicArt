@@ -42,7 +42,8 @@ public final class MosaicEngine: Sendable {
         tiles: [MosaicTile],
         availablePhotos: [IndexedPhoto],
         allowDuplicates: Bool = false,
-        passDistanceThreshold: Float = 0.38
+        passDistanceThreshold: Float = 0.38,
+        onProgress: (@Sendable (Int, Int) -> Void)? = nil
     ) -> [MosaicTile] {
         guard !availablePhotos.isEmpty else { return tiles }
         
@@ -62,9 +63,11 @@ public final class MosaicEngine: Sendable {
         let index = MultiDimensionalPhotoIndex(photos: usablePhotos)
         
         let assignableIndices = updatedTiles.indices.filter { !updatedTiles[$0].isLocked || !updatedTiles[$0].isFilled }
+        let totalAssignable = assignableIndices.count
         
         if allowDuplicates {
             // 重複許可の場合: 各タイルのベストを直接適用
+            var processed = 0
             for tileIdx in assignableIndices {
                 let tile = updatedTiles[tileIdx]
                 let candidates = index.candidates(for: tile.targetLabColor, signature: tile.targetSignature, maxCandidates: 200)
@@ -86,6 +89,11 @@ public final class MosaicEngine: Sendable {
                     updatedTiles[tileIdx].thumbnailData = best.thumbnailData
                     updatedTiles[tileIdx].origin = .automatic
                 }
+                
+                processed += 1
+                if let onProgress, processed % max(1, totalAssignable / 20) == 0 || processed == totalAssignable {
+                    onProgress(processed, totalAssignable)
+                }
             }
             return updatedTiles
         }
@@ -95,6 +103,7 @@ public final class MosaicEngine: Sendable {
         var adjList: [[(photoIdx: Int, score: Float)]] = Array(repeating: [], count: updatedTiles.count)
         var edgeScoreMap: [Int: [Int: Float]] = [:]
         
+        var evaluatedCount = 0
         for tileIdx in assignableIndices {
             let tile = updatedTiles[tileIdx]
             let candidates = index.candidates(for: tile.targetLabColor, signature: tile.targetSignature, maxCandidates: 200)
@@ -110,6 +119,11 @@ public final class MosaicEngine: Sendable {
             let topEdges = Array(validEdges.prefix(16))
             adjList[tileIdx] = topEdges
             edgeScoreMap[tileIdx] = Dictionary(uniqueKeysWithValues: topEdges.map { ($0.photoIdx, $0.score) })
+            
+            evaluatedCount += 1
+            if let onProgress, evaluatedCount % max(1, totalAssignable / 20) == 0 || evaluatedCount == totalAssignable {
+                onProgress(evaluatedCount, totalAssignable)
+            }
         }
         
         // 2. 最大二部マッチング（Kuhn's Augmenting Path Algorithm: 疎グラフ上での Maximum Cardinality Matching）

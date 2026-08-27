@@ -268,19 +268,22 @@ public final class ColorAnalysisService: Sendable {
     
     // MARK: - ターゲット画像のグリッド分割 & 各セルの代表色抽出
     
-    /// ターゲット画像を gridWidth × gridHeight マスに分割し、各マスの目標色（LabColor）を抽出
+    /// ターゲット画像を gridWidth × gridHeight マスに分割し、各マスの目標色（LabColor）と空間シグネチャを抽出
     public func sliceTargetImage(
         cgImage: CGImage,
         gridWidth: Int,
-        gridHeight: Int
+        gridHeight: Int,
+        onProgress: (@Sendable (Int, Int) -> Void)? = nil
     ) -> [MosaicTile] {
         let imgWidth = cgImage.width
         let imgHeight = cgImage.height
         guard gridWidth > 0, gridHeight > 0 else { return [] }
         
+        let totalTiles = gridWidth * gridHeight
         var tiles: [MosaicTile] = []
-        tiles.reserveCapacity(gridWidth * gridHeight)
+        tiles.reserveCapacity(totalTiles)
         
+        var processedCount = 0
         for y in 0..<gridHeight {
             for x in 0..<gridWidth {
                 // 各境界を元画像に対する比率から求め、端数ピクセルも必ずどこかのマスに含める。
@@ -305,6 +308,11 @@ public final class ColorAnalysisService: Sendable {
                     targetSignature: signature
                 )
                 tiles.append(tile)
+                
+                processedCount += 1
+                if let onProgress, processedCount % max(1, totalTiles / 50) == 0 || processedCount == totalTiles {
+                    onProgress(processedCount, totalTiles)
+                }
             }
         }
         
