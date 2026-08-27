@@ -58,7 +58,8 @@ public struct MosaicTile: Identifiable, Codable, Sendable, Equatable {
     }
     
     public var isFilled: Bool {
-        placedPhotoIdentifier != nil || thumbnailData != nil
+        // 撮影ピースの画像本体は遅延読み込み時にメタデータから分離されるため、originでも論理状態を保持する。
+        placedPhotoIdentifier != nil || thumbnailData != nil || origin == .captured
     }
     
     // MARK: - Codable（旧データ後方互換性）

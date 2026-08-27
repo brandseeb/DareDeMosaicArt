@@ -2,49 +2,218 @@ import SwiftUI
 
 #if canImport(UIKit)
 import UIKit
-#endif
 
-/// タイル画像のインメモリキャッシュ（デコード重複とメインスレッドブロックを完全排除）
-@MainActor
-public final class TileImageCache {
-    public static let shared = TileImageCache()
-    private let cache = NSCache<NSString, UIImage>()
-    
-    private init() {
-        cache.countLimit = 4000
-    }
-    
-    public func image(for tileId: UUID, data: Data?) -> UIImage? {
-        guard let data else { return nil }
-        let key = tileId.uuidString as NSString
-        if let cached = cache.object(forKey: key) {
-            return cached
+/// 数千枚のタイルを操作中に再描画しないため、モザイクを1枚の表示用画像へ合成する。
+private enum MosaicPreviewRenderer {
+    static func render(project: MosaicProject, pixels: Int) -> UIImage? {
+        guard pixels > 0,
+              let colorSpace = CGColorSpace(name: CGColorSpace.sRGB),
+              let context = CGContext(
+                data: nil,
+                width: pixels,
+                height: pixels,
+                bitsPerComponent: 8,
+                bytesPerRow: 0,
+                space: colorSpace,
+                bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+              ) else { return nil }
+
+        context.interpolationQuality = .medium
+        let gridWidth = max(1, project.gridWidth)
+        let gridHeight = max(1, project.gridHeight)
+        let tileWidth = CGFloat(pixels) / CGFloat(gridWidth)
+        let tileHeight = CGFloat(pixels) / CGFloat(gridHeight)
+
+        for tile in project.tiles {
+            autoreleasepool {
+                let rect = CGRect(
+                    x: CGFloat(tile.gridX) * tileWidth,
+                    y: CGFloat(gridHeight - tile.gridY - 1) * tileHeight,
+                    width: tileWidth,
+                    height: tileHeight
+                )
+
+                if let data = tile.thumbnailData,
+                   let image = UIImage(data: data),
+                   let cgImage = image.cgImage {
+                    let drawRect = ImageUtils.aspectFillRect(
+                        imageSize: CGSize(width: cgImage.width, height: cgImage.height),
+                        destinationRect: rect
+                    )
+                    context.saveGState()
+                    context.clip(to: rect)
+                    context.draw(cgImage, in: drawRect)
+                    context.restoreGState()
+                } else {
+                    context.setFillColor(tile.targetLabColor.uiColor.cgColor)
+                    context.fill(rect)
+                    context.setStrokeColor(UIColor.white.withAlphaComponent(0.22).cgColor)
+                    context.setLineWidth(0.5)
+                    context.stroke(rect)
+                }
+            }
         }
-        if let img = UIImage(data: data) {
-            cache.setObject(img, forKey: key)
-            return img
-        }
-        return nil
-    }
-    
-    public func clear() {
-        cache.removeAllObjects()
+
+        guard let image = context.makeImage() else { return nil }
+        return UIImage(cgImage: image)
     }
 }
 
-/// モザイクアートのキャンバスビュー（GPU Canvas による超高速60fps描画 & ズーム・パン & タップ判定）
+/// UIImageView 1枚だけをUIScrollViewのネイティブエンジンで拡大・移動する。
+private struct NativeZoomMosaicView: UIViewRepresentable {
+    let image: UIImage
+    let gridWidth: Int
+    let gridHeight: Int
+    let selectedTile: MosaicTile?
+    let onSelectTile: (Int, Int) -> Void
+    @Binding var zoomScale: CGFloat
+    @Binding var offset: CGSize
+
+    func makeCoordinator() -> Coordinator {
+        Coordinator(parent: self)
+    }
+
+    func makeUIView(context: Context) -> UIScrollView {
+        let scrollView = UIScrollView()
+        scrollView.delegate = context.coordinator
+        scrollView.minimumZoomScale = 1
+        scrollView.maximumZoomScale = 6
+        scrollView.bouncesZoom = true
+        scrollView.decelerationRate = .fast
+        scrollView.showsHorizontalScrollIndicator = false
+        scrollView.showsVerticalScrollIndicator = false
+        scrollView.backgroundColor = .black
+
+        let imageView = context.coordinator.imageView
+        imageView.image = image
+        imageView.contentMode = .scaleToFill
+        imageView.isUserInteractionEnabled = true
+        scrollView.addSubview(imageView)
+
+        let singleTap = UITapGestureRecognizer(target: context.coordinator, action: #selector(Coordinator.handleSingleTap(_:)))
+        let doubleTap = UITapGestureRecognizer(target: context.coordinator, action: #selector(Coordinator.handleDoubleTap(_:)))
+        doubleTap.numberOfTapsRequired = 2
+        singleTap.require(toFail: doubleTap)
+        imageView.addGestureRecognizer(singleTap)
+        imageView.addGestureRecognizer(doubleTap)
+
+        context.coordinator.scrollView = scrollView
+        return scrollView
+    }
+
+    func updateUIView(_ scrollView: UIScrollView, context: Context) {
+        context.coordinator.parent = self
+        context.coordinator.imageView.image = image
+
+        let side = min(scrollView.bounds.width, scrollView.bounds.height)
+        if side > 0, context.coordinator.baseSide != side || scrollView.zoomScale <= 1.001 {
+            context.coordinator.baseSide = side
+            context.coordinator.imageView.frame = CGRect(
+                x: (scrollView.bounds.width - side) / 2,
+                y: (scrollView.bounds.height - side) / 2,
+                width: side,
+                height: side
+            )
+            scrollView.contentSize = context.coordinator.imageView.frame.size
+        }
+
+        if zoomScale <= 1.001, scrollView.zoomScale > 1.001 {
+            scrollView.setZoomScale(1, animated: true)
+        }
+        context.coordinator.updateSelection()
+    }
+
+    final class Coordinator: NSObject, UIScrollViewDelegate {
+        var parent: NativeZoomMosaicView
+        weak var scrollView: UIScrollView?
+        let imageView = UIImageView()
+        let selectionLayer = CAShapeLayer()
+        var baseSide: CGFloat = 0
+
+        init(parent: NativeZoomMosaicView) {
+            self.parent = parent
+            super.init()
+            selectionLayer.fillColor = UIColor.clear.cgColor
+            selectionLayer.strokeColor = UIColor.systemYellow.cgColor
+            selectionLayer.lineWidth = 2.5
+            imageView.layer.addSublayer(selectionLayer)
+        }
+
+        func viewForZooming(in scrollView: UIScrollView) -> UIView? {
+            imageView
+        }
+
+        func scrollViewDidZoom(_ scrollView: UIScrollView) {
+            parent.zoomScale = scrollView.zoomScale
+            updateSelection()
+        }
+
+        func scrollViewDidScroll(_ scrollView: UIScrollView) {
+            guard scrollView.zoomScale > 1.001 else { return }
+            parent.offset = CGSize(width: -scrollView.contentOffset.x, height: -scrollView.contentOffset.y)
+        }
+
+        func updateSelection() {
+            guard let tile = parent.selectedTile,
+                  parent.gridWidth > 0,
+                  parent.gridHeight > 0 else {
+                selectionLayer.path = nil
+                return
+            }
+            let width = imageView.bounds.width / CGFloat(parent.gridWidth)
+            let height = imageView.bounds.height / CGFloat(parent.gridHeight)
+            let rect = CGRect(
+                x: CGFloat(tile.gridX) * width,
+                y: CGFloat(tile.gridY) * height,
+                width: width,
+                height: height
+            )
+            selectionLayer.frame = imageView.bounds
+            selectionLayer.lineWidth = 2.5 / max(1, scrollView?.zoomScale ?? 1)
+            selectionLayer.path = UIBezierPath(rect: rect.insetBy(dx: 0.5, dy: 0.5)).cgPath
+        }
+
+        @objc func handleSingleTap(_ recognizer: UITapGestureRecognizer) {
+            let point = recognizer.location(in: imageView)
+            guard imageView.bounds.contains(point), parent.gridWidth > 0, parent.gridHeight > 0 else { return }
+            let x = min(parent.gridWidth - 1, max(0, Int(point.x / imageView.bounds.width * CGFloat(parent.gridWidth))))
+            let y = min(parent.gridHeight - 1, max(0, Int(point.y / imageView.bounds.height * CGFloat(parent.gridHeight))))
+            parent.onSelectTile(x, y)
+        }
+
+        @objc func handleDoubleTap(_ recognizer: UITapGestureRecognizer) {
+            guard let scrollView else { return }
+            if scrollView.zoomScale > 1.05 {
+                scrollView.setZoomScale(1, animated: true)
+                parent.offset = .zero
+            } else {
+                let point = recognizer.location(in: imageView)
+                let targetScale: CGFloat = 2.5
+                let width = scrollView.bounds.width / targetScale
+                let height = scrollView.bounds.height / targetScale
+                scrollView.zoom(
+                    to: CGRect(x: point.x - width / 2, y: point.y - height / 2, width: width, height: height),
+                    animated: true
+                )
+            }
+        }
+    }
+}
+#endif
+
+/// モザイクアートのキャンバス。操作中は合成済み画像1枚だけをGPUで変形する。
 public struct MosaicCanvasView: View {
     public let project: MosaicProject
     public let selectedTileId: UUID?
     public let showGuideImage: Bool
     public let guideOpacity: Double
     public let onSelectTile: (MosaicTile) -> Void
-    
+
     @Binding public var zoomScale: CGFloat
     @Binding public var offset: CGSize
-    @State private var lastScale: CGFloat = 1.0
-    @State private var lastOffset: CGSize = .zero
-    
+    @State private var previewImage: UIImage?
+    @State private var renderTask: Task<Void, Never>?
+
     public init(
         project: MosaicProject,
         selectedTileId: UUID? = nil,
@@ -62,145 +231,69 @@ public struct MosaicCanvasView: View {
         self._offset = offset
         self.onSelectTile = onSelectTile
     }
-    
+
+    private var renderKey: String {
+        let loadedImageCount = project.tiles.lazy.filter { $0.thumbnailData != nil }.count
+        return "\(project.id.uuidString)-\(project.updatedAt.timeIntervalSinceReferenceDate)-\(project.filledCount)-\(loadedImageCount)"
+    }
+
+    private var selectedTile: MosaicTile? {
+        guard let selectedTileId else { return nil }
+        return project.tiles.first { $0.id == selectedTileId }
+    }
+
     public var body: some View {
         GeometryReader { geometry in
-            let canvasSize = min(geometry.size.width, geometry.size.height)
-            let gridW = max(1, project.gridWidth)
-            let gridH = max(1, project.gridHeight)
-            let tileWidth = canvasSize / CGFloat(gridW)
-            let tileHeight = canvasSize / CGFloat(gridH)
-            
             ZStack {
                 Color.black
-                
-                // メインの超高速 Canvas 描画
-                Canvas { context, size in
-                    let tiles = project.tiles
-                    
-                    // 1. 各タイルの高速一括描画
-                    for tile in tiles {
-                        let x = CGFloat(tile.gridX) * tileWidth
-                        let y = CGFloat(tile.gridY) * tileHeight
-                        let tileRect = CGRect(x: x, y: y, width: tileWidth, height: tileHeight)
-                        
-                        if let img = TileImageCache.shared.image(for: tile.id, data: tile.thumbnailData) {
-                            // 配置済み写真の描画
-                            context.draw(Image(uiImage: img), in: tileRect)
-                        } else {
-                            // 未配置マス: 目標Lab色で塗りつぶし
-                            let color = tile.targetLabColor.swiftUIColor
-                            context.fill(Path(tileRect), with: .color(color))
-                            
-                            // グリッド線
-                            context.stroke(Path(tileRect), with: .color(Color.white.opacity(0.3)), lineWidth: 0.5)
-                        }
-                        
-                        // 選択中タイルのハイライト
-                        if tile.id == selectedTileId {
-                            context.stroke(Path(tileRect), with: .color(Color.yellow), lineWidth: 2.5)
-                        }
-                    }
-                }
-                .frame(width: canvasSize, height: canvasSize)
-                // 下絵オーバーレイ（ガイド）
-                .overlay {
-                    if showGuideImage, let targetImg = UIImage(data: project.targetImageData) {
-                        Image(uiImage: targetImg)
-                            .resizable()
-                            .aspectRatio(1.0, contentMode: .fit)
-                            .opacity(guideOpacity)
-                            .allowsHitTesting(false)
-                    }
-                }
-                .scaleEffect(zoomScale)
-                .offset(offset)
-                .gesture(
-                    SimultaneousGesture(
-                        // ピンチズーム
-                        MagnificationGesture()
-                            .onChanged { val in
-                                let delta = val / lastScale
-                                lastScale = val
-                                zoomScale = min(max(zoomScale * delta, 1.0), 6.0)
-                            }
-                            .onEnded { _ in
-                                lastScale = 1.0
-                                if zoomScale <= 1.0 {
-                                    withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
-                                        zoomScale = 1.0
-                                        offset = .zero
-                                        lastOffset = .zero
-                                    }
-                                }
-                            },
-                        // パン（ドラッグ）移動
-                        DragGesture()
-                            .onChanged { val in
-                                if zoomScale > 1.0 {
-                                    offset = CGSize(
-                                        width: lastOffset.width + val.translation.width,
-                                        height: lastOffset.height + val.translation.height
-                                    )
-                                }
-                            }
-                            .onEnded { _ in
-                                if zoomScale <= 1.0 {
-                                    withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
-                                        offset = .zero
-                                        lastOffset = .zero
-                                    }
-                                } else {
-                                    lastOffset = offset
-                                }
-                            }
+                if let previewImage {
+                    #if canImport(UIKit)
+                    NativeZoomMosaicView(
+                        image: previewImage,
+                        gridWidth: max(1, project.gridWidth),
+                        gridHeight: max(1, project.gridHeight),
+                        selectedTile: selectedTile,
+                        onSelectTile: selectTileAt,
+                        zoomScale: $zoomScale,
+                        offset: $offset
                     )
-                )
-                .simultaneousGesture(
-                    // シングルタップ: タップ位置から該当タイルを計算して選択
-                    SpatialTapGesture(count: 1)
-                        .onEnded { value in
-                            handleTap(at: value.location, canvasSize: canvasSize, gridW: gridW, gridH: gridH)
-                        }
-                )
-                .simultaneousGesture(
-                    // ダブルタップ: ズームリセット
-                    SpatialTapGesture(count: 2)
-                        .onEnded { _ in
-                            withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
-                                zoomScale = 1.0
-                                offset = .zero
-                                lastOffset = .zero
-                            }
-                        }
-                )
+                    #endif
+                } else {
+                    ProgressView("モザイクを表示中...")
+                        .tint(.white)
+                        .foregroundColor(.white)
+                }
             }
             .frame(width: geometry.size.width, height: geometry.size.height)
-            .contentShape(Rectangle())
-            .clipped()
         }
-        .contentShape(Rectangle())
-        .clipped()
+        .task(id: renderKey) {
+            renderTask?.cancel()
+            let snapshot = project
+            let pixels = min(2048, max(1024, max(snapshot.gridWidth, snapshot.gridHeight) * 32))
+            renderTask = Task {
+                let rendered = await Task.detached(priority: .userInitiated) {
+                    MosaicPreviewRenderer.render(project: snapshot, pixels: pixels)
+                }.value
+                guard !Task.isCancelled else { return }
+                previewImage = rendered
+            }
+        }
+        .onDisappear {
+            renderTask?.cancel()
+        }
     }
-    
-    // MARK: - タップ座標からタイルを判定
-    private func handleTap(at location: CGPoint, canvasSize: CGFloat, gridW: Int, gridH: Int) {
-        guard canvasSize > 0, gridW > 0, gridH > 0 else { return }
-        
-        let tileWidth = canvasSize / CGFloat(gridW)
-        let tileHeight = canvasSize / CGFloat(gridH)
-        
-        let gridX = Int(location.x / tileWidth)
-        let gridY = Int(location.y / tileHeight)
-        
-        guard gridX >= 0, gridX < gridW, gridY >= 0, gridY < gridH else { return }
-        
-        let index = gridY * gridW + gridX
-        if index < project.tiles.count {
-            let tile = project.tiles[index]
+
+    private func selectTileAt(gridX: Int, gridY: Int) {
+        let directIndex = gridY * max(1, project.gridWidth) + gridX
+        if project.tiles.indices.contains(directIndex) {
+            let tile = project.tiles[directIndex]
+            if tile.gridX == gridX && tile.gridY == gridY {
+                onSelectTile(tile)
+                return
+            }
+        }
+        if let tile = project.tiles.first(where: { $0.gridX == gridX && $0.gridY == gridY }) {
             onSelectTile(tile)
-        } else if let found = project.tiles.first(where: { $0.gridX == gridX && $0.gridY == gridY }) {
-            onSelectTile(found)
         }
     }
 }

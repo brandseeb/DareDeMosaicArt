@@ -4,6 +4,7 @@ import SwiftUI
 @main
 struct DareDeMosaicArtApp: App {
     @StateObject private var projectStore = ProjectStore()
+    @Environment(\.scenePhase) private var scenePhase
     
     var body: some Scene {
         WindowGroup {
@@ -11,6 +12,11 @@ struct DareDeMosaicArtApp: App {
                 projects: $projectStore.projects,
                 onDeleteProjects: projectStore.deleteProjects(ids:)
             )
+            .onChange(of: scenePhase) { _, newPhase in
+                if newPhase != .active {
+                    projectStore.flushPendingSave()
+                }
+            }
         }
     }
 }
@@ -23,7 +29,15 @@ final class ProjectStore: ObservableObject {
             saveRevision += 1
             let snapshot = projects
             let revision = saveRevision
-            Task {
+            // Bindingの細かな更新ごとに全作品を書き出さず、短時間の連続変更を1回へまとめる。
+            saveTask?.cancel()
+            saveTask = Task {
+                do {
+                    try await Task.sleep(for: .milliseconds(400))
+                } catch {
+                    return
+                }
+                guard !Task.isCancelled else { return }
                 await persistence.save(snapshot, revision: revision)
             }
         }
@@ -32,6 +46,7 @@ final class ProjectStore: ObservableObject {
     private let saveKey = "SavedMosaicProjects_v1"
     private let persistence = ProjectPersistenceActor()
     private var saveRevision = 0
+    private var saveTask: Task<Void, Never>?
     
     init() {
         // 起動時に古い一時タイムラプス動画ファイルを自動清掃
@@ -56,6 +71,16 @@ final class ProjectStore: ObservableObject {
             await persistence.delete(ids: ids)
         }
     }
+
+    func flushPendingSave() {
+        saveTask?.cancel()
+        saveRevision += 1
+        let snapshot = projects
+        let revision = saveRevision
+        saveTask = Task {
+            await persistence.save(snapshot, revision: revision)
+        }
+    }
 }
 
 private actor ProjectPersistenceActor {
@@ -69,6 +94,15 @@ private actor ProjectPersistenceActor {
 
     func delete(ids: [UUID]) {
         ProjectDiskStore.delete(ids: ids)
+    }
+}
+
+/// 一覧では読み込まないタイル画像を、選択した1作品だけバックグラウンドで復元する。
+actor ProjectAssetLoader {
+    static let shared = ProjectAssetLoader()
+
+    func hydrate(_ project: MosaicProject) -> MosaicProject {
+        ProjectDiskStore.hydrate(project)
     }
 }
 
@@ -106,17 +140,35 @@ private enum ProjectDiskStore {
                 project.targetImageData = targetData
             }
 
-            let imagesDirectory = assetDirectory.appendingPathComponent("images", isDirectory: true)
-            for index in project.tiles.indices {
-                let imageURL = imagesDirectory.appendingPathComponent("\(project.tiles[index].id.uuidString).jpg")
-                if let imageData = try? Data(contentsOf: imageURL) {
-                    project.tiles[index].thumbnailData = imageData
-                }
-            }
+            // タイルJPEGは作品を開くまで読み込まない。起動・一覧表示のメモリとI/Oを抑える。
             return project.targetImageData.isEmpty ? nil : project
         }
         removeOrphanedFiles(validIds: Set(orderedIds))
         return projects
+    }
+
+    static func hydrate(_ project: MosaicProject) -> MosaicProject {
+        guard let rootURL else { return project }
+        var hydrated = project
+        let imagesDirectory = rootURL
+            .appendingPathComponent(project.id.uuidString, isDirectory: true)
+            .appendingPathComponent("images", isDirectory: true)
+
+        for index in hydrated.tiles.indices where hydrated.tiles[index].thumbnailData == nil {
+            autoreleasepool {
+                let tile = hydrated.tiles[index]
+                let imageURL = imagesDirectory.appendingPathComponent("\(tile.id.uuidString).jpg")
+                // リセット後に残った古いJPEGを復活させない。写真配置のメタデータがあるタイルだけ読む。
+                guard tile.isFilled else {
+                    try? fileManager.removeItem(at: imageURL)
+                    return
+                }
+                if let imageData = try? Data(contentsOf: imageURL, options: [.mappedIfSafe]) {
+                    hydrated.tiles[index].thumbnailData = imageData
+                }
+            }
+        }
+        return hydrated
     }
 
     static func save(_ projects: [MosaicProject]) {

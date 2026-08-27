@@ -2,6 +2,33 @@ import SwiftUI
 
 #if canImport(UIKit)
 import UIKit
+import ImageIO
+
+@MainActor
+private final class ProjectThumbnailCache {
+    static let shared = ProjectThumbnailCache()
+    private let cache = NSCache<NSString, UIImage>()
+
+    private init() {
+        cache.countLimit = 40
+        cache.totalCostLimit = 20 * 1024 * 1024
+    }
+
+    func image(projectID: UUID, data: Data) -> UIImage? {
+        let key = projectID.uuidString as NSString
+        if let cached = cache.object(forKey: key) { return cached }
+        guard let source = CGImageSourceCreateWithData(data as CFData, nil),
+              let cgImage = CGImageSourceCreateThumbnailAtIndex(source, 0, [
+                kCGImageSourceCreateThumbnailFromImageAlways: true,
+                kCGImageSourceThumbnailMaxPixelSize: 160,
+                kCGImageSourceCreateThumbnailWithTransform: true,
+                kCGImageSourceShouldCacheImmediately: true
+              ] as CFDictionary) else { return nil }
+        let image = UIImage(cgImage: cgImage)
+        cache.setObject(image, forKey: key, cost: cgImage.bytesPerRow * cgImage.height)
+        return image
+    }
+}
 #endif
 
 /// アプリホーム画面
@@ -14,6 +41,7 @@ public struct HomeView: View {
     @State private var showSetupSheet: Bool = false
     @State private var showPaywall: Bool = false
     @State private var projectPendingDeletion: MosaicProject? = nil
+    @State private var loadingProjectID: UUID? = nil
     
     public init(
         projects: Binding<[MosaicProject]>,
@@ -208,7 +236,7 @@ public struct HomeView: View {
                     projectRow(for: project)
                         .contentShape(Rectangle())
                         .onTapGesture {
-                            selectedProjectIndex = index
+                            openProject(at: index)
                         }
                         .swipeActions(edge: .trailing, allowsFullSwipe: false) {
                             Button(role: .destructive) {
@@ -224,7 +252,7 @@ public struct HomeView: View {
     
     private func projectRow(for project: MosaicProject) -> some View {
         HStack(spacing: 14) {
-            if let uiImage = UIImage(data: project.targetImageData) {
+            if let uiImage = ProjectThumbnailCache.shared.image(projectID: project.id, data: project.targetImageData) {
                 Image(uiImage: uiImage)
                     .resizable()
                     .aspectRatio(contentMode: .fill)
@@ -258,10 +286,32 @@ public struct HomeView: View {
             
             Spacer()
             
-            Image(systemName: "chevron.right")
-                .font(.caption)
-                .foregroundColor(.secondary)
+            if loadingProjectID == project.id {
+                ProgressView()
+            } else {
+                Image(systemName: "chevron.right")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            }
         }
         .padding(.vertical, 4)
+    }
+
+    private func openProject(at index: Int) {
+        guard projects.indices.contains(index), loadingProjectID == nil else { return }
+        let snapshot = projects[index]
+        loadingProjectID = snapshot.id
+        // 画面遷移は待たせず、タイル画像は表示後にバックグラウンドで差し込む。
+        selectedProjectIndex = index
+
+        Task {
+            let hydrated = await ProjectAssetLoader.shared.hydrate(snapshot)
+            guard projects.indices.contains(index), projects[index].id == snapshot.id else {
+                loadingProjectID = nil
+                return
+            }
+            projects[index] = hydrated
+            loadingProjectID = nil
+        }
     }
 }

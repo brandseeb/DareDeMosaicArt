@@ -22,6 +22,7 @@ public struct MosaicWorkspaceView: View {
     @State private var replacementCandidates: [PhotoMatchCandidate] = []
     @State private var isLoadingCandidates: Bool = false
     @State private var allSourcePhotos: [IndexedPhoto] = []
+    @State private var isLoadingSourcePhotos: Bool = false
     
     // キャンバス表示スケールと位置
     @State private var canvasScale: CGFloat = 1.0
@@ -80,10 +81,14 @@ public struct MosaicWorkspaceView: View {
                     HStack(spacing: 8) {
                         if !project.isCompleted {
                             Button {
-                                showAutoFillSheet = true
+                                openAutoFill()
                             } label: {
                                 HStack(spacing: 4) {
-                                    Image(systemName: "wand.and.stars")
+                                    if isLoadingSourcePhotos {
+                                        ProgressView().scaleEffect(0.7)
+                                    } else {
+                                        Image(systemName: "wand.and.stars")
+                                    }
                                     Text("自動配置")
                                 }
                                 .font(.subheadline.bold())
@@ -155,17 +160,20 @@ public struct MosaicWorkspaceView: View {
             } message: {
                 Text(albumMissingMessage)
             }
-            .task {
-                // UIの表示遷移アニメーション完了後に低優先度で事前ロード
-                Task(priority: .utility) {
-                    await loadSourcePhotos()
-                }
-            }
         }
     }
     
     // MARK: - ソース写真の事前ロード（バックグラウンド実行）
     private func loadSourcePhotos() async {
+        if !allSourcePhotos.isEmpty { return }
+        if isLoadingSourcePhotos {
+            while isLoadingSourcePhotos && !Task.isCancelled {
+                try? await Task.sleep(for: .milliseconds(50))
+            }
+            return
+        }
+        isLoadingSourcePhotos = true
+        defer { isLoadingSourcePhotos = false }
         do {
             let loaded = try await PhotoLibraryScanner.shared.photos(for: project.photoSource)
             await MainActor.run {
@@ -185,10 +193,21 @@ public struct MosaicWorkspaceView: View {
             }
         }
     }
+
+    /// 写真全件の解析は作品閲覧時には行わず、必要な機能を開く直前にだけ実行する。
+    private func openAutoFill() {
+        guard !isLoadingSourcePhotos else { return }
+        Task {
+            await loadSourcePhotos()
+            guard !Task.isCancelled, !allSourcePhotos.isEmpty else { return }
+            showAutoFillSheet = true
+        }
+    }
     
     private func handleTileSelected(_ tile: MosaicTile) {
         selectedTile = tile
-        loadCandidates(for: tile)
+        replacementCandidates = []
+        isLoadingCandidates = false
     }
     
     private func loadCandidates(for tile: MosaicTile) {
@@ -240,7 +259,7 @@ public struct MosaicWorkspaceView: View {
             
             if !project.isCompleted && emptyTilesCount > 0 {
                 Button {
-                    showAutoFillSheet = true
+                    openAutoFill()
                 } label: {
                     HStack(spacing: 4) {
                         Image(systemName: "wand.and.stars")
@@ -303,7 +322,7 @@ public struct MosaicWorkspaceView: View {
                 
                 if !project.isCompleted && emptyTilesCount > 0 {
                     Button {
-                        showAutoFillSheet = true
+                        openAutoFill()
                     } label: {
                         HStack(spacing: 3) {
                             Image(systemName: "wand.and.stars")
@@ -477,10 +496,20 @@ public struct MosaicWorkspaceView: View {
                         .padding(.horizontal)
                         
                         if replacementCandidates.isEmpty && !isLoadingCandidates {
-                            Text("利用可能な候補写真が見つかりませんでした。")
-                                .font(.caption)
-                                .foregroundColor(.secondary)
-                                .padding(.horizontal)
+                            Button {
+                                loadCandidates(for: tile)
+                            } label: {
+                                HStack {
+                                    Image(systemName: "photo.stack")
+                                    Text("類似する写真候補を読み込む")
+                                }
+                                .font(.subheadline.bold())
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 10)
+                                .background(Color.accentColor.opacity(0.12))
+                                .cornerRadius(10)
+                            }
+                            .padding(.horizontal)
                         } else {
                             ScrollView(.horizontal, showsIndicators: false) {
                                 HStack(spacing: 12) {

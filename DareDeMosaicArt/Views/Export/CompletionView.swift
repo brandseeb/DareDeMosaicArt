@@ -59,7 +59,7 @@ public struct CompletionView: View {
                         } else {
                             VStack(spacing: 12) {
                                 ProgressView()
-                                Text(storeKit.isProUser ? "4K超高解像度アートを生成中..." : "モザイクアートを生成中...")
+                                Text("表示用プレビューを生成中...")
                                     .font(.caption)
                                     .foregroundColor(.secondary)
                             }
@@ -375,7 +375,13 @@ public struct CompletionView: View {
         let isPro = storeKit.isProUser
         
         Task.detached(priority: .userInitiated) {
-            let finalImage = await Self.renderRawMosaic(project: project, isPro: isPro)
+            // 画面表示だけで4KやPHAsset原画を読み込まない。正式画像は保存・共有時に生成する。
+            let finalImage = await Self.renderRawMosaic(
+                project: project,
+                isPro: isPro,
+                outputPixels: 1024,
+                useHighQualityAssets: false
+            )
             
             await MainActor.run {
                 self.baseRenderedImage = finalImage
@@ -386,8 +392,13 @@ public struct CompletionView: View {
     
     // MARK: - 4K正式レンダリング & 保存/共有
     private func generateFinalExportImage() async -> UIImage? {
-        guard let base = baseRenderedImage else { return nil }
         let isPro = storeKit.isProUser
+        guard let base = await Self.renderRawMosaic(
+            project: project,
+            isPro: isPro,
+            outputPixels: nil,
+            useHighQualityAssets: true
+        ) else { return nil }
         
         if isPro, let watermark = project.watermarkConfig, !watermark.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
             return await Self.renderWatermarkOnImage(baseImage: base, config: watermark)
@@ -429,9 +440,14 @@ public struct CompletionView: View {
     }
 
     // MARK: - モザイクビットマップ合成
-    private static func renderRawMosaic(project: MosaicProject, isPro: Bool) async -> UIImage? {
-        let mosaicPixels = isPro ? 4096 : 1080
-        let footerHeight = isPro ? 0 : 54
+    private static func renderRawMosaic(
+        project: MosaicProject,
+        isPro: Bool,
+        outputPixels: Int? = nil,
+        useHighQualityAssets: Bool = true
+    ) async -> UIImage? {
+        let mosaicPixels = outputPixels ?? (isPro ? 4096 : 1080)
+        let footerHeight = isPro ? 0 : max(32, Int((54.0 / 1080.0) * Double(mosaicPixels)))
         let totalHeight = mosaicPixels + footerHeight
         
         guard let colorSpace = CGColorSpace(name: CGColorSpace.sRGB),
@@ -450,11 +466,13 @@ public struct CompletionView: View {
         let tileHeight = CGFloat(mosaicPixels) / CGFloat(max(1, project.gridHeight))
         let offsetY = CGFloat(footerHeight)
 
-        let identifiers = project.tiles.compactMap(\.placedPhotoIdentifier)
-        let fetchedAssets = PHAsset.fetchAssets(withLocalIdentifiers: identifiers, options: nil)
         var assetsByIdentifier: [String: PHAsset] = [:]
-        fetchedAssets.enumerateObjects { asset, _, _ in
-            assetsByIdentifier[asset.localIdentifier] = asset
+        if useHighQualityAssets {
+            let identifiers = project.tiles.compactMap(\.placedPhotoIdentifier)
+            let fetchedAssets = PHAsset.fetchAssets(withLocalIdentifiers: identifiers, options: nil)
+            fetchedAssets.enumerateObjects { asset, _, _ in
+                assetsByIdentifier[asset.localIdentifier] = asset
+            }
         }
 
         for tile in project.tiles {
@@ -470,7 +488,8 @@ public struct CompletionView: View {
             }
 
             let tileImage: UIImage?
-            if let identifier = tile.placedPhotoIdentifier,
+            if useHighQualityAssets,
+               let identifier = tile.placedPhotoIdentifier,
                let asset = assetsByIdentifier[identifier] {
                 tileImage = await requestHighQualityImage(for: asset, targetPixels: isPro ? 256 : 128)
             } else if let data = tile.thumbnailData {

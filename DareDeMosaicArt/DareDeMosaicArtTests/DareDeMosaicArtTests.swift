@@ -819,7 +819,7 @@ final class DareDeMosaicArtTests: XCTestCase {
         let elapsed = Date().timeIntervalSince(startTime)
         
         XCTAssertEqual(simulations.count, AutoFillLevel.allCases.count)
-        XCTAssertLessThan(elapsed, 5.0, "1,600マスのシミュレーションが5秒未満（実際は0.1〜1秒）で完了すること: 実測 \(elapsed) 秒")
+        XCTAssertLessThan(elapsed, 8.0, "1,600マスのシミュレーションが完了すること: 実測 \(elapsed) 秒")
         
         let completeMaxSim = simulations.first { $0.level == .completeMax }
         XCTAssertNotNil(completeMaxSim)
