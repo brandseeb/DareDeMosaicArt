@@ -191,6 +191,9 @@ public struct MosaicWorkspaceView: View {
         let cached = await PhotoLibraryScanner.shared.cachedPhotos(for: source)
         guard !Task.isCancelled, project.photoSource == source, allSourcePhotos.isEmpty else { return }
         allSourcePhotos = cached
+        if !cached.isEmpty {
+            _ = await preparedCandidateIndex(for: cached)
+        }
     }
 
     /// 同じライブラリ集合では多次元検索インデックスを使い回す。

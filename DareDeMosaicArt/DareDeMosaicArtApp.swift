@@ -51,6 +51,11 @@ final class ProjectStore: ObservableObject {
     init() {
         // 起動時に古い一時タイムラプス動画ファイルを自動清掃
         TimelapseExportService.cleanupOldTemporaryFiles()
+
+        // 作品を開いてから18,000枚規模のキャッシュを待たせないよう、起動直後から低優先度で1回だけ先読みする。
+        Task.detached(priority: .utility) {
+            await PhotoColorIndexCache.prewarm()
+        }
         
         let diskProjects = ProjectDiskStore.load()
         if !diskProjects.isEmpty {

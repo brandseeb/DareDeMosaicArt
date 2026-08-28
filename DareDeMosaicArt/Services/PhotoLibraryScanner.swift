@@ -135,9 +135,7 @@ public final class PhotoLibraryScanner: ObservableObject {
         }
         
         // 既存キャッシュを読み込み
-        let cachedEntries = await Task.detached(priority: .utility) {
-            PhotoColorIndexCache.load()
-        }.value
+        let cachedEntries = await PhotoColorIndexCache.load()
         var newlyProcessedEntries: [CachedPhotoIndexEntry] = []
         var results: [IndexedPhoto] = []
         results.reserveCapacity(totalCount)
@@ -150,16 +148,29 @@ public final class PhotoLibraryScanner: ObservableObject {
         for batchStart in stride(from: 0, to: totalCount, by: batchSize) {
             let batchEnd = min(batchStart + batchSize, totalCount)
             let batchAssets = (batchStart..<batchEnd).map { assets.object(at: $0) }
-            
-            let batchResults = await withTaskGroup(of: CachedPhotoIndexEntry?.self) { group in
-                for asset in batchAssets {
-                    // 完全な v2 特徴量がキャッシュ済みなら Photos への画像要求と再解析を省略する。
-                    if let cached = cachedEntries[asset.localIdentifier],
-                       cached.modificationDate == asset.modificationDate,
-                       (cached.photo.signature?.version ?? 1) >= 2 {
-                        group.addTask { cached }
-                        continue
-                    }
+            var cachedBatchEntries: [CachedPhotoIndexEntry] = []
+            var assetsNeedingAnalysis: [PHAsset] = []
+            cachedBatchEntries.reserveCapacity(batchAssets.count)
+            assetsNeedingAnalysis.reserveCapacity(batchAssets.count)
+
+            for asset in batchAssets {
+                // キャッシュヒットのたびにTaskを作ると、数万枚でスケジューラ負荷が大きくなる。
+                // 完全なv2データは同期的に取り込み、未解析・更新分だけを並列タスクに渡す。
+                if let cached = cachedEntries[asset.localIdentifier],
+                   cached.modificationDate == asset.modificationDate,
+                   (cached.photo.signature?.version ?? 1) >= 2 {
+                    cachedBatchEntries.append(cached)
+                } else {
+                    assetsNeedingAnalysis.append(asset)
+                }
+            }
+
+            self.localAvailableCount += cachedBatchEntries.count
+            self.processedCount += cachedBatchEntries.count
+            self.scanProgress = Float(self.processedCount) / Float(totalCount)
+
+            let analyzedEntries = await withTaskGroup(of: CachedPhotoIndexEntry?.self) { group in
+                for asset in assetsNeedingAnalysis {
 
                     group.addTask {
                         let requestOptions = PHImageRequestOptions()
@@ -223,8 +234,15 @@ public final class PhotoLibraryScanner: ObservableObject {
                 }
                 return items
             }
+
+            let batchResults = cachedBatchEntries + analyzedEntries
             
-            newlyProcessedEntries.append(contentsOf: batchResults)
+            // 完全一致キャッシュを再び全件保存しない。新規・更新・v1再解析分だけを差分保存する。
+            newlyProcessedEntries.append(contentsOf: batchResults.filter { entry in
+                guard let previous = cachedEntries[entry.id] else { return true }
+                return previous.modificationDate != entry.modificationDate
+                    || (previous.photo.signature?.version ?? 1) < 2
+            })
             results.append(contentsOf: batchResults.map(\.photo))
             await Task.yield()
         }
@@ -236,8 +254,10 @@ public final class PhotoLibraryScanner: ObservableObject {
 
         // キャッシュに差分マージ
         let newEntries = newlyProcessedEntries
-        Task.detached(priority: .utility) {
-            PhotoColorIndexCache.merge(newEntries)
+        if !newEntries.isEmpty {
+            Task.detached(priority: .utility) {
+                await PhotoColorIndexCache.merge(newEntries)
+            }
         }
         return results
     }
@@ -248,9 +268,7 @@ public final class PhotoLibraryScanner: ObservableObject {
             return scannedPhotos
         }
 
-        let cachedEntries = await Task.detached(priority: .userInitiated) {
-            PhotoColorIndexCache.load()
-        }.value
+        let cachedEntries = await PhotoColorIndexCache.load()
         guard !cachedEntries.isEmpty else { return [] }
 
         let photos: [IndexedPhoto]
@@ -326,6 +344,8 @@ private final class PhotoRequestContinuationGate: @unchecked Sendable {
 
 /// 前回の色解析結果をCaches領域にバイナリProperty Listとして保存・マージする（v2優先・v1段階移行対応）。
 public enum PhotoColorIndexCache {
+    private static let memoryStore = PhotoColorIndexMemoryStore()
+
     private static var fileURLV2: URL? {
         FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first?
             .appendingPathComponent("DareDeMosaicArt", isDirectory: true)
@@ -338,9 +358,17 @@ public enum PhotoColorIndexCache {
             .appendingPathComponent("photo-color-index-v1.plist")
     }
 
-    public static func load() -> [String: CachedPhotoIndexEntry] {
-        let interval = PerformanceDiagnostics.begin(.photoCacheLoad)
-        defer { PerformanceDiagnostics.end(interval) }
+    /// 最初の1回だけディスクをデコードし、以後はプロセス内の同じ辞書を共有する。
+    /// 同時呼び出し時も PhotoColorIndexMemoryStore が同一ロードTaskへ合流させる。
+    public static func load() async -> [String: CachedPhotoIndexEntry] {
+        await memoryStore.load()
+    }
+
+    public static func prewarm() async {
+        _ = await load()
+    }
+
+    fileprivate static func loadFromDisk() -> [String: CachedPhotoIndexEntry] {
         let decoder = PropertyListDecoder()
         
         // 1. v2 キャッシュが存在すれば優先ロード
@@ -360,7 +388,7 @@ public enum PhotoColorIndexCache {
         return [:]
     }
 
-    public static func save(_ entries: [CachedPhotoIndexEntry]) {
+    fileprivate static func writeToDisk(_ entries: [CachedPhotoIndexEntry]) {
         guard let fileURL = fileURLV2 else { return }
         do {
             try FileManager.default.createDirectory(
@@ -376,21 +404,91 @@ public enum PhotoColorIndexCache {
         }
     }
 
+    public static func save(_ entries: [CachedPhotoIndexEntry]) async {
+        await memoryStore.replace(with: entries)
+    }
+
     /// 差分マージ（既存の全写真キャッシュを消さずに追記更新）
-    public static func merge(_ newEntries: [CachedPhotoIndexEntry]) {
-        var current = load()
-        for entry in newEntries {
-            current[entry.id] = entry
-        }
-        save(Array(current.values))
+    public static func merge(_ newEntries: [CachedPhotoIndexEntry]) async {
+        await memoryStore.merge(newEntries)
     }
 
     /// 端末ライブラリから削除された写真のエントリを除去
-    public static func removeUnavailableEntries(validIDs: Set<String>) {
-        let current = load()
-        let filtered = current.values.filter { validIDs.contains($0.id) }
-        if filtered.count != current.count {
-            save(Array(filtered))
+    public static func removeUnavailableEntries(validIDs: Set<String>) async {
+        await memoryStore.removeUnavailableEntries(validIDs: validIDs)
+    }
+}
+
+/// 巨大plistの重複デコードを防ぎ、差分更新後のディスク書き込みも順序どおり直列化する。
+private actor PhotoColorIndexMemoryStore {
+    typealias Entries = [String: CachedPhotoIndexEntry]
+
+    private var cachedEntries: Entries?
+    private var inFlightLoad: Task<Entries, Never>?
+    private var pendingWrite: Task<Void, Never>?
+
+    func load() async -> Entries {
+        let interval = PerformanceDiagnostics.begin(.photoCacheLoad)
+
+        if let cachedEntries {
+            PerformanceDiagnostics.end(interval, metadata: "source=memory, entries=\(cachedEntries.count)")
+            return cachedEntries
+        }
+
+        let loadTask: Task<Entries, Never>
+        let source: String
+        if let inFlightLoad {
+            loadTask = inFlightLoad
+            source = "shared"
+        } else {
+            let created = Task.detached(priority: .utility) {
+                PhotoColorIndexCache.loadFromDisk()
+            }
+            inFlightLoad = created
+            loadTask = created
+            source = "disk"
+        }
+
+        let loaded = await loadTask.value
+        if cachedEntries == nil {
+            cachedEntries = loaded
+        }
+        inFlightLoad = nil
+        let result = cachedEntries ?? loaded
+        PerformanceDiagnostics.end(interval, metadata: "source=\(source), entries=\(result.count)")
+        return result
+    }
+
+    func replace(with entries: [CachedPhotoIndexEntry]) {
+        let dictionary = Dictionary(uniqueKeysWithValues: entries.map { ($0.id, $0) })
+        cachedEntries = dictionary
+        scheduleWrite(dictionary)
+    }
+
+    func merge(_ newEntries: [CachedPhotoIndexEntry]) async {
+        guard !newEntries.isEmpty else { return }
+        var current = await load()
+        for entry in newEntries {
+            current[entry.id] = entry
+        }
+        cachedEntries = current
+        scheduleWrite(current)
+    }
+
+    func removeUnavailableEntries(validIDs: Set<String>) async {
+        let current = await load()
+        let filtered = current.filter { validIDs.contains($0.key) }
+        guard filtered.count != current.count else { return }
+        cachedEntries = filtered
+        scheduleWrite(filtered)
+    }
+
+    private func scheduleWrite(_ entries: Entries) {
+        let snapshot = entries.values.sorted { $0.id < $1.id }
+        let previousWrite = pendingWrite
+        pendingWrite = Task.detached(priority: .utility) {
+            _ = await previousWrite?.value
+            PhotoColorIndexCache.writeToDisk(snapshot)
         }
     }
 }

@@ -66,6 +66,28 @@ private enum MosaicPreviewRenderer {
     }
 }
 
+/// 同じ作品・同じ更新状態の結合画像を、画面を閉じて開き直した際にも再利用する。
+@MainActor
+private final class MosaicPreviewImageCache {
+    static let shared = MosaicPreviewImageCache()
+
+    private let cache = NSCache<NSString, UIImage>()
+
+    private init() {
+        cache.countLimit = 8
+        cache.totalCostLimit = 96 * 1024 * 1024
+    }
+
+    func image(for key: String) -> UIImage? {
+        cache.object(forKey: key as NSString)
+    }
+
+    func insert(_ image: UIImage, for key: String) {
+        let pixelCost = (image.cgImage?.bytesPerRow ?? 0) * (image.cgImage?.height ?? 0)
+        cache.setObject(image, forKey: key as NSString, cost: pixelCost)
+    }
+}
+
 /// UIImageView 1枚だけをUIScrollViewのネイティブエンジンで拡大・移動する。
 private final class NativeMosaicScrollView: UIScrollView {
     var onLayout: (() -> Void)?
@@ -321,12 +343,31 @@ public struct MosaicCanvasView: View {
         }
         .task(id: renderKey) {
             renderTask?.cancel()
+            let key = renderKey
+            if let cached = MosaicPreviewImageCache.shared.image(for: key) {
+                previewImage = cached
+                return
+            }
             let snapshot = project
             let pixels = min(2048, max(1024, max(snapshot.gridWidth, snapshot.gridHeight) * 32))
             renderTask = Task {
+                // 作品画像のhydrate直後にキーが更新されるため、短く待って未復元版の無駄な描画を避ける。
+                do {
+                    try await Task.sleep(for: .milliseconds(180))
+                } catch {
+                    return
+                }
+                guard !Task.isCancelled else { return }
+                if let cached = MosaicPreviewImageCache.shared.image(for: key) {
+                    previewImage = cached
+                    return
+                }
                 let rendered = await Task.detached(priority: .userInitiated) {
                     MosaicPreviewRenderer.render(project: snapshot, pixels: pixels)
                 }.value
+                if let rendered {
+                    MosaicPreviewImageCache.shared.insert(rendered, for: key)
+                }
                 guard !Task.isCancelled else { return }
                 previewImage = rendered
             }
