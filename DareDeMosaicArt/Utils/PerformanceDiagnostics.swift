@@ -2,7 +2,7 @@ import Foundation
 import os
 
 /// Instruments の「Points of Interest」と Xcode コンソールから重い処理を追跡する。
-/// Debug では常時有効。Release は PERFORMANCE_DIAGNOSTICS=1 のプロファイル実行時だけ有効。
+/// Points of Interest は全ビルドで収集可能。コンソール出力はDebugだけに限定する。
 public enum PerformanceOperation: String, Sendable {
     case projectHydration = "project.hydration"
     case mosaicPreviewRender = "mosaic.preview.render"
@@ -28,19 +28,10 @@ public enum PerformanceDiagnostics {
     // Instruments の Points of Interest が収集する専用カテゴリを使用する。
     private static let signpostLog = OSLog(subsystem: subsystem, category: .pointsOfInterest)
     private static let logger = Logger(subsystem: subsystem, category: "Performance")
-    private static let isEnabled: Bool = {
-        #if DEBUG
-        true
-        #else
-        ProcessInfo.processInfo.environment["PERFORMANCE_DIAGNOSTICS"] == "1"
-        #endif
-    }()
-
     public static func begin(
         _ operation: PerformanceOperation,
         metadata: String = ""
     ) -> PerformanceInterval? {
-        guard isEnabled else { return nil }
         let signpostID = OSSignpostID(log: signpostLog)
         os_signpost(
             .begin,
@@ -62,7 +53,7 @@ public enum PerformanceDiagnostics {
         _ interval: PerformanceInterval?,
         metadata: String = ""
     ) {
-        guard isEnabled, let interval else { return }
+        guard let interval else { return }
         let elapsedNanoseconds = DispatchTime.now().uptimeNanoseconds - interval.startedAtNanoseconds
         let elapsedMilliseconds = Double(elapsedNanoseconds) / 1_000_000
         os_signpost(
