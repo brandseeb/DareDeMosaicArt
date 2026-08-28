@@ -76,16 +76,6 @@ final class DareDeMosaicArtTests: XCTestCase {
         XCTAssertNotNil(manager.proStatus)
     }
 
-    func testPerformanceProfileProOverrideRequiresExplicitOne() {
-        XCTAssertTrue(StoreKitManager.shouldEnablePerformanceProOverride(
-            environment: ["PERFORMANCE_PROFILE_UNLOCK_PRO": "1"]
-        ))
-        XCTAssertFalse(StoreKitManager.shouldEnablePerformanceProOverride(
-            environment: ["PERFORMANCE_PROFILE_UNLOCK_PRO": "0"]
-        ))
-        XCTAssertFalse(StoreKitManager.shouldEnablePerformanceProOverride(environment: [:]))
-    }
-
     func testGeneratedTimelapseMP4Specifications() async throws {
         let red = LabColor.fromRGB(red: 1.0, green: 0.0, blue: 0.0)
         let blue = LabColor.fromRGB(red: 0.0, green: 0.0, blue: 1.0)

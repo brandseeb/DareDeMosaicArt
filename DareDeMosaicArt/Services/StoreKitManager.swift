@@ -16,11 +16,6 @@ public final class StoreKitManager: ObservableObject {
     /// Pro 買い切り商品のプロダクトID
     nonisolated public static let proProductID = "com.daredemosaic.app.pro"
 
-    /// Product > Profile の性能計測でのみ、Pro制限を解除する。
-    /// 通常実行・Archive・App Store配布版には専用環境変数が存在しないため影響しない。
-    nonisolated private static let isPerformanceProfileProOverride =
-        shouldEnablePerformanceProOverride(environment: ProcessInfo.processInfo.environment)
-    
     @Published public private(set) var proStatus: ProStatus = .loading
     @Published public private(set) var proProduct: Product? = nil
     @Published public private(set) var isPurchasing: Bool = false
@@ -33,15 +28,16 @@ public final class StoreKitManager: ObservableObject {
     
     /// 便宜プロパティ（Pro判定）
     public var isProUser: Bool {
-        if Self.isPerformanceProfileProOverride {
-            return true
-        }
+        #if PERFORMANCE_PROFILE
+        return true
+        #else
         #if DEBUG
         if let override = debugIsProOverride {
             return override
         }
         #endif
         return proStatus == .pro
+        #endif
     }
     
     #if DEBUG
@@ -171,10 +167,10 @@ public final class StoreKitManager: ObservableObject {
     
     // MARK: - 権利状態の更新（currentEntitlements）
     public func updatePurchasedStatus() async {
-        if Self.isPerformanceProfileProOverride {
-            self.proStatus = .pro
-            return
-        }
+        #if PERFORMANCE_PROFILE
+        self.proStatus = .pro
+        return
+        #else
 
         var hasActivePro = false
         
@@ -192,13 +188,7 @@ public final class StoreKitManager: ObservableObject {
         }
         
         self.proStatus = hasActivePro ? .pro : .free
-    }
-
-    /// テスト可能な純粋判定。値が明示的に `1` の場合のみ有効。
-    nonisolated public static func shouldEnablePerformanceProOverride(
-        environment: [String: String]
-    ) -> Bool {
-        environment["PERFORMANCE_PROFILE_UNLOCK_PRO"] == "1"
+        #endif
     }
     
     // MARK: - JWS 署名の検証（nonisolated / static）
