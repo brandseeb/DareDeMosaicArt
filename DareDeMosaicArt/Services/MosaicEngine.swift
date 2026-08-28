@@ -872,22 +872,30 @@ public enum AutoFillLevel: String, CaseIterable, Sendable, Identifiable {
     
     public var id: String { rawValue }
     
-    public var shortTitle: String {
+    public var localizedShortTitle: LocalizedStringResource {
         switch self {
-        case .relaxed5: return "+5% ゆるめる"
-        case .relaxed15: return "+15% ゆるめる"
-        case .relaxed30: return "+30% ゆるめる"
-        case .completeMax: return "可能な限り埋める"
+        case .relaxed5: return LocalizedStringResource("autoFill.level.relaxed5.title", defaultValue: "+5% ゆるめる")
+        case .relaxed15: return LocalizedStringResource("autoFill.level.relaxed15.title", defaultValue: "+15% ゆるめる")
+        case .relaxed30: return LocalizedStringResource("autoFill.level.relaxed30.title", defaultValue: "+30% ゆるめる")
+        case .completeMax: return LocalizedStringResource("autoFill.level.completeMax.title", defaultValue: "可能な限り埋める")
+        }
+    }
+    
+    public var shortTitle: String {
+        String(localized: localizedShortTitle)
+    }
+    
+    public var localizedDetailDescription: LocalizedStringResource {
+        switch self {
+        case .relaxed5: return LocalizedStringResource("autoFill.level.relaxed5.desc", defaultValue: "アート品質を最優先し、惜しかった近似写真を優先配置")
+        case .relaxed15: return LocalizedStringResource("autoFill.level.relaxed15.desc", defaultValue: "全体の自然さを保ちながらバランス良く配置")
+        case .relaxed30: return LocalizedStringResource("autoFill.level.relaxed30.desc", defaultValue: "積極的に近似写真を配置して完成度を大きく向上")
+        case .completeMax: return LocalizedStringResource("autoFill.level.completeMax.desc", defaultValue: "手持ちの写真を最大限活用して空きマスを一括配置")
         }
     }
     
     public var detailDescription: String {
-        switch self {
-        case .relaxed5: return "アート品質を最優先し、惜しかった近似写真を優先配置"
-        case .relaxed15: return "全体の自然さを保ちながらバランス良く配置"
-        case .relaxed30: return "積極的に近似写真を配置して完成度を大きく向上"
-        case .completeMax: return "手持ちの写真を最大限活用して空きマスを一括配置"
-        }
+        String(localized: localizedDetailDescription)
     }
     
     public func threshold(baseThreshold: Float = 0.38) -> Float {
@@ -1705,18 +1713,28 @@ extension MosaicEngine {
             
             if level == .completeMax {
                 if allowDuplicates && !usablePhotos.isEmpty {
-                    title = "100% 完全完成"
-                    statusMessage = isExecutable ? "残り \(additional) マスすべてを配置して完成させます" : "すでにすべてのマスが埋まっています"
+                    title = String(localized: "autoFill.title.complete100", defaultValue: "100% 完全完成")
+                    statusMessage = isExecutable ? 
+                        String(localized: "autoFill.status.fillAll.format \(additional)") : 
+                        String(localized: "autoFill.status.alreadyFilled", defaultValue: "すでにすべてのマスが埋まっています")
                 } else if !allowDuplicates && usablePhotos.count < emptyTiles.count {
-                    title = "可能な限り埋める"
-                    statusMessage = isExecutable ? "写真上限まで最大 \(additional) マス配置します (進捗 \(Int(progress * 100))%)" : "利用可能な写真がありません"
+                    title = String(localized: "autoFill.title.fillMax", defaultValue: "可能な限り埋める")
+                    let pct = Int(progress * 100)
+                    statusMessage = isExecutable ? 
+                        String(localized: "autoFill.status.fillPartial.format \(additional) \(pct)") : 
+                        String(localized: "autoFill.status.noPhotos", defaultValue: "利用可能な写真がありません")
                 } else {
-                    title = "100% 完全完成"
-                    statusMessage = isExecutable ? "残り \(additional) マスすべてを配置して完成させます" : "すでにすべてのマスが埋まっています"
+                    title = String(localized: "autoFill.title.complete100", defaultValue: "100% 完全完成")
+                    statusMessage = isExecutable ? 
+                        String(localized: "autoFill.status.fillAll.format \(additional)") : 
+                        String(localized: "autoFill.status.alreadyFilled", defaultValue: "すでにすべてのマスが埋まっています")
                 }
             } else {
                 title = level.shortTitle
-                statusMessage = isExecutable ? "あと \(additional) マス埋まります (進捗 \(Int(progress * 100))%)" : "この許容度では追加配置できる写真がありません"
+                let pct = Int(progress * 100)
+                statusMessage = isExecutable ? 
+                    String(localized: "autoFill.status.moreTiles.format \(additional) \(pct)") : 
+                    String(localized: "autoFill.status.noMatchesAtLevel", defaultValue: "この許容度では追加配置できる写真がありません")
             }
             
             simulations.append(AutoFillSimulation(

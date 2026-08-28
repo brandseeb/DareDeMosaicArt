@@ -24,7 +24,7 @@ public struct ProjectSetupView: View {
     @State private var albumNotFoundMessage: String = ""
     
     @State private var selectedImage: UIImage? = nil
-    @State private var title: String = "マイモザイクアート"
+    @State private var title: String = String(localized: "project.defaultTitle", defaultValue: "マイモザイクアート")
     @State private var gridSize: Int = 20
     @State private var mode: GameMode = .hybrid
     @State private var selectedPhotoSource: PhotoSource = .allLocalPhotos
@@ -611,13 +611,17 @@ public enum MosaicCreationStep: Int, CaseIterable, Sendable {
     case matching = 2
     case finalizing = 3
     
-    public var shortName: String {
+    public var localizedName: LocalizedStringResource {
         switch self {
-        case .slicing: return "① 分割解析"
-        case .scanning: return "② 写真解析"
-        case .matching: return "③ 最適探索"
-        case .finalizing: return "④ 仕上げ"
+        case .slicing: return LocalizedStringResource("step.slicing", defaultValue: "① 分割解析")
+        case .scanning: return LocalizedStringResource("step.scanning", defaultValue: "② 写真解析")
+        case .matching: return LocalizedStringResource("step.matching", defaultValue: "③ 最適探索")
+        case .finalizing: return LocalizedStringResource("step.finalizing", defaultValue: "④ 仕上げ")
         }
+    }
+    
+    public var shortName: String {
+        String(localized: localizedName)
     }
 }
 
@@ -646,38 +650,59 @@ public enum MosaicCreationStage: Sendable {
         }
     }
     
-    public var title: String {
+    public var localizedTitle: LocalizedStringResource {
         switch self {
-        case .slicing: return "画像のグリッド分割・解析中"
-        case .scanning: return "写真素材のスキャン・解析中"
-        case .matching: return "ベストマッチ写真を探索・配置中"
-        case .finalizing: return "モザイクアートを完成中"
+        case .slicing: return LocalizedStringResource("stage.slicing.title", defaultValue: "画像のグリッド分割・解析中")
+        case .scanning: return LocalizedStringResource("stage.scanning.title", defaultValue: "写真素材のスキャン・解析中")
+        case .matching: return LocalizedStringResource("stage.matching.title", defaultValue: "ベストマッチ写真を探索・配置中")
+        case .finalizing: return LocalizedStringResource("stage.finalizing.title", defaultValue: "モザイクアートを完成中")
+        }
+    }
+    
+    public var title: String {
+        String(localized: localizedTitle)
+    }
+    
+    public var localizedDetailMessage: LocalizedStringResource {
+        switch self {
+        case .slicing(let current, let total):
+            if total > 0 {
+                return LocalizedStringResource("stage.slicing.detail.progress \(current) \(total)")
+            }
+            return LocalizedStringResource("stage.slicing.detail.start", defaultValue: "画像を分割中...")
+        case .scanning(let processed, let total, _):
+            if total > 0 {
+                return LocalizedStringResource("stage.scanning.detail.progress \(processed) \(total)")
+            }
+            return LocalizedStringResource("stage.scanning.detail.start", defaultValue: "写真ライブラリを読み込み中...")
+        case .matching(let current, let total):
+            if total > 0 {
+                return LocalizedStringResource("stage.matching.detail.progress \(current) \(total)")
+            }
+            return LocalizedStringResource("stage.matching.detail.start", defaultValue: "最適な写真を選択中...")
+        case .finalizing:
+            return LocalizedStringResource("stage.finalizing.detail", defaultValue: "不足色ミッションとプロジェクトデータを構築しています...")
         }
     }
     
     public var detailMessage: String {
+        String(localized: localizedDetailMessage)
+    }
+    
+    public var localizedSubMessage: LocalizedStringResource? {
         switch self {
-        case .slicing(let current, let total):
-            return total > 0 ? "マスごとの空間色とエッジを解析中 (\(current)/\(total) マス)" : "画像を分割中..."
-        case .scanning(let processed, let total, _):
-            return total > 0 ? "写真素材の特徴量を解析中 (\(processed)/\(total) 枚)" : "写真ライブラリを読み込み中..."
-        case .matching(let current, let total):
-            return total > 0 ? "構図・グラデーション・明暗から最適配置を計算中 (\(current)/\(total) マス)" : "最適な写真を選択中..."
+        case .slicing:
+            return LocalizedStringResource("stage.slicing.sub", defaultValue: "48×48 Sobelエッジと明暗重心を抽出")
+        case .scanning(_, _, let available):
+            return available > 0 ? LocalizedStringResource("stage.scanning.sub.available \(available)") : nil
+        case .matching:
+            return LocalizedStringResource("stage.matching.sub", defaultValue: "多次元空間インデックスと二部マッチングで最適化")
         case .finalizing:
-            return "不足色ミッションとプロジェクトデータを構築しています..."
+            return LocalizedStringResource("stage.finalizing.sub", defaultValue: "まもなく作品が完成します！")
         }
     }
     
     public var subMessage: String? {
-        switch self {
-        case .slicing:
-            return "48×48 Sobelエッジと明暗重心を抽出"
-        case .scanning(_, _, let available):
-            return available > 0 ? "端末内に保存済みの \(available) 枚を使用中" : nil
-        case .matching:
-            return "多次元空間インデックスと二部マッチングで最適化"
-        case .finalizing:
-            return "まもなく作品が完成します！"
-        }
+        localizedSubMessage.map { String(localized: $0) }
     }
 }

@@ -14,11 +14,11 @@ public enum PhotoLibraryScannerError: LocalizedError, Sendable {
     public var errorDescription: String? {
         switch self {
         case .permissionDenied:
-            return "写真ライブラリへのアクセスが許可されていません。設定アプリで許可してください。"
+            return String(localized: "error.photoScanner.permissionDenied", defaultValue: "写真ライブラリへのアクセスが許可されていません。設定アプリで許可してください。")
         case .albumNotFound(let title):
-            return "指定されたアルバム「\(title)」が見つかりません。削除された可能性があります。"
+            return String(localized: "error.photoScanner.albumNotFound.format \(title)")
         case .cancelled:
-            return "写真のスキャンが中断されました。"
+            return String(localized: "error.photoScanner.cancelled", defaultValue: "写真のスキャンが中断されました。")
         }
     }
 }

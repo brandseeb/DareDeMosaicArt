@@ -1055,5 +1055,16 @@ final class DareDeMosaicArtTests: XCTestCase {
         XCTAssertEqual(GameMode.fullHunt.localizedTitle.key, "gameMode.fullHunt.title")
         XCTAssertEqual(PlacementOrigin.captured.localizedTitle.key, "placement.captured")
         XCTAssertEqual(PlacementOrigin.autoFilled.localizedTitle.key, "placement.autoFilled")
+
+        // 5. 刻印設定・フォント・位置・色のローカライズリソース検証
+        XCTAssertEqual(WatermarkConfig.FontDesignOption.standard.localizedResource.key, "watermark.font.standard")
+        XCTAssertEqual(WatermarkConfig.PositionOption.footerBar.localizedResource.key, "watermark.pos.footerBar")
+        XCTAssertEqual(WatermarkConfig.ColorStyleOption.gold.localizedResource.key, "watermark.color.gold")
+
+        // 6. オートフィルレベル & 作成ステップのローカライズリソース検証
+        XCTAssertEqual(AutoFillLevel.relaxed5.localizedShortTitle.key, "autoFill.level.relaxed5.title")
+        XCTAssertEqual(AutoFillLevel.completeMax.localizedShortTitle.key, "autoFill.level.completeMax.title")
+        XCTAssertEqual(MosaicCreationStep.slicing.localizedName.key, "step.slicing")
+        XCTAssertEqual(MosaicCreationStep.finalizing.localizedName.key, "step.finalizing")
     }
 }

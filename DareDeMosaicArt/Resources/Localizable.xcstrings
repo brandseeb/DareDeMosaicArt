@@ -2399,6 +2399,1077 @@
           }
         }
       }
+    },
+    "watermark.pos.bottomCenter": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "中央下"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bottom Center"
+          }
+        }
+      }
+    },
+    "watermark.pos.bottomRight": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "右下"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bottom Right"
+          }
+        }
+      }
+    },
+    "watermark.pos.bottomLeft": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "左下"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bottom Left"
+          }
+        }
+      }
+    },
+    "watermark.pos.footerBar": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "下部帯 (フレーム内)"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Footer Bar (Framed)"
+          }
+        }
+      }
+    },
+    "watermark.color.whiteWithShadow": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ホワイト (影付き)"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "White (Shadowed)"
+          }
+        }
+      }
+    },
+    "watermark.color.blackWithShadow": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ブラック (影付き)"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Black (Shadowed)"
+          }
+        }
+      }
+    },
+    "watermark.color.gold": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "プレミアムゴールド"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Premium Gold"
+          }
+        }
+      }
+    },
+    "step.slicing": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "① 分割解析"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "① Grid Analysis"
+          }
+        }
+      }
+    },
+    "step.scanning": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "② 写真解析"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "② Photo Scanning"
+          }
+        }
+      }
+    },
+    "step.matching": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "③ 最適探索"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "③ Best Match Search"
+          }
+        }
+      }
+    },
+    "step.finalizing": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "④ 仕上げ"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "④ Finalizing"
+          }
+        }
+      }
+    },
+    "stage.slicing.title": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "画像のグリッド分割・解析中"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Slicing & Analyzing Grid"
+          }
+        }
+      }
+    },
+    "stage.scanning.title": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "写真素材のスキャン・解析中"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Scanning & Analyzing Photos"
+          }
+        }
+      }
+    },
+    "stage.matching.title": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ベストマッチ写真を探索・配置中"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Finding & Placing Best Matches"
+          }
+        }
+      }
+    },
+    "stage.finalizing.title": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "モザイクアートを完成中"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Finalizing Mosaic Art"
+          }
+        }
+      }
+    },
+    "stage.slicing.detail.progress %lld %lld": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "マスごとの空間色とエッジを解析中 (%lld/%lld マス)"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Analyzing spatial colors and edges (%lld/%lld tiles)"
+          }
+        }
+      }
+    },
+    "stage.slicing.detail.start": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "画像を分割中..."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Slicing image..."
+          }
+        }
+      }
+    },
+    "stage.scanning.detail.progress %lld %lld": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "写真素材の特徴量を解析中 (%lld/%lld 枚)"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Analyzing photo features (%lld/%lld photos)"
+          }
+        }
+      }
+    },
+    "stage.scanning.detail.start": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "写真ライブラリを読み込み中..."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Loading photo library..."
+          }
+        }
+      }
+    },
+    "stage.matching.detail.progress %lld %lld": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "構図・グラデーション・明暗から最適配置を計算中 (%lld/%lld マス)"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Calculating optimal placement (%lld/%lld tiles)"
+          }
+        }
+      }
+    },
+    "stage.matching.detail.start": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "最適な写真を選択中..."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Selecting best photos..."
+          }
+        }
+      }
+    },
+    "stage.finalizing.detail": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "不足色ミッションとプロジェクトデータを構築しています..."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Generating color missions and project data..."
+          }
+        }
+      }
+    },
+    "stage.slicing.sub": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "48×48 Sobelエッジと明暗重心を抽出"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Extracting 48×48 Sobel edges and contrast centers"
+          }
+        }
+      }
+    },
+    "stage.scanning.sub.available %lld": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "端末内に保存済みの %lld 枚を使用中"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Using %lld cached photos on device"
+          }
+        }
+      }
+    },
+    "stage.matching.sub": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "多次元空間インデックスと二部マッチングで最適化"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Optimizing via multi-dimensional index & bipartite matching"
+          }
+        }
+      }
+    },
+    "stage.finalizing.sub": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "まもなく作品が完成します！"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Your artwork is almost ready!"
+          }
+        }
+      }
+    },
+    "project.defaultTitle": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "マイモザイクアート"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "My Mosaic Art"
+          }
+        }
+      }
+    },
+    "autoFill.level.relaxed5.title": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "+5% ゆるめる"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "+5% Relaxed"
+          }
+        }
+      }
+    },
+    "autoFill.level.relaxed5.desc": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "アート品質を最優先し、惜しかった近似写真を優先配置"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Prioritizes artwork quality and places close matching photos"
+          }
+        }
+      }
+    },
+    "autoFill.level.relaxed15.title": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "+15% ゆるめる"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "+15% Relaxed"
+          }
+        }
+      }
+    },
+    "autoFill.level.relaxed15.desc": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "全体の自然さを保ちながらバランス良く配置"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Maintains natural harmony while filling balanced photos"
+          }
+        }
+      }
+    },
+    "autoFill.level.relaxed30.title": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "+30% ゆるめる"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "+30% Relaxed"
+          }
+        }
+      }
+    },
+    "autoFill.level.relaxed30.desc": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "積極的に近似写真を配置して完成度を大きく向上"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aggressively places photos to significantly increase progress"
+          }
+        }
+      }
+    },
+    "autoFill.level.completeMax.title": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "可能な限り埋める"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fill as Much as Possible"
+          }
+        }
+      }
+    },
+    "autoFill.level.completeMax.desc": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "手持ちの写真を最大限活用して空きマスを一括配置"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Maximizes available photos to fill all possible empty tiles"
+          }
+        }
+      }
+    },
+    "autoFill.title.complete100": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "100% 完全完成"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "100% Complete"
+          }
+        }
+      }
+    },
+    "autoFill.title.fillMax": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "可能な限り埋める"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fill as Much as Possible"
+          }
+        }
+      }
+    },
+    "autoFill.status.fillAll.format %lld": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "残り %lld マスすべてを配置して完成させます"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fills all remaining %lld tiles to complete the artwork"
+          }
+        }
+      }
+    },
+    "autoFill.status.alreadyFilled": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "すでにすべてのマスが埋まっています"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "All tiles are already filled"
+          }
+        }
+      }
+    },
+    "autoFill.status.fillPartial.format %lld %lld": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "写真上限まで最大 %lld マス配置します (進捗 %lld%%)"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fills up to %lld tiles based on photo limit (Progress %lld%%)"
+          }
+        }
+      }
+    },
+    "autoFill.status.noPhotos": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "利用可能な写真がありません"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No available photos"
+          }
+        }
+      }
+    },
+    "autoFill.status.moreTiles.format %lld %lld": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "あと %lld マス埋まります (進捗 %lld%%)"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fills %lld more tiles (Progress %lld%%)"
+          }
+        }
+      }
+    },
+    "autoFill.status.noMatchesAtLevel": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "この許容度では追加配置できる写真がありません"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No additional matching photos at this level"
+          }
+        }
+      }
+    },
+    "error.timelapse.uncompleted": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "すべてのピースが埋まると制作タイムラプス動画を作成できます。"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Timelapse can be generated once all tiles are filled."
+          }
+        }
+      }
+    },
+    "error.timelapse.cancelled": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "動画の作成がキャンセルされました。"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Timelapse generation was cancelled."
+          }
+        }
+      }
+    },
+    "error.timelapse.writerFailed.format %@": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "動画ライターの初期化に失敗しました: %@"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Failed to initialize video writer: %@"
+          }
+        }
+      }
+    },
+    "error.timelapse.encodingFailed.format %@": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "動画のエンコードに失敗しました: %@"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Failed to encode video: %@"
+          }
+        }
+      }
+    },
+    "error.timelapse.contextFailed": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "描画コンテキストの作成に失敗しました。"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Failed to create graphics context."
+          }
+        }
+      }
+    },
+    "error.timelapse.audioFailed.format %@": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "音声のエンコードに失敗しました: %@"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Failed to encode audio: %@"
+          }
+        }
+      }
+    },
+    "error.timelapse.photoAccessDenied": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "写真ライブラリへのアクセスが許可されていません。"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Photo Library access is not permitted."
+          }
+        }
+      }
+    },
+    "error.timelapse.outputMissing": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "生成された動画ファイルが見つかりません。"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Generated video file is missing."
+          }
+        }
+      }
+    },
+    "error.timelapse.saveTimedOut": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "写真ライブラリへの保存がタイムアウトしました。少し待ってからもう一度お試しください。"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Saving to photo library timed out. Please try again later."
+          }
+        }
+      }
+    },
+    "error.photoScanner.permissionDenied": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "写真ライブラリへのアクセスが許可されていません。設定アプリで許可してください。"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Photo library access is not permitted. Please allow it in Settings."
+          }
+        }
+      }
+    },
+    "error.photoScanner.albumNotFound.format %@": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "指定されたアルバム「%@」が見つかりません。削除された可能性があります。"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Specified album \"%@\" was not found. It may have been deleted."
+          }
+        }
+      }
+    },
+    "error.photoScanner.cancelled": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "写真のスキャンが中断されました。"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Photo scanning was cancelled."
+          }
+        }
+      }
+    },
+    "camera.error.analyzeFailed": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "写真を解析できませんでした。もう一度お試しください。"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Failed to analyze photo. Please try again."
+          }
+        }
+      }
+    },
+    "camera.advice.lighter": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "もう少し明るい場所や光の当たる場所を狙ってみましょう。"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Try aiming for a brighter or well-lit spot."
+          }
+        }
+      }
+    },
+    "camera.advice.darker": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "もう少し暗い場所や影に近づけてみましょう。"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Try aiming for a darker or shaded area."
+          }
+        }
+      }
+    },
+    "camera.advice.moreRed": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "赤みがもう少し必要です。赤・オレンジ側の色を狙ってみましょう。"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Needs more red. Look for red or orange items."
+          }
+        }
+      }
+    },
+    "camera.advice.moreGreen": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "緑みがもう少し必要です。植物や緑の小物を探してみましょう。"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Needs more green. Look for plants or green objects."
+          }
+        }
+      }
+    },
+    "camera.advice.moreYellow": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "黄色みがもう少し必要です。暖色系の色を狙ってみましょう。"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Needs more yellow. Look for warm-toned items."
+          }
+        }
+      }
+    },
+    "camera.advice.moreBlue": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "青みがもう少し必要です。空や青い小物に近づけてみましょう。"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Needs more blue. Look for the sky or blue items."
+          }
+        }
+      }
+    },
+    "camera.advice.alignFrame": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ファインダー枠の中に、探している色を入れてみましょう！"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Frame the target color inside the square box!"
+          }
+        }
+      }
     }
   },
   "version": "1.0"

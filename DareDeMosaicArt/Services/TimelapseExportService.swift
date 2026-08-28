@@ -25,23 +25,23 @@ public enum TimelapseExportError: LocalizedError, Sendable {
     public var errorDescription: String? {
         switch self {
         case .uncompletedProject:
-            return "すべてのピースが埋まると制作タイムラプス動画を作成できます。"
+            return String(localized: "error.timelapse.uncompleted", defaultValue: "すべてのピースが埋まると制作タイムラプス動画を作成できます。")
         case .cancelled:
-            return "動画の作成がキャンセルされました。"
+            return String(localized: "error.timelapse.cancelled", defaultValue: "動画の作成がキャンセルされました。")
         case .writerCreationFailed(let msg):
-            return "動画ライターの初期化に失敗しました: \(msg)"
+            return String(localized: "error.timelapse.writerFailed.format \(msg)")
         case .encodingFailed(let msg):
-            return "動画のエンコードに失敗しました: \(msg)"
+            return String(localized: "error.timelapse.encodingFailed.format \(msg)")
         case .contextCreationFailed:
-            return "描画コンテキストの作成に失敗しました。"
+            return String(localized: "error.timelapse.contextFailed", defaultValue: "描画コンテキストの作成に失敗しました。")
         case .audioEncodingFailed(let msg):
-            return "音声のエンコードに失敗しました: \(msg)"
+            return String(localized: "error.timelapse.audioFailed.format \(msg)")
         case .photoLibraryAccessDenied:
-            return "写真ライブラリへのアクセスが許可されていません。"
+            return String(localized: "error.timelapse.photoAccessDenied", defaultValue: "写真ライブラリへのアクセスが許可されていません。")
         case .outputFileMissing:
-            return "生成された動画ファイルが見つかりません。"
+            return String(localized: "error.timelapse.outputMissing", defaultValue: "生成された動画ファイルが見つかりません。")
         case .photoLibrarySaveTimedOut:
-            return "写真ライブラリへの保存がタイムアウトしました。少し待ってからもう一度お試しください。"
+            return String(localized: "error.timelapse.saveTimedOut", defaultValue: "写真ライブラリへの保存がタイムアウトしました。少し待ってからもう一度お試しください。")
         }
     }
 }

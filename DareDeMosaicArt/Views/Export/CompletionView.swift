@@ -323,15 +323,15 @@ public struct CompletionView: View {
                 Section(header: Text("フォントスタイル")) {
                     Picker("フォント", selection: $draftWatermark.fontDesign) {
                         ForEach(WatermarkConfig.FontDesignOption.allCases, id: \.self) { opt in
-                            Text(opt.rawValue).tag(opt)
+                            Text(opt.localizedResource).tag(opt)
                         }
                     }
                 }
                 
-                Section(header: Text("配置位置 (4096px正方形の内部)")) {
+                Section(header: Text("配置位置")) {
                     Picker("位置", selection: $draftWatermark.position) {
                         ForEach(WatermarkConfig.PositionOption.allCases, id: \.self) { opt in
-                            Text(opt.rawValue).tag(opt)
+                            Text(opt.localizedResource).tag(opt)
                         }
                     }
                 }
@@ -339,7 +339,7 @@ public struct CompletionView: View {
                 Section(header: Text("文字カラー・スタイル")) {
                     Picker("カラー", selection: $draftWatermark.colorStyle) {
                         ForEach(WatermarkConfig.ColorStyleOption.allCases, id: \.self) { opt in
-                            Text(opt.rawValue).tag(opt)
+                            Text(opt.localizedResource).tag(opt)
                         }
                     }
                 }

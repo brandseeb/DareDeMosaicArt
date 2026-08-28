@@ -104,12 +104,29 @@ public struct WatermarkConfig: Codable, Sendable, Equatable {
         case bottomRight = "右下"
         case bottomLeft = "左下"
         case footerBar = "下部帯 (フレーム内)"
+        
+        public var localizedResource: LocalizedStringResource {
+            switch self {
+            case .bottomCenter: return LocalizedStringResource("watermark.pos.bottomCenter", defaultValue: "中央下")
+            case .bottomRight: return LocalizedStringResource("watermark.pos.bottomRight", defaultValue: "右下")
+            case .bottomLeft: return LocalizedStringResource("watermark.pos.bottomLeft", defaultValue: "左下")
+            case .footerBar: return LocalizedStringResource("watermark.pos.footerBar", defaultValue: "下部帯 (フレーム内)")
+            }
+        }
     }
     
     public enum ColorStyleOption: String, Codable, CaseIterable, Sendable {
         case whiteWithShadow = "ホワイト (影付き)"
         case blackWithShadow = "ブラック (影付き)"
         case gold = "プレミアムゴールド"
+        
+        public var localizedResource: LocalizedStringResource {
+            switch self {
+            case .whiteWithShadow: return LocalizedStringResource("watermark.color.whiteWithShadow", defaultValue: "ホワイト (影付き)")
+            case .blackWithShadow: return LocalizedStringResource("watermark.color.blackWithShadow", defaultValue: "ブラック (影付き)")
+            case .gold: return LocalizedStringResource("watermark.color.gold", defaultValue: "プレミアムゴールド")
+            }
+        }
     }
 }
 

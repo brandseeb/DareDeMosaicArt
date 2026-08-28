@@ -380,7 +380,7 @@ public struct MissionCameraView: View {
                 guard let croppedImage = ImageUtils.cropCenterSquare(image: image, ratio: 1.0, maxDimension: 512),
                       let cgImage = croppedImage.cgImage else {
                     await MainActor.run {
-                        feedbackMessage = "写真を解析できませんでした。もう一度お試しください。"
+                        feedbackMessage = String(localized: "camera.error.analyzeFailed", defaultValue: "写真を解析できませんでした。もう一度お試しください。")
                         isProcessing = false
                     }
                     return
@@ -428,16 +428,28 @@ public struct MissionCameraView: View {
 
     private func retryAdvice(for captured: LabColor, target: LabColor) -> String {
         let lightnessDelta = target.l - captured.l
-        if lightnessDelta > 8 { return "もう少し明るい場所や光の当たる場所を狙ってみましょう。" }
-        if lightnessDelta < -8 { return "もう少し暗い場所や影に近づけてみましょう。" }
+        if lightnessDelta > 8 {
+            return String(localized: "camera.advice.lighter", defaultValue: "もう少し明るい場所や光の当たる場所を狙ってみましょう。")
+        }
+        if lightnessDelta < -8 {
+            return String(localized: "camera.advice.darker", defaultValue: "もう少し暗い場所や影に近づけてみましょう。")
+        }
 
         let redGreenDelta = target.a - captured.a
-        if redGreenDelta > 9 { return "赤みがもう少し必要です。赤・オレンジ側の色を狙ってみましょう。" }
-        if redGreenDelta < -9 { return "緑みがもう少し必要です。植物や緑の小物を探してみましょう。" }
+        if redGreenDelta > 9 {
+            return String(localized: "camera.advice.moreRed", defaultValue: "赤みがもう少し必要です。赤・オレンジ側の色を狙ってみましょう。")
+        }
+        if redGreenDelta < -9 {
+            return String(localized: "camera.advice.moreGreen", defaultValue: "緑みがもう少し必要です。植物や緑の小物を探してみましょう。")
+        }
 
         let yellowBlueDelta = target.b - captured.b
-        if yellowBlueDelta > 9 { return "黄色みがもう少し必要です。暖色系の色を狙ってみましょう。" }
-        if yellowBlueDelta < -9 { return "青みがもう少し必要です。空や青い小物に近づけてみましょう。" }
-        return "ファインダー枠の中に、探している色を入れてみましょう！"
+        if yellowBlueDelta > 9 {
+            return String(localized: "camera.advice.moreYellow", defaultValue: "黄色みがもう少し必要です。暖色系の色を狙ってみましょう。")
+        }
+        if yellowBlueDelta < -9 {
+            return String(localized: "camera.advice.moreBlue", defaultValue: "青みがもう少し必要です。空や青い小物に近づけてみましょう。")
+        }
+        return String(localized: "camera.advice.alignFrame", defaultValue: "ファインダー枠の中に、探している色を入れてみましょう！")
     }
 }
