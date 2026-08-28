@@ -85,46 +85,14 @@ public struct MosaicWorkspaceView: View {
                 }
                 
                 ToolbarItem(placement: .topBarTrailing) {
-                    HStack(spacing: 8) {
-                        if autoFilledTilesCount > 0 {
-                            Button {
-                                showResetConfirmAlert = true
-                            } label: {
-                                HStack(spacing: 4) {
-                                    Image(systemName: "arrow.uturn.backward")
-                                    Text("配置前に戻す")
-                                }
-                                .font(.subheadline.bold())
-                                .foregroundColor(.orange)
-                            }
+                    Button {
+                        showCompletion = true
+                    } label: {
+                        HStack(spacing: 4) {
+                            Image(systemName: "square.and.arrow.up")
+                            Text("完成版")
                         }
-                        
-                        if !project.isCompleted {
-                            Button {
-                                openAutoFill()
-                            } label: {
-                                HStack(spacing: 4) {
-                                    if isLoadingSourcePhotos {
-                                        ProgressView().scaleEffect(0.7)
-                                    } else {
-                                        Image(systemName: "wand.and.stars")
-                                    }
-                                    Text("自動配置")
-                                }
-                                .font(.subheadline.bold())
-                                .foregroundColor(.accentColor)
-                            }
-                        }
-                        
-                        Button {
-                            showCompletion = true
-                        } label: {
-                            HStack(spacing: 4) {
-                                Image(systemName: "square.and.arrow.up")
-                                Text("完成版")
-                            }
-                            .font(.subheadline.bold())
-                        }
+                        .font(.subheadline.bold())
                     }
                 }
             }
