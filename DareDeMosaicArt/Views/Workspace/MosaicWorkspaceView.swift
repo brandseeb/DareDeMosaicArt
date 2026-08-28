@@ -15,6 +15,7 @@ public struct MosaicWorkspaceView: View {
     @State private var showCompletion: Bool = false
     @State private var showPaywall: Bool = false
     @State private var showAutoFillSheet: Bool = false
+    @State private var showResetConfirmAlert: Bool = false
     @State private var showAlbumMissingAlert: Bool = false
     @State private var albumMissingMessage: String = ""
     
@@ -85,6 +86,19 @@ public struct MosaicWorkspaceView: View {
                 
                 ToolbarItem(placement: .topBarTrailing) {
                     HStack(spacing: 8) {
+                        if autoFilledTilesCount > 0 {
+                            Button {
+                                showResetConfirmAlert = true
+                            } label: {
+                                HStack(spacing: 4) {
+                                    Image(systemName: "arrow.uturn.backward")
+                                    Text("配置前に戻す")
+                                }
+                                .font(.subheadline.bold())
+                                .foregroundColor(.orange)
+                            }
+                        }
+                        
                         if !project.isCompleted {
                             Button {
                                 openAutoFill()
@@ -170,6 +184,18 @@ public struct MosaicWorkspaceView: View {
                 Button("OK", role: .cancel) {}
             } message: {
                 Text(albumMissingMessage)
+            }
+            .alert("自動配置を取り消しますか？", isPresented: $showResetConfirmAlert) {
+                Button("配置前に戻す", role: .destructive) {
+                    let (updated, _) = MosaicEngine.shared.resetAutoFilledTiles(project: project)
+                    self.project = updated
+                    #if canImport(UIKit)
+                    UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+                    #endif
+                }
+                Button("キャンセル", role: .cancel) {}
+            } message: {
+                Text("自動配置された \(autoFilledTilesCount) マスを元の空きマスに戻します。撮影したピースや手動で選んだピースはそのまま保護されます。")
             }
             .task(id: project.photoSource) {
                 await prewarmCachedSourcePhotos()
@@ -344,7 +370,23 @@ public struct MosaicWorkspaceView: View {
             
             Spacer()
             
-            if !project.isCompleted && emptyTilesCount > 0 {
+            if autoFilledTilesCount > 0 && project.isCompleted {
+                Button {
+                    showResetConfirmAlert = true
+                } label: {
+                    HStack(spacing: 4) {
+                        Image(systemName: "arrow.uturn.backward")
+                        Text("自動配置前に戻す")
+                    }
+                    .font(.caption.bold())
+                    .foregroundColor(.white)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 6)
+                    .background(Color.orange)
+                    .cornerRadius(8)
+                }
+                .buttonStyle(.plain)
+            } else if !project.isCompleted && emptyTilesCount > 0 {
                 Button {
                     openAutoFill()
                 } label: {
