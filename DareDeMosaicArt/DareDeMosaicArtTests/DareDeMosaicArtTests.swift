@@ -826,6 +826,35 @@ final class DareDeMosaicArtTests: XCTestCase {
         XCTAssertEqual(completeMaxSim?.additionalCount, 300, "写真300枚すべてが重複なしで最大配置されること")
     }
 
+    /// 実機計測前の回帰検知用。写真件数が増えても候補インデックスの構築・検索が破綻しないことを確認する。
+    func testCandidateIndexScalesToTenThousandPhotos() {
+        for photoCount in [1_000, 5_000, 10_000] {
+            let photos = (0..<photoCount).map { index in
+                IndexedPhoto(
+                    id: "perf_photo_\(index)",
+                    labColor: LabColor(
+                        l: Float(index % 101),
+                        a: Float((index % 81) - 40),
+                        b: Float((index % 91) - 45)
+                    )
+                )
+            }
+
+            let startedAt = ContinuousClock.now
+            let index = MultiDimensionalPhotoIndex(photos: photos)
+            let candidates = index.candidates(
+                for: LabColor(l: 55, a: 8, b: -12),
+                signature: nil,
+                maxCandidates: 200
+            )
+            let elapsed = startedAt.duration(to: .now)
+
+            XCTAssertFalse(candidates.isEmpty)
+            XCTAssertLessThanOrEqual(candidates.count, 200)
+            print("[PERF TEST] candidate index photos=\(photoCount), elapsed=\(elapsed)")
+        }
+    }
+
     /// ライブラリに似た色がある場合、他の無関係なタイルに奪われず確実にベストマッチが配置されること
     func testAutoFillGreedyPriorityPicksBestMatchOverBadMatch() async throws {
         let tiles = [
@@ -885,5 +914,4 @@ final class DareDeMosaicArtTests: XCTestCase {
         XCTAssertEqual(updated.tiles[0].origin, .captured, "配置元がcapturedになること")
     }
 }
-
 

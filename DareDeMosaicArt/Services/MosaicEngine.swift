@@ -45,6 +45,11 @@ public final class MosaicEngine: Sendable {
         passDistanceThreshold: Float = 0.38,
         onProgress: (@Sendable (Int, Int) -> Void)? = nil
     ) -> [MosaicTile] {
+        let interval = PerformanceDiagnostics.begin(
+            .initialMatching,
+            metadata: "tiles=\(tiles.count), photos=\(availablePhotos.count), duplicates=\(allowDuplicates)"
+        )
+        defer { PerformanceDiagnostics.end(interval) }
         guard !availablePhotos.isEmpty else { return tiles }
         
         var updatedTiles = tiles
@@ -250,6 +255,11 @@ public final class MosaicEngine: Sendable {
         excluding usedPhotoIDs: Set<String> = [],
         topK: Int = 8
     ) -> [PhotoMatchCandidate] {
+        let interval = PerformanceDiagnostics.begin(
+            .candidateSearch,
+            metadata: "excluded=\(usedPhotoIDs.count), topK=\(topK)"
+        )
+        defer { PerformanceDiagnostics.end(interval) }
         let candidates = index.candidates(
             for: tile.targetLabColor,
             signature: tile.targetSignature,

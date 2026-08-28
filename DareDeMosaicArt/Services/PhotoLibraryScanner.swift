@@ -84,6 +84,13 @@ public final class PhotoLibraryScanner: ObservableObject {
     
     // MARK: - 写真ソースからのスキャン
     public func scanPhotos(source: PhotoSource = .allLocalPhotos) async throws -> [IndexedPhoto] {
+        let interval = PerformanceDiagnostics.begin(.photoLibraryScan, metadata: "source=\(source)")
+        defer {
+            PerformanceDiagnostics.end(
+                interval,
+                metadata: "processed=\(processedCount), local=\(localAvailableCount), total=\(totalPhotoCount)"
+            )
+        }
         guard authorizationStatus == .authorized || authorizationStatus == .limited else {
             let granted = await requestPermission()
             guard granted else { throw PhotoLibraryScannerError.permissionDenied }
@@ -332,6 +339,8 @@ public enum PhotoColorIndexCache {
     }
 
     public static func load() -> [String: CachedPhotoIndexEntry] {
+        let interval = PerformanceDiagnostics.begin(.photoCacheLoad)
+        defer { PerformanceDiagnostics.end(interval) }
         let decoder = PropertyListDecoder()
         
         // 1. v2 キャッシュが存在すれば優先ロード

@@ -204,9 +204,14 @@ public struct MosaicWorkspaceView: View {
             return candidateSearchIndex
         }
 
+        let interval = PerformanceDiagnostics.begin(
+            .candidateIndexBuild,
+            metadata: "photos=\(photos.count)"
+        )
         let built = await Task.detached(priority: .userInitiated) {
             MultiDimensionalPhotoIndex(photos: photos)
         }.value
+        PerformanceDiagnostics.end(interval, metadata: "photos=\(photos.count)")
         candidateSearchIndex = built
         candidateSearchIndexPhotoCount = photos.count
         return built

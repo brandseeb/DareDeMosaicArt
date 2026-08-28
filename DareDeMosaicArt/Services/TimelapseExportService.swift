@@ -101,6 +101,11 @@ public final class TimelapseExportService: Sendable {
         includeAudio: Bool = true,
         onProgress: (@Sendable (Float) -> Void)? = nil
     ) async throws -> URL {
+        let interval = PerformanceDiagnostics.begin(
+            .timelapseExport,
+            metadata: "tiles=\(project.tiles.count), audio=\(includeAudio)"
+        )
+        defer { PerformanceDiagnostics.end(interval) }
         guard project.isCompleted else {
             throw TimelapseExportError.uncompletedProject
         }

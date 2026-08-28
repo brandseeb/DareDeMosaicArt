@@ -102,7 +102,16 @@ actor ProjectAssetLoader {
     static let shared = ProjectAssetLoader()
 
     func hydrate(_ project: MosaicProject) -> MosaicProject {
-        ProjectDiskStore.hydrate(project)
+        let interval = PerformanceDiagnostics.begin(
+            .projectHydration,
+            metadata: "tiles=\(project.tiles.count)"
+        )
+        let hydrated = ProjectDiskStore.hydrate(project)
+        PerformanceDiagnostics.end(
+            interval,
+            metadata: "loaded=\(hydrated.tiles.lazy.filter { $0.thumbnailData != nil }.count)"
+        )
+        return hydrated
     }
 }
 

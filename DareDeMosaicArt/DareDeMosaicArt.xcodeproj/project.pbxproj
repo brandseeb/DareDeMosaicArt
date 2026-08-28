@@ -24,6 +24,7 @@
 		487E74D7275549989489BB6C /* MissionCameraView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 78518D38E9ED4A0DA0327D73 /* MissionCameraView.swift */; };
 		5F3543E076174F38996ABC58 /* MosaicCanvasView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E67B44FC18614016829B0065 /* MosaicCanvasView.swift */; };
 		6096610D434A49ADAA6EC204 /* ImageUtils.swift in Sources */ = {isa = PBXBuildFile; fileRef = 93991EEF49754767894CFD67 /* ImageUtils.swift */; };
+		A6D1F2E3C4B50718293A4B6C /* PerformanceDiagnostics.swift in Sources */ = {isa = PBXBuildFile; fileRef = B6D1F2E3C4B50718293A4B6D /* PerformanceDiagnostics.swift */; };
 		64E172AF81564F41B8FC0A36 /* MosaicProject.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2C8CEBC40494F08A3C3166F /* MosaicProject.swift */; };
 		6CC9C264943D4F4DA62A76B7 /* CameraManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 53D8C646E0624282A67483E7 /* CameraManager.swift */; };
 		77229BA79301489584AC3A0C /* MosaicEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5EC0609BFA1494489DFB830 /* MosaicEngine.swift */; };
@@ -60,6 +61,7 @@
 		8B963E4E9D3E42B39B1E03D3 /* MosaicTile.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MosaicTile.swift; sourceTree = "<group>"; };
 		908098770B744B06B6BDCF9C /* ColorAnalysisService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ColorAnalysisService.swift; sourceTree = "<group>"; };
 		93991EEF49754767894CFD67 /* ImageUtils.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImageUtils.swift; sourceTree = "<group>"; };
+		B6D1F2E3C4B50718293A4B6D /* PerformanceDiagnostics.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PerformanceDiagnostics.swift; sourceTree = "<group>"; };
 		A2C8CEBC40494F08A3C3166F /* MosaicProject.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MosaicProject.swift; sourceTree = "<group>"; };
 		A5EC0609BFA1494489DFB830 /* MosaicEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MosaicEngine.swift; sourceTree = "<group>"; };
 		B85885B374C34338B8509924 /* DareDeMosaicArtApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DareDeMosaicArtApp.swift; sourceTree = "<group>"; };
@@ -148,6 +150,7 @@
 			isa = PBXGroup;
 			children = (
 				93991EEF49754767894CFD67 /* ImageUtils.swift */,
+				B6D1F2E3C4B50718293A4B6D /* PerformanceDiagnostics.swift */,
 			);
 			path = Utils;
 			sourceTree = "<group>";
@@ -352,6 +355,7 @@
 				3FC133FD9DC04144B1320ED7 /* ColorReticleView.swift in Sources */,
 				AAC13EAB3F594DA6B7FA5E8B /* CompletionView.swift in Sources */,
 				6096610D434A49ADAA6EC204 /* ImageUtils.swift in Sources */,
+				A6D1F2E3C4B50718293A4B6C /* PerformanceDiagnostics.swift in Sources */,
 				A1B2C3D4E5F60718293A4B5C /* StoreKitManager.swift in Sources */,
 				C1D2E3F4A5B60718293C4D5E /* ProPaywallView.swift in Sources */,
 				B2C3D4E5F6A70718293E4F6A /* IndexedPhoto.swift in Sources */,

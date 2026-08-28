@@ -6,6 +6,13 @@ import UIKit
 /// 数千枚のタイルを操作中に再描画しないため、モザイクを1枚の表示用画像へ合成する。
 private enum MosaicPreviewRenderer {
     static func render(project: MosaicProject, pixels: Int) -> UIImage? {
+        let interval = PerformanceDiagnostics.begin(
+            .mosaicPreviewRender,
+            metadata: "tiles=\(project.tiles.count), pixels=\(pixels)"
+        )
+        defer {
+            PerformanceDiagnostics.end(interval, metadata: "grid=\(project.gridWidth)x\(project.gridHeight)")
+        }
         guard pixels > 0,
               let colorSpace = CGColorSpace(name: CGColorSpace.sRGB),
               let context = CGContext(
