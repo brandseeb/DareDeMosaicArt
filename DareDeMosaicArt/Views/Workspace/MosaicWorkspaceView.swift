@@ -126,11 +126,7 @@ public struct MosaicWorkspaceView: View {
                 AutoFillSheetView(
                     project: $project,
                     availablePhotos: allSourcePhotos,
-                    onApplied: { placedCount in
-                        if project.isCompleted {
-                            showCompletion = true
-                        }
-                    },
+                    onApplied: { _ in },
                     onReset: { _ in }
                 )
                 .presentationDetents([.large])
@@ -151,9 +147,6 @@ public struct MosaicWorkspaceView: View {
                     self.project = result.updatedProject
                     if let matched = result.matchedTile {
                         self.selectedTile = matched
-                    }
-                    if self.project.isCompleted {
-                        self.showCompletion = true
                     }
                 }
             }
