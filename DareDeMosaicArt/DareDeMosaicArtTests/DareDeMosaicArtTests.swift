@@ -855,6 +855,99 @@ final class DareDeMosaicArtTests: XCTestCase {
         }
     }
 
+    /// 総当たりを候補辺探索に置き換えても、2-optの交差解消結果が保たれること。
+    func testInitialMatchingSparseSwapPreservesOptimalAssignment() {
+        let tiles = [
+            MosaicTile(gridX: 0, gridY: 0, targetLabColor: LabColor(l: 50, a: 1, b: 0)),
+            MosaicTile(gridX: 1, gridY: 0, targetLabColor: LabColor(l: 50, a: 2, b: 0))
+        ]
+        let photos = [
+            IndexedPhoto(id: "photo_A", labColor: LabColor(l: 50, a: 0, b: 0)),
+            IndexedPhoto(id: "photo_B", labColor: LabColor(l: 50, a: 5, b: 0))
+        ]
+
+        let result = MosaicEngine.shared.matchTiles(
+            tiles: tiles,
+            availablePhotos: photos,
+            passDistanceThreshold: 1.0
+        )
+
+        XCTAssertEqual(result[0].placedPhotoIdentifier, "photo_A")
+        XCTAssertEqual(result[1].placedPhotoIdentifier, "photo_B")
+        XCTAssertEqual(Set(result.compactMap(\.placedPhotoIdentifier)).count, 2)
+    }
+
+    /// 40×40の作品と大量のv2特徴量候補で、初期マッチングの計算量回帰を検知する。
+    func testInitialMatchingFortyByFortyPerformanceBenchmark() {
+        // 1特徴あたり上位16辺なので、100種類×16タイルで理論上1600マス全てを割り当て可能にする。
+        let variants: [(color: LabColor, signature: SpatialColorSignature)] = (0..<100).map { variant in
+            let color = LabColor(
+                l: Float(20 + (variant * 7) % 61),
+                a: Float((variant * 11) % 61 - 30),
+                b: Float((variant * 13) % 61 - 30)
+            )
+            var histogram = Array(repeating: Array(repeating: Float(0), count: 8), count: 36)
+            for cell in histogram.indices {
+                histogram[cell][(variant + cell) % 8] = 1
+            }
+            let signature = SpatialColorSignature(
+                version: 2,
+                average: color,
+                cells3x3: Array(repeating: color, count: 9),
+                cells6x6: Array(repeating: color, count: 36),
+                gradientHistograms6x6: histogram,
+                gradientMagnitudes6x6: Array(repeating: Float(1 + variant % 4) * 0.1, count: 36),
+                darkCenterOfMass: (
+                    x: Float(variant % 5) / 2 - 1,
+                    y: Float((variant / 5) % 5) / 2 - 1
+                ),
+                darkConfidence: 0.7,
+                brightCenterOfMass: (
+                    x: 1 - Float(variant % 5) / 2,
+                    y: 1 - Float((variant / 5) % 5) / 2
+                ),
+                brightConfidence: 0.7,
+                luminanceRatios: (
+                    dark: Float(1 + variant % 3) * 0.15,
+                    mid: 0.4,
+                    bright: 0.6 - Float(1 + variant % 3) * 0.15
+                )
+            )
+            return (color, signature)
+        }
+
+        let tiles = (0..<1_600).map { index in
+            let variant = variants[index % variants.count]
+            return MosaicTile(
+                gridX: index % 40,
+                gridY: index / 40,
+                targetLabColor: variant.color,
+                targetSignature: variant.signature
+            )
+        }
+        let photos = (0..<6_000).map { index in
+            let variant = variants[(index * 17) % variants.count]
+            return IndexedPhoto(
+                id: "matching_perf_\(index)",
+                labColor: variant.color,
+                signature: variant.signature
+            )
+        }
+
+        let startedAt = ContinuousClock.now
+        let result = MosaicEngine.shared.matchTiles(
+            tiles: tiles,
+            availablePhotos: photos,
+            passDistanceThreshold: 0.38
+        )
+        let elapsed = startedAt.duration(to: .now)
+
+        XCTAssertEqual(result.filter(\.isFilled).count, 1_600)
+        XCTAssertEqual(Set(result.compactMap(\.placedPhotoIdentifier)).count, 1_600)
+        XCTAssertLessThan(elapsed, .seconds(15), "40×40初期マッチング実測: \(elapsed)")
+        print("[PERF TEST] initial matching tiles=1600, photos=6000, elapsed=\(elapsed)")
+    }
+
     /// ライブラリに似た色がある場合、他の無関係なタイルに奪われず確実にベストマッチが配置されること
     func testAutoFillGreedyPriorityPicksBestMatchOverBadMatch() async throws {
         let tiles = [
@@ -914,4 +1007,3 @@ final class DareDeMosaicArtTests: XCTestCase {
         XCTAssertEqual(updated.tiles[0].origin, .captured, "配置元がcapturedになること")
     }
 }
-

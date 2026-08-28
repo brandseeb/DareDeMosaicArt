@@ -4,6 +4,41 @@ import Foundation
 import UIKit
 #endif
 
+private struct MatchingEdge: Sendable {
+    let photoIdx: Int
+    let score: Float
+}
+
+/// 候補評価を並列化しても、タイルごとの結果と進捗を安全に収集する。
+private final class MatchingGraphAccumulator: @unchecked Sendable {
+    private let lock = NSLock()
+    private var adjacency: [[MatchingEdge]]
+    private var scores: [[Int: Float]]
+    private var completedCount = 0
+
+    init(tileCount: Int) {
+        adjacency = Array(repeating: [], count: tileCount)
+        scores = Array(repeating: [:], count: tileCount)
+    }
+
+    func store(tileIndex: Int, edges: [MatchingEdge]) -> Int {
+        lock.lock()
+        adjacency[tileIndex] = edges
+        scores[tileIndex] = Dictionary(uniqueKeysWithValues: edges.map { ($0.photoIdx, $0.score) })
+        completedCount += 1
+        let count = completedCount
+        lock.unlock()
+        return count
+    }
+
+    func snapshot() -> (adjacency: [[MatchingEdge]], scores: [[Int: Float]]) {
+        lock.lock()
+        let result = (adjacency, scores)
+        lock.unlock()
+        return result
+    }
+}
+
 /// ピースの手動差し替え候補アイテム
 public struct PhotoMatchCandidate: Identifiable, Sendable, Equatable {
     public var id: String { photo.id }
@@ -51,7 +86,7 @@ public final class MosaicEngine: Sendable {
         )
         defer { PerformanceDiagnostics.end(interval) }
         guard !availablePhotos.isEmpty else { return tiles }
-        
+
         var updatedTiles = tiles
         var lockedPhotoIDs = Set<String>()
         
@@ -64,18 +99,31 @@ public final class MosaicEngine: Sendable {
         let usablePhotos = availablePhotos.filter { !lockedPhotoIDs.contains($0.id) }
         guard !usablePhotos.isEmpty else { return updatedTiles }
         
-        let photoIndexMap = Dictionary(uniqueKeysWithValues: usablePhotos.enumerated().map { ($1.id, $0) })
         let index = MultiDimensionalPhotoIndex(photos: usablePhotos)
         
         let assignableIndices = updatedTiles.indices.filter { !updatedTiles[$0].isLocked || !updatedTiles[$0].isFilled }
         let totalAssignable = assignableIndices.count
+        // 候補元はLab・重心・勾配の予約枠で分散性を保証している。
+        // 細かいグリッドでは1マスの表示面積も小さいため、詳細評価数を適応的に絞る。
+        let initialCandidateLimit: Int
+        if totalAssignable <= 400 {
+            initialCandidateLimit = 96
+        } else if totalAssignable <= 1_600 {
+            initialCandidateLimit = 64
+        } else {
+            initialCandidateLimit = 48
+        }
         
         if allowDuplicates {
             // 重複許可の場合: 各タイルのベストを直接適用
             var processed = 0
             for tileIdx in assignableIndices {
                 let tile = updatedTiles[tileIdx]
-                let candidates = index.candidates(for: tile.targetLabColor, signature: tile.targetSignature, maxCandidates: 200)
+                let candidates = index.candidates(
+                    for: tile.targetLabColor,
+                    signature: tile.targetSignature,
+                    maxCandidates: initialCandidateLimit
+                )
                 var bestPhoto: IndexedPhoto? = nil
                 var bestScore = Float.infinity
                 
@@ -105,44 +153,70 @@ public final class MosaicEngine: Sendable {
         
         // 重複不許可の場合: 疎グラフ構築 ＋ Kuhn's Maximum Cardinality Matching
         // 1. 各タイルごとに合格圏内（passDistanceThreshold以下）の上位候補エッジを抽出
-        var adjList: [[(photoIdx: Int, score: Float)]] = Array(repeating: [], count: updatedTiles.count)
-        var edgeScoreMap: [Int: [Int: Float]] = [:]
-        
-        var evaluatedCount = 0
-        for tileIdx in assignableIndices {
-            let tile = updatedTiles[tileIdx]
-            let candidates = index.candidates(for: tile.targetLabColor, signature: tile.targetSignature, maxCandidates: 200)
-            
-            var validEdges: [(photoIdx: Int, score: Float)] = []
-            for photo in candidates {
-                let score = matchScore(targetColor: tile.targetLabColor, targetSignature: tile.targetSignature, photo: photo)
-                if score <= passDistanceThreshold, let pIdx = photoIndexMap[photo.id] {
-                    validEdges.append((photoIdx: pIdx, score: score))
+        let candidateGraphInterval = PerformanceDiagnostics.begin(.initialCandidateGraph)
+        let graphAccumulator = MatchingGraphAccumulator(tileCount: updatedTiles.count)
+        let sourceTiles = updatedTiles
+        let progressStep = max(1, totalAssignable / 20)
+
+        // 各タイルの候補探索と詳細距離評価は完全に独立。
+        // ユーザー操作タスクの外でCPUコアを使い、40×40以上の直列待ちをなくす。
+        DispatchQueue.concurrentPerform(iterations: assignableIndices.count) { position in
+            autoreleasepool {
+                let tileIdx = assignableIndices[position]
+                let tile = sourceTiles[tileIdx]
+                let candidates = index.candidates(
+                    for: tile.targetLabColor,
+                    signature: tile.targetSignature,
+                    maxCandidates: initialCandidateLimit
+                )
+
+                var validEdges: [MatchingEdge] = []
+                validEdges.reserveCapacity(16)
+                for photo in candidates {
+                    let score = matchScore(
+                        targetColor: tile.targetLabColor,
+                        targetSignature: tile.targetSignature,
+                        photo: photo
+                    )
+                    if score <= passDistanceThreshold, let pIdx = index.photoIndex(forID: photo.id) {
+                        validEdges.append(MatchingEdge(photoIdx: pIdx, score: score))
+                    }
+                }
+                validEdges.sort {
+                    $0.score < $1.score || ($0.score == $1.score && $0.photoIdx < $1.photoIdx)
+                }
+                let completed = graphAccumulator.store(
+                    tileIndex: tileIdx,
+                    edges: Array(validEdges.prefix(16))
+                )
+
+                if let onProgress, completed % progressStep == 0 || completed == totalAssignable {
+                    onProgress(completed, totalAssignable)
                 }
             }
-            validEdges.sort { $0.score < $1.score }
-            let topEdges = Array(validEdges.prefix(16))
-            adjList[tileIdx] = topEdges
-            edgeScoreMap[tileIdx] = Dictionary(uniqueKeysWithValues: topEdges.map { ($0.photoIdx, $0.score) })
-            
-            evaluatedCount += 1
-            if let onProgress, evaluatedCount % max(1, totalAssignable / 20) == 0 || evaluatedCount == totalAssignable {
-                onProgress(evaluatedCount, totalAssignable)
-            }
         }
+        let graph = graphAccumulator.snapshot()
+        let adjList = graph.adjacency
+        let edgeScoreMap = graph.scores
+        PerformanceDiagnostics.end(candidateGraphInterval, metadata: "tiles=\(totalAssignable)")
         
         // 2. 最大二部マッチング（Kuhn's Augmenting Path Algorithm: 疎グラフ上での Maximum Cardinality Matching）
-        var matchPtoT: [Int: Int] = [:] // 写真Index -> タイルIndex
-        var matchTtoP: [Int: Int] = [:] // タイルIndex -> 写真Index
-        
-        func dfs(tileIdx: Int, visited: inout [Bool]) -> Bool {
+        let assignmentInterval = PerformanceDiagnostics.begin(.initialAssignment)
+        // 固定配列と世代番号で、タイルごとの18,000要素 visited 配列再確保を避ける。
+        var matchPtoT = Array(repeating: -1, count: usablePhotos.count) // 写真Index -> タイルIndex
+        var matchTtoP = Array(repeating: -1, count: updatedTiles.count) // タイルIndex -> 写真Index
+        var visitedGeneration = Array(repeating: 0, count: usablePhotos.count)
+        var generation = 0
+
+        func dfs(tileIdx: Int) -> Bool {
             for edge in adjList[tileIdx] {
                 let pIdx = edge.photoIdx
-                if visited[pIdx] { continue }
-                visited[pIdx] = true
+                if visitedGeneration[pIdx] == generation { continue }
+                visitedGeneration[pIdx] = generation
                 
-                if let currentOwner = matchPtoT[pIdx] {
-                    if dfs(tileIdx: currentOwner, visited: &visited) {
+                let currentOwner = matchPtoT[pIdx]
+                if currentOwner >= 0 {
+                    if dfs(tileIdx: currentOwner) {
                         matchPtoT[pIdx] = tileIdx
                         matchTtoP[tileIdx] = pIdx
                         return true
@@ -164,29 +238,34 @@ public final class MosaicEngine: Sendable {
         }
         
         for tileIdx in sortedTileIndices {
-            var visited = Array(repeating: false, count: usablePhotos.count)
-            _ = dfs(tileIdx: tileIdx, visited: &visited)
+            generation += 1
+            _ = dfs(tileIdx: tileIdx)
         }
+        PerformanceDiagnostics.end(assignmentInterval, metadata: "tiles=\(totalAssignable)")
         
         // 3. 局所スワップによるスコア改善（常に最新の 1 対 1 状態を参照し、不整合・重複を完全防止）
+        let swapInterval = PerformanceDiagnostics.begin(.initialSwapOptimization)
         var improved = true
         var passes = 0
         while improved && passes < 3 {
             improved = false
             passes += 1
             for t1 in assignableIndices {
-                // ループごとに最新の p1 を動的に取得
-                guard let p1 = matchTtoP[t1],
-                      let score1_1 = edgeScoreMap[t1]?[p1] else { continue }
-                
-                for t2 in assignableIndices where t1 != t2 {
-                    // ループごとに最新の p2 を動的に取得
-                    guard let p2 = matchTtoP[t2], p1 != p2,
-                          let score2_2 = edgeScoreMap[t2]?[p2] else { continue }
+                // t1 が受け取れる最大16写真の現在所有者だけを調べる。
+                // 総当たり O(T²) と同じ2-opt交換を O(T·E) で網羅する。
+                let p1 = matchTtoP[t1]
+                guard p1 >= 0, let score1_1 = edgeScoreMap[t1][p1] else { continue }
+
+                for edge in adjList[t1] {
+                    let p2 = edge.photoIdx
+                    if p1 == p2 { continue }
+                    let t2 = matchPtoT[p2]
+                    guard t2 >= 0, t1 != t2,
+                          let score2_2 = edgeScoreMap[t2][p2] else { continue }
                     
                     // t1にp2、t2にp1がエッジとして存在するか確認
-                    if let score1_2 = edgeScoreMap[t1]?[p2],
-                       let score2_1 = edgeScoreMap[t2]?[p1] {
+                    if let score1_2 = edgeScoreMap[t1][p2],
+                       let score2_1 = edgeScoreMap[t2][p1] {
                         if (score1_2 + score2_1) < (score1_1 + score2_2) {
                             // スワップ実行と 1 対 1 整合性の更新
                             matchTtoP[t1] = p2
@@ -201,6 +280,7 @@ public final class MosaicEngine: Sendable {
                 }
             }
         }
+        PerformanceDiagnostics.end(swapInterval, metadata: "passes=\(passes)")
         
         // 4. 重複安全確認 ＆ タイルへの反映（幾何学的・決定論的順序での採番）
         var usedPhotoIndices = Set<Int>()
@@ -214,7 +294,8 @@ public final class MosaicEngine: Sendable {
             return left.id.uuidString < right.id.uuidString
         }
         for tileIdx in deterministicTileIndices {
-            guard let photoIdx = matchTtoP[tileIdx], !usedPhotoIndices.contains(photoIdx) else { continue }
+            let photoIdx = matchTtoP[tileIdx]
+            guard photoIdx >= 0, !usedPhotoIndices.contains(photoIdx) else { continue }
             usedPhotoIndices.insert(photoIdx)
             
             let photo = usablePhotos[photoIdx]
@@ -445,12 +526,21 @@ public final class MosaicEngine: Sendable {
 /// 3つの独立空間インデックス（Lab、明暗重心、勾配ヒストグラム）による和集合粗探索インデックス
 public struct MultiDimensionalPhotoIndex: Sendable {
     private let allPhotos: [IndexedPhoto]
+    private let photoIndicesByID: [String: Int]
+    /// 粗探索用の全体勾配要約。詳細な36×8比較を候補写真ごとに繰り返さない。
+    private let globalGradientHistograms: [[Float]]
+    private let globalGradientMagnitudes: [Float]
     private var labBuckets: [Int: [Int]] = [:]
     private var comBuckets: [Int: [Int]] = [:]
     private var gradientBuckets: [Int: [Int]] = [:]
     
     public init(photos: [IndexedPhoto]) {
         self.allPhotos = photos
+        self.photoIndicesByID = Dictionary(uniqueKeysWithValues: photos.enumerated().map { ($1.id, $0) })
+        let gradientSummaries = photos.map { Self.globalGradientSummary(for: $0.signature) }
+        self.globalGradientHistograms = gradientSummaries.map(\.histogram)
+        self.globalGradientMagnitudes = gradientSummaries.map(\.magnitude)
+
         for (idx, photo) in photos.enumerated() {
             // 1. Lab バケット
             let lK = Int(photo.labColor.l / 15.0)
@@ -468,18 +558,9 @@ public struct MultiDimensionalPhotoIndex: Sendable {
                 comBuckets[comKey, default: []].append(idx)
                 
                 // 3. 画像全体加算勾配主方向バケット (36セル全体のヒストグラム合計)
-                var globalHist = [Float](repeating: 0, count: 8)
-                var globalMagSum: Float = 0
-                for c in 0..<sig.gradientHistograms6x6.count {
-                    let cellMag = c < sig.gradientMagnitudes6x6.count ? sig.gradientMagnitudes6x6[c] : 0.0
-                    globalMagSum += cellMag
-                    for b in 0..<8 {
-                        globalHist[b] += sig.gradientHistograms6x6[c][b] * cellMag
-                    }
-                }
-                
-                let meanGlobalMag = globalMagSum / Float(max(1, sig.gradientHistograms6x6.count))
+                let meanGlobalMag = globalGradientMagnitudes[idx]
                 if meanGlobalMag > 0.03 {
+                    let globalHist = globalGradientHistograms[idx]
                     var maxBin = 0
                     var maxVal: Float = -1
                     for b in 0..<8 {
@@ -494,6 +575,40 @@ public struct MultiDimensionalPhotoIndex: Sendable {
                 }
             }
         }
+    }
+
+    public func photoIndex(forID id: String) -> Int? {
+        photoIndicesByID[id]
+    }
+
+    private static func globalGradientSummary(
+        for signature: SpatialColorSignature?
+    ) -> (histogram: [Float], magnitude: Float) {
+        guard let signature, !signature.gradientHistograms6x6.isEmpty else {
+            return (Array(repeating: 0, count: 8), 0)
+        }
+
+        var histogram = [Float](repeating: 0, count: 8)
+        var magnitudeSum: Float = 0
+        for cellIndex in signature.gradientHistograms6x6.indices {
+            let cellMagnitude = cellIndex < signature.gradientMagnitudes6x6.count
+                ? signature.gradientMagnitudes6x6[cellIndex]
+                : 0
+            magnitudeSum += cellMagnitude
+            let cellHistogram = signature.gradientHistograms6x6[cellIndex]
+            for bin in 0..<min(8, cellHistogram.count) {
+                histogram[bin] += cellHistogram[bin] * cellMagnitude
+            }
+        }
+
+        let histogramSum = histogram.reduce(0, +)
+        if histogramSum > 0 {
+            for bin in histogram.indices {
+                histogram[bin] /= histogramSum
+            }
+        }
+        let meanMagnitude = magnitudeSum / Float(max(1, signature.gradientHistograms6x6.count))
+        return (histogram, meanMagnitude)
     }
     
     public func candidates(
@@ -567,16 +682,9 @@ public struct MultiDimensionalPhotoIndex: Sendable {
             }
             
             // 3. 画像全体加算勾配主方向バケット探索 (±1)
-            var globalHist = [Float](repeating: 0, count: 8)
-            var globalMagSum: Float = 0
-            for c in 0..<sig.gradientHistograms6x6.count {
-                let cellMag = c < sig.gradientMagnitudes6x6.count ? sig.gradientMagnitudes6x6[c] : 0.0
-                globalMagSum += cellMag
-                for b in 0..<8 {
-                    globalHist[b] += sig.gradientHistograms6x6[c][b] * cellMag
-                }
-            }
-            let meanGlobalMag = globalMagSum / Float(max(1, sig.gradientHistograms6x6.count))
+            let targetGradientSummary = Self.globalGradientSummary(for: sig)
+            let globalHist = targetGradientSummary.histogram
+            let meanGlobalMag = targetGradientSummary.magnitude
             if meanGlobalMag > 0.03 {
                 var maxBin = 0
                 var maxVal: Float = -1
@@ -633,38 +741,33 @@ public struct MultiDimensionalPhotoIndex: Sendable {
         let comQuota = max(1, Int(Float(maxCandidates) * 0.30))  // 例: 60枚
         let gradQuota = max(1, Int(Float(maxCandidates) * 0.30)) // 例: 60枚
         
-        let topLab = Array(labCandidateIndices.map { (idx: $0, dist: targetColor.distance(to: allPhotos[$0].labColor)) }
-            .sorted { $0.dist < $1.dist }
-            .prefix(labQuota)
-            .map(\.idx))
-            
-        let topCom = Array(comCandidateIndices.map { idx -> (idx: Int, dist: Float) in
+        let topLab = topIndices(from: labCandidateIndices, limit: labQuota) { idx in
+            targetColor.distance(to: allPhotos[idx].labColor)
+        }
+
+        let topCom = topIndices(from: comCandidateIndices, limit: comQuota) { idx in
             guard let pSig = allPhotos[idx].signature else {
-                return (idx, targetColor.distance(to: allPhotos[idx].labColor))
+                return targetColor.distance(to: allPhotos[idx].labColor)
             }
             let dx = tSig.darkCenterOfMassX - pSig.darkCenterOfMassX
             let dy = tSig.darkCenterOfMassY - pSig.darkCenterOfMassY
             let dCoM = sqrt(dx * dx + dy * dy)
-            return (idx, dCoM + abs(tSig.darkRatio - pSig.darkRatio))
-        }.sorted { $0.dist < $1.dist }
-        .prefix(comQuota)
-        .map(\.idx))
-        
-        let hasGradHist = !tSig.gradientHistograms6x6.isEmpty
-        let topGrad = Array(gradCandidateIndices.map { idx -> (idx: Int, dist: Float) in
-            guard hasGradHist, let pSig = allPhotos[idx].signature, !pSig.gradientHistograms6x6.isEmpty else {
-                return (idx, targetColor.distance(to: allPhotos[idx].labColor))
+            return dCoM + abs(tSig.darkRatio - pSig.darkRatio)
+        }
+
+        let targetGradientSummary = Self.globalGradientSummary(for: tSig)
+        let hasGradHist = targetGradientSummary.magnitude > 0.03
+        let topGrad = topIndices(from: gradCandidateIndices, limit: gradQuota) { idx in
+            guard hasGradHist, globalGradientMagnitudes[idx] > 0.03 else {
+                return targetColor.distance(to: allPhotos[idx].labColor)
             }
             var sumDiff: Float = 0
-            for c in 0..<min(tSig.gradientHistograms6x6.count, pSig.gradientHistograms6x6.count) {
-                for b in 0..<8 {
-                    sumDiff += abs(tSig.gradientHistograms6x6[c][b] - pSig.gradientHistograms6x6[c][b])
-                }
+            for bin in 0..<8 {
+                sumDiff += abs(targetGradientSummary.histogram[bin] - globalGradientHistograms[idx][bin])
             }
-            return (idx, sumDiff)
-        }.sorted { $0.dist < $1.dist }
-        .prefix(gradQuota)
-        .map(\.idx))
+            let magnitudeDifference = abs(targetGradientSummary.magnitude - globalGradientMagnitudes[idx])
+            return sumDiff + magnitudeDifference
+        }
         
         // 予約枠の結合
         var finalCandidateIndices = Set<Int>()
@@ -676,17 +779,73 @@ public struct MultiDimensionalPhotoIndex: Sendable {
         if finalCandidateIndices.count < maxCandidates {
             let remainingPool = labCandidateIndices.union(comCandidateIndices).union(gradCandidateIndices)
                 .subtracting(finalCandidateIndices)
-            let sortedRemaining = remainingPool.map { idx -> (idx: Int, score: Float) in
-                (idx, quickCoarseScore(targetColor: targetColor, targetSig: tSig, photo: allPhotos[idx]))
-            }.sorted { $0.score < $1.score }
-            
-            for item in sortedRemaining {
-                finalCandidateIndices.insert(item.idx)
-                if finalCandidateIndices.count >= maxCandidates { break }
+            let remainingLimit = maxCandidates - finalCandidateIndices.count
+            let bestRemaining = topIndices(from: remainingPool, limit: remainingLimit) { idx in
+                quickCoarseScore(targetColor: targetColor, targetSig: tSig, photo: allPhotos[idx])
+            }
+
+            for index in bestRemaining {
+                finalCandidateIndices.insert(index)
             }
         }
         
         return finalCandidateIndices.map { allPhotos[$0] }
+    }
+
+    /// 全候補の大きな中間配列をソートせず、上位K件だけを最大ヒープで保持する。
+    private func topIndices<S: Sequence>(
+        from indices: S,
+        limit: Int,
+        score: (Int) -> Float
+    ) -> [Int] where S.Element == Int {
+        guard limit > 0 else { return [] }
+        var heap: [(index: Int, score: Float)] = []
+        heap.reserveCapacity(limit)
+
+        func isWorse(_ lhs: (index: Int, score: Float), than rhs: (index: Int, score: Float)) -> Bool {
+            lhs.score > rhs.score || (lhs.score == rhs.score && lhs.index > rhs.index)
+        }
+
+        func siftUp(from start: Int) {
+            var child = start
+            while child > 0 {
+                let parent = (child - 1) / 2
+                guard isWorse(heap[child], than: heap[parent]) else { break }
+                heap.swapAt(child, parent)
+                child = parent
+            }
+        }
+
+        func siftDown(from start: Int) {
+            var parent = start
+            while true {
+                let left = parent * 2 + 1
+                guard left < heap.count else { return }
+                let right = left + 1
+                var worseChild = left
+                if right < heap.count, isWorse(heap[right], than: heap[left]) {
+                    worseChild = right
+                }
+                guard isWorse(heap[worseChild], than: heap[parent]) else { return }
+                heap.swapAt(parent, worseChild)
+                parent = worseChild
+            }
+        }
+
+        for index in indices {
+            let value = (index: index, score: score(index))
+            if heap.count < limit {
+                heap.append(value)
+                siftUp(from: heap.count - 1)
+            } else if isWorse(heap[0], than: value) {
+                heap[0] = value
+                siftDown(from: 0)
+            }
+        }
+
+        return heap.sorted {
+            $0.score < $1.score || ($0.score == $1.score && $0.index < $1.index)
+        }.map(\.index)
     }
     
     private func quickCoarseScore(targetColor: LabColor, targetSig: SpatialColorSignature?, photo: IndexedPhoto) -> Float {

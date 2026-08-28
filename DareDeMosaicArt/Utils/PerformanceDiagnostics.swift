@@ -2,7 +2,7 @@ import Foundation
 import os
 
 /// Instruments の「Points of Interest」と Xcode コンソールから重い処理を追跡する。
-/// DEBUG ビルドだけで動作し、配布ビルドでは no-op になる。
+/// Debug では常時有効。Release は PERFORMANCE_DIAGNOSTICS=1 のプロファイル実行時だけ有効。
 public enum PerformanceOperation: String, Sendable {
     case projectHydration = "project.hydration"
     case mosaicPreviewRender = "mosaic.preview.render"
@@ -11,6 +11,9 @@ public enum PerformanceOperation: String, Sendable {
     case candidateIndexBuild = "candidates.index.build"
     case candidateSearch = "candidates.search"
     case initialMatching = "mosaic.initial.matching"
+    case initialCandidateGraph = "mosaic.initial.candidateGraph"
+    case initialAssignment = "mosaic.initial.assignment"
+    case initialSwapOptimization = "mosaic.initial.swapOptimization"
     case timelapseExport = "timelapse.export"
 }
 
@@ -25,12 +28,19 @@ public enum PerformanceDiagnostics {
     // Instruments の Points of Interest が収集する専用カテゴリを使用する。
     private static let signpostLog = OSLog(subsystem: subsystem, category: .pointsOfInterest)
     private static let logger = Logger(subsystem: subsystem, category: "Performance")
+    private static let isEnabled: Bool = {
+        #if DEBUG
+        true
+        #else
+        ProcessInfo.processInfo.environment["PERFORMANCE_DIAGNOSTICS"] == "1"
+        #endif
+    }()
 
     public static func begin(
         _ operation: PerformanceOperation,
         metadata: String = ""
     ) -> PerformanceInterval? {
-        #if DEBUG
+        guard isEnabled else { return nil }
         let signpostID = OSSignpostID(log: signpostLog)
         os_signpost(
             .begin,
@@ -46,17 +56,13 @@ public enum PerformanceDiagnostics {
             signpostID: signpostID,
             startedAtNanoseconds: DispatchTime.now().uptimeNanoseconds
         )
-        #else
-        return nil
-        #endif
     }
 
     public static func end(
         _ interval: PerformanceInterval?,
         metadata: String = ""
     ) {
-        #if DEBUG
-        guard let interval else { return }
+        guard isEnabled, let interval else { return }
         let elapsedNanoseconds = DispatchTime.now().uptimeNanoseconds - interval.startedAtNanoseconds
         let elapsedMilliseconds = Double(elapsedNanoseconds) / 1_000_000
         os_signpost(
@@ -69,9 +75,10 @@ public enum PerformanceDiagnostics {
             metadata as NSString,
             elapsedMilliseconds
         )
-        logger.info(
-            "[PERF] \(interval.operation.rawValue, privacy: .public) \(elapsedMilliseconds, format: .fixed(precision: 2)) ms | \(metadata, privacy: .public)"
-        )
+        #if DEBUG
+            logger.info(
+                "[PERF] \(interval.operation.rawValue, privacy: .public) \(elapsedMilliseconds, format: .fixed(precision: 2)) ms | \(metadata, privacy: .public)"
+            )
         #endif
     }
 }
