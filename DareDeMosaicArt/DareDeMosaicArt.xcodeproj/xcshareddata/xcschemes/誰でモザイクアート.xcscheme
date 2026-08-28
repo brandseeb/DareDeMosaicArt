@@ -75,6 +75,18 @@
             ReferencedContainer = "container:DareDeMosaicArt.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
+      <EnvironmentVariables>
+         <EnvironmentVariable
+            key = "PERFORMANCE_DIAGNOSTICS"
+            value = "1"
+            isEnabled = "YES">
+         </EnvironmentVariable>
+         <EnvironmentVariable
+            key = "PERFORMANCE_PROFILE_UNLOCK_PRO"
+            value = "1"
+            isEnabled = "YES">
+         </EnvironmentVariable>
+      </EnvironmentVariables>
       <StoreKitConfigurationFileReference
          identifier = "../../DareDeMosaicArt.storekit">
       </StoreKitConfigurationFileReference>
@@ -95,18 +107,6 @@
             ReferencedContainer = "container:DareDeMosaicArt.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
-      <EnvironmentVariables>
-         <EnvironmentVariable
-            key = "PERFORMANCE_DIAGNOSTICS"
-            value = "1"
-            isEnabled = "YES">
-         </EnvironmentVariable>
-         <EnvironmentVariable
-            key = "PERFORMANCE_PROFILE_UNLOCK_PRO"
-            value = "1"
-            isEnabled = "YES">
-         </EnvironmentVariable>
-      </EnvironmentVariables>
    </ProfileAction>
    <AnalyzeAction
       buildConfiguration = "Debug">
