@@ -22,7 +22,8 @@ public struct PerformanceInterval: @unchecked Sendable {
 
 public enum PerformanceDiagnostics {
     private static let subsystem = Bundle.main.bundleIdentifier ?? "com.daredemosaic.app"
-    private static let signpostLog = OSLog(subsystem: subsystem, category: "Performance")
+    // Instruments の Points of Interest が収集する専用カテゴリを使用する。
+    private static let signpostLog = OSLog(subsystem: subsystem, category: .pointsOfInterest)
     private static let logger = Logger(subsystem: subsystem, category: "Performance")
 
     public static func begin(
