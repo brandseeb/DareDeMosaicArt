@@ -1066,5 +1066,52 @@ final class DareDeMosaicArtTests: XCTestCase {
         XCTAssertEqual(AutoFillLevel.completeMax.localizedShortTitle.key, "autoFill.level.completeMax.title")
         XCTAssertEqual(MosaicCreationStep.slicing.localizedName.key, "step.slicing")
         XCTAssertEqual(MosaicCreationStep.finalizing.localizedName.key, "step.finalizing")
+
+        // 7. Localizable.xcstrings の実テキスト翻訳検証（ja & en 完全一致）
+        let bundle = Bundle(for: DareDeMosaicArtTests.self)
+        let xcstringsURL = bundle.url(forResource: "Localizable", withExtension: "xcstrings") ??
+                           Bundle.main.url(forResource: "Localizable", withExtension: "xcstrings")
+        if let url = xcstringsURL {
+            let data = try Data(contentsOf: url)
+            if let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
+               let strings = json["strings"] as? [String: [String: Any]] {
+                XCTAssertGreaterThan(strings.count, 200, "200件以上のローカライズキーが登録されていること")
+                
+                for (key, val) in strings {
+                    guard let localizations = val["localizations"] as? [String: [String: Any]] else {
+                        XCTFail("キー \(key) にローカライズ定義がありません")
+                        continue
+                    }
+                    XCTAssertNotNil(localizations["ja"], "キー \(key) に日本語定義が存在すること")
+                    XCTAssertNotNil(localizations["en"], "キー \(key) に英語定義が存在すること")
+                }
+                
+                // 主要キーの英語・日本語テキストの完全検証
+                let redJa = (strings["color.red"]?["localizations"] as? [String: Any])?["ja"] as? [String: Any]
+                let redEn = (strings["color.red"]?["localizations"] as? [String: Any])?["en"] as? [String: Any]
+                XCTAssertEqual(((redJa?["stringUnit"] as? [String: Any])?["value"] as? String), "赤")
+                XCTAssertEqual(((redEn?["stringUnit"] as? [String: Any])?["value"] as? String), "Red")
+                
+                let modeJa = (strings["gameMode.hybrid.title"]?["localizations"] as? [String: Any])?["ja"] as? [String: Any]
+                let modeEn = (strings["gameMode.hybrid.title"]?["localizations"] as? [String: Any])?["en"] as? [String: Any]
+                XCTAssertEqual(((modeJa?["stringUnit"] as? [String: Any])?["value"] as? String), "ハイブリッド（写真＋撮影）")
+                XCTAssertEqual(((modeEn?["stringUnit"] as? [String: Any])?["value"] as? String), "Hybrid (Photos + Camera)")
+
+                let watermarkJa = (strings["watermark.pos.bottomCenter"]?["localizations"] as? [String: Any])?["ja"] as? [String: Any]
+                let watermarkEn = (strings["watermark.pos.bottomCenter"]?["localizations"] as? [String: Any])?["en"] as? [String: Any]
+                XCTAssertEqual(((watermarkJa?["stringUnit"] as? [String: Any])?["value"] as? String), "中央下")
+                XCTAssertEqual(((watermarkEn?["stringUnit"] as? [String: Any])?["value"] as? String), "Bottom Center")
+
+                let pickerJa = (strings["picker.loadingPhoto"]?["localizations"] as? [String: Any])?["ja"] as? [String: Any]
+                let pickerEn = (strings["picker.loadingPhoto"]?["localizations"] as? [String: Any])?["en"] as? [String: Any]
+                XCTAssertEqual(((pickerJa?["stringUnit"] as? [String: Any])?["value"] as? String), "写真を読み込み中…")
+                XCTAssertEqual(((pickerEn?["stringUnit"] as? [String: Any])?["value"] as? String), "Loading photo…")
+
+                let albumJa = (strings["album.untitled"]?["localizations"] as? [String: Any])?["ja"] as? [String: Any]
+                let albumEn = (strings["album.untitled"]?["localizations"] as? [String: Any])?["en"] as? [String: Any]
+                XCTAssertEqual(((albumJa?["stringUnit"] as? [String: Any])?["value"] as? String), "無題のアルバム")
+                XCTAssertEqual(((albumEn?["stringUnit"] as? [String: Any])?["value"] as? String), "Untitled Album")
+            }
+        }
     }
 }

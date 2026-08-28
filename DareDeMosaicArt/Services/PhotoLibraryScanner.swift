@@ -74,7 +74,7 @@ public final class PhotoLibraryScanner: ObservableObject {
             if assets.count > 0 {
                 items.append(PhotoAlbumItem(
                     id: collection.localIdentifier,
-                    title: collection.localizedTitle ?? "無題のアルバム",
+                    title: collection.localizedTitle ?? String(localized: "album.untitled", defaultValue: "無題のアルバム"),
                     assetCount: assets.count
                 ))
             }

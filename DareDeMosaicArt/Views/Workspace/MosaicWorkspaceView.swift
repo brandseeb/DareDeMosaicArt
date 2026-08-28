@@ -225,9 +225,9 @@ public struct MosaicWorkspaceView: View {
                 self.hasFullyLoadedSourcePhotos = true
             }
         } catch let error as PhotoLibraryScannerError {
-            if case .albumNotFound(let albumTitle) = error {
+            if case .albumNotFound = error {
                 await MainActor.run {
-                    self.albumMissingMessage = "指定されたアルバム「\(albumTitle)」が見つかりません。削除された可能性があります。"
+                    self.albumMissingMessage = error.localizedDescription
                     self.showAlbumMissingAlert = true
                     if self.allSourcePhotos.isEmpty {
                         self.allSourcePhotos = []

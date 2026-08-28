@@ -101,7 +101,7 @@ public final class StoreKitManager: ObservableObject {
                 self.proProduct = product
             }
         } catch {
-            self.errorMessage = "商品情報を取得できませんでした: \(error.localizedDescription)"
+            self.errorMessage = String(localized: "storeKit.error.fetchProduct.format \(error.localizedDescription)")
         }
     }
     
@@ -110,7 +110,7 @@ public final class StoreKitManager: ObservableObject {
         guard let product = proProduct else {
             await fetchProduct()
             guard let product = proProduct else {
-                self.errorMessage = "商品情報が読み込まれていません。通信環境をご確認ください。"
+                self.errorMessage = String(localized: "storeKit.error.productNotLoaded", defaultValue: "商品情報が読み込まれていません。通信環境をご確認ください。")
                 return false
             }
             return await purchase(product: product)
@@ -137,14 +137,14 @@ public final class StoreKitManager: ObservableObject {
                 return false
                 
             case .pending:
-                self.errorMessage = "購入処理が保留中（承認待ち等）です。"
+                self.errorMessage = String(localized: "storeKit.error.purchasePending", defaultValue: "購入処理が保留中（承認待ち等）です。")
                 return false
                 
             @unknown default:
                 return false
             }
         } catch {
-            self.errorMessage = "購入処理中にエラーが発生しました: \(error.localizedDescription)"
+            self.errorMessage = String(localized: "storeKit.error.purchaseFailed.format \(error.localizedDescription)")
             return false
         }
     }
@@ -160,7 +160,7 @@ public final class StoreKitManager: ObservableObject {
             await updatePurchasedStatus()
             return isProUser
         } catch {
-            self.errorMessage = "購入の復元に失敗しました: \(error.localizedDescription)"
+            self.errorMessage = String(localized: "storeKit.error.restoreFailed.format \(error.localizedDescription)")
             return false
         }
     }

@@ -3470,6 +3470,193 @@
           }
         }
       }
+    },
+    "picker.loadingPhoto": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "写真を読み込み中…"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Loading photo…"
+          }
+        }
+      }
+    },
+    "album.untitled": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "無題のアルバム"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Untitled Album"
+          }
+        }
+      }
+    },
+    "error.photoFetchFailed.format %@": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "写真の取得中にエラーが発生しました: %@"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "An error occurred while fetching photos: %@"
+          }
+        }
+      }
+    },
+    "timelapse.saveError.accessNotAllowed": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "写真へのアクセスが許可されていないため、動画を保存できませんでした。"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Could not save video because photo access is not allowed."
+          }
+        }
+      }
+    },
+    "timelapse.saveError.openSettings": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "設定アプリで「誰でモザイクアート」の写真アクセスを許可してください。"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Please allow photo access for \"DareDe Mosaic Art\" in the Settings app."
+          }
+        }
+      }
+    },
+    "timelapse.saveError.unexpectedStatus": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "予期しない写真アクセス状態です。"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Unexpected photo library access status."
+          }
+        }
+      }
+    },
+    "storeKit.error.fetchProduct.format %@": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "商品情報を取得できませんでした: %@"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Failed to fetch product info: %@"
+          }
+        }
+      }
+    },
+    "storeKit.error.productNotLoaded": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "商品情報が読み込まれていません。通信環境をご確認ください。"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Product information is not loaded. Please check your network connection."
+          }
+        }
+      }
+    },
+    "storeKit.error.purchasePending": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "購入処理が保留中（承認待ち等）です。"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Purchase is pending (waiting for approval, etc.)."
+          }
+        }
+      }
+    },
+    "storeKit.error.purchaseFailed.format %@": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "購入処理中にエラーが発生しました: %@"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "An error occurred during purchase: %@"
+          }
+        }
+      }
+    },
+    "storeKit.error.restoreFailed.format %@": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "購入の復元に失敗しました: %@"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Failed to restore purchases: %@"
+          }
+        }
+      }
     }
   },
   "version": "1.0"

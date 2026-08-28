@@ -541,8 +541,8 @@ public struct ProjectSetupView: View {
                     switch error {
                     case .permissionDenied:
                         self.showPermissionDeniedAlert = true
-                    case .albumNotFound(let albumTitle):
-                        self.albumNotFoundMessage = "指定されたアルバム「\(albumTitle)」が見つかりません。削除された可能性があります。"
+                    case .albumNotFound:
+                        self.albumNotFoundMessage = error.localizedDescription
                         self.showAlbumNotFoundAlert = true
                     case .cancelled:
                         break
@@ -551,7 +551,7 @@ public struct ProjectSetupView: View {
                 } catch {
                     progressTask.cancel()
                     self.isCreating = false
-                    self.errorMessage = "写真の取得中にエラーが発生しました: \(error.localizedDescription)"
+                    self.errorMessage = String(localized: "error.photoFetchFailed.format \(error.localizedDescription)")
                     self.showGeneralErrorAlert = true
                     return
                 }

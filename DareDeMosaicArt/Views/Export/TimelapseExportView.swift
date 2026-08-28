@@ -314,16 +314,16 @@ public struct TimelapseExportView: View {
                         self.performPhotoSave(url: url)
                     } else {
                         self.isSaving = false
-                        self.saveError = "写真へのアクセスが許可されていないため、動画を保存できませんでした。"
+                        self.saveError = String(localized: "timelapse.saveError.accessNotAllowed", defaultValue: "写真へのアクセスが許可されていないため、動画を保存できませんでした。")
                     }
                 }
             }
         case .denied, .restricted:
             isSaving = false
-            saveError = "設定アプリで「誰でモザイクアート」の写真アクセスを許可してください。"
+            saveError = String(localized: "timelapse.saveError.openSettings", defaultValue: "設定アプリで「誰でモザイクアート」の写真アクセスを許可してください。")
         @unknown default:
             isSaving = false
-            saveError = "予期しない写真アクセス状態です。"
+            saveError = String(localized: "timelapse.saveError.unexpectedStatus", defaultValue: "予期しない写真アクセス状態です。")
         }
     }
     

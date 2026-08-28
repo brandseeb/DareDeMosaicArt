@@ -154,7 +154,7 @@ public struct PhotoPickerSheet: UIViewControllerRepresentable {
             spinner.startAnimating()
             
             let label = UILabel()
-            label.text = "写真を読み込み中…"
+            label.text = String(localized: "picker.loadingPhoto", defaultValue: "写真を読み込み中…")
             label.font = UIFont.systemFont(ofSize: 14, weight: .semibold)
             label.textColor = UIColor.label
             label.translatesAutoresizingMaskIntoConstraints = false
