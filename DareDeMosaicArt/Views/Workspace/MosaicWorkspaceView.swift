@@ -325,9 +325,9 @@ public struct MosaicWorkspaceView: View {
         HStack {
             VStack(alignment: .leading, spacing: 2) {
                 HStack(spacing: 6) {
-                    Text("進捗: \(project.progressPercentageString)")
+                    Text("進捗: \(Double(project.progress).formatted(.percent.precision(.fractionLength(0))))")
                         .font(.headline)
-                    Text("(\(project.filledCount)/\(project.totalTilesCount)マス)")
+                    Text("(\(project.filledCount)/\(project.totalTilesCount))")
                         .font(.caption)
                         .foregroundColor(.secondary)
                 }

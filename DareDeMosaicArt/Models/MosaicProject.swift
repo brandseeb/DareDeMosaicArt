@@ -9,13 +9,26 @@ public enum GameMode: String, Codable, CaseIterable, Sendable {
     case fullHunt = "全マス撮影 (じっくり)"
     case hybrid = "端末写真＋不足色撮影 (おすすめ)"
     
-    public var description: String {
+    public var localizedTitle: LocalizedStringResource {
         switch self {
         case .fullHunt:
-            return "すべてのマスを現実世界のカメラ撮影で埋めていく、究極のモザイクアート体験。"
+            return LocalizedStringResource("gameMode.fullHunt.title", defaultValue: "全マス撮影 (じっくり)")
         case .hybrid:
-            return "スマホ内の写真を自動で当てはめ、足りない色だけを日常からカメラで探して完成させるモード。"
+            return LocalizedStringResource("gameMode.hybrid.title", defaultValue: "端末写真＋不足色撮影 (おすすめ)")
         }
+    }
+    
+    public var localizedDescription: LocalizedStringResource {
+        switch self {
+        case .fullHunt:
+            return LocalizedStringResource("gameMode.fullHunt.description", defaultValue: "すべてのマスを現実世界のカメラ撮影で埋めていく、究極のモザイクアート体験。")
+        case .hybrid:
+            return LocalizedStringResource("gameMode.hybrid.description", defaultValue: "スマホ内の写真を自動で当てはめ、足りない色だけを日常からカメラで探して完成させるモード。")
+        }
+    }
+    
+    public var description: String {
+        String(localized: localizedDescription)
     }
 }
 
@@ -24,13 +37,17 @@ public enum PhotoSource: Codable, Sendable, Equatable, Hashable {
     case allLocalPhotos
     case album(localIdentifier: String, title: String)
     
-    public var displayName: String {
+    public var localizedResource: LocalizedStringResource {
         switch self {
         case .allLocalPhotos:
-            return "端末内のすべての写真"
+            return LocalizedStringResource("photoSource.allPhotos", defaultValue: "端末内のすべての写真")
         case .album(_, let title):
-            return "アルバム: \(title)"
+            return LocalizedStringResource("photoSource.album.format \(title)")
         }
+    }
+    
+    public var displayName: String {
+        String(localized: localizedResource)
     }
 }
 
@@ -71,6 +88,15 @@ public struct WatermarkConfig: Codable, Sendable, Equatable {
         case serif = "エレガント (明朝)"
         case monospaced = "モダン (等幅)"
         case rounded = "やわらか (丸ゴシック)"
+        
+        public var localizedResource: LocalizedStringResource {
+            switch self {
+            case .standard: return LocalizedStringResource("watermark.font.standard", defaultValue: "標準 (ゴシック)")
+            case .serif: return LocalizedStringResource("watermark.font.serif", defaultValue: "エレガント (明朝)")
+            case .monospaced: return LocalizedStringResource("watermark.font.monospaced", defaultValue: "モダン (等幅)")
+            case .rounded: return LocalizedStringResource("watermark.font.rounded", defaultValue: "やわらか (丸ゴシック)")
+            }
+        }
     }
     
     public enum PositionOption: String, Codable, CaseIterable, Sendable {

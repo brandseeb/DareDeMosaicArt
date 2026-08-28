@@ -270,17 +270,27 @@ public struct HomeView: View {
                 Text(project.title)
                     .font(.headline)
                 
-                Text("\(project.gridWidth)×\(project.gridHeight)マス (\(project.mode.rawValue))")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
+                HStack(spacing: 4) {
+                    Text("\(project.gridWidth)×\(project.gridHeight)")
+                    Text("•")
+                    Text(project.mode.localizedTitle)
+                }
+                .font(.caption)
+                .foregroundColor(.secondary)
                 
                 HStack(spacing: 8) {
                     ProgressView(value: Double(project.progress))
                         .frame(width: 100)
                     
-                    Text(project.isCompleted ? "完成！✨" : "\(project.progressPercentageString)")
-                        .font(.caption.bold())
-                        .foregroundColor(project.isCompleted ? .green : .secondary)
+                    if project.isCompleted {
+                        Text("完成！✨")
+                            .font(.caption.bold())
+                            .foregroundColor(.green)
+                    } else {
+                        Text(Double(project.progress), format: .percent.precision(.fractionLength(0)))
+                            .font(.caption.bold())
+                            .foregroundColor(.secondary)
+                    }
                 }
             }
             

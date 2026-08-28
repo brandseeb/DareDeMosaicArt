@@ -1006,4 +1006,54 @@ final class DareDeMosaicArtTests: XCTestCase {
         XCTAssertEqual(updated.filledCount, 1, "進捗が1マス進むこと")
         XCTAssertEqual(updated.tiles[0].origin, .captured, "配置元がcapturedになること")
     }
+
+    // MARK: - 多言語対応 ＆ 後方互換性テスト
+
+    /// LabColor、ColorMission、GameModeのローカライズリソースと旧JSONデコード互換性の検証
+    func testLocalizationAndBackwardCompatibility() throws {
+        // 1. LabColor の色名リソース検証
+        let redColor = LabColor(l: 50, a: 50, b: 30) // 赤系
+        let blueColor = LabColor(l: 40, a: 10, b: -40) // 青系
+        let darkColor = LabColor(l: 10, a: 0, b: 0) // 黒
+        let whiteColor = LabColor(l: 95, a: 0, b: 0) // 白
+        
+        XCTAssertEqual(redColor.localizedResource.key, "color.red")
+        XCTAssertEqual(blueColor.localizedResource.key, "color.blue")
+        XCTAssertEqual(darkColor.localizedResource.key, "color.black")
+        XCTAssertEqual(whiteColor.localizedResource.key, "color.white")
+        
+        // 2. ColorMission の自動分類と動的タイトル生成
+        let mission = ColorMission(
+            targetColor: redColor,
+            targetTileIds: [UUID(), UUID()]
+        )
+        XCTAssertEqual(mission.hintKind, .red)
+        XCTAssertEqual(mission.remainingCount, 2)
+        XCTAssertFalse(mission.isRetake)
+        
+        // 3. 旧 JSON データ（旧タイトル・ヒント文字列入り）のデコード互換性
+        let legacyMissionJSON = """
+        {
+            "id": "\(UUID().uuidString)",
+            "targetColor": { "l": 40.0, "a": 10.0, "b": -40.0 },
+            "title": "「濃いブルー・青」を探そう！",
+            "hint": "青空、海、ジーンズ、文房具、青いペットボトルなどを探してみよう！",
+            "targetTileIds": [],
+            "passThreshold": 0.60,
+            "isCompleted": false
+        }
+        """.data(using: .utf8)!
+        
+        let decodedMission = try JSONDecoder().decode(ColorMission.self, from: legacyMissionJSON)
+        XCTAssertEqual(decodedMission.targetColor.l, 40.0)
+        // 旧日本語文言に依存せず、targetColor から安全に blue へ自動分類されていること
+        XCTAssertEqual(decodedMission.hintKind, .blue)
+        XCTAssertFalse(decodedMission.isRetake)
+        
+        // 4. GameMode & PlacementOrigin のローカライズリソース
+        XCTAssertEqual(GameMode.hybrid.localizedTitle.key, "gameMode.hybrid.title")
+        XCTAssertEqual(GameMode.fullHunt.localizedTitle.key, "gameMode.fullHunt.title")
+        XCTAssertEqual(PlacementOrigin.captured.localizedTitle.key, "placement.captured")
+        XCTAssertEqual(PlacementOrigin.autoFilled.localizedTitle.key, "placement.autoFilled")
+    }
 }

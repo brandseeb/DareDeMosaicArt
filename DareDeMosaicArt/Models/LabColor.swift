@@ -132,49 +132,81 @@ public struct LabColor: Codable, Equatable, Hashable, Sendable {
     
     // MARK: - 人間向けの色名推定
     
-    /// ユーザーフレンドリーな日本語の色名
-    public var localizedName: String {
+    /// ローカライズ対応の色名リソース（固定キー）
+    public var localizedResource: LocalizedStringResource {
         // 明度極端
-        if l < 15.0 { return "漆黒・ブラック" }
-        if l > 90.0 && abs(a) < 8.0 && abs(b) < 8.0 { return "純白・ホワイト" }
+        if l < 15.0 {
+            return LocalizedStringResource("color.black", defaultValue: "漆黒・ブラック")
+        }
+        if l > 90.0 && abs(a) < 8.0 && abs(b) < 8.0 {
+            return LocalizedStringResource("color.white", defaultValue: "純白・ホワイト")
+        }
         
         // 低彩度（グレー系）
         let chroma = sqrt(a * a + b * b)
         if chroma < 10.0 {
-            if l < 40.0 { return "ダークグレー" }
-            if l < 70.0 { return "グレー" }
-            return "ライトグレー"
+            if l < 40.0 {
+                return LocalizedStringResource("color.darkGray", defaultValue: "ダークグレー")
+            }
+            if l < 70.0 {
+                return LocalizedStringResource("color.gray", defaultValue: "グレー")
+            }
+            return LocalizedStringResource("color.lightGray", defaultValue: "ライトグレー")
         }
         
         // 色相角度 (atan2(b, a))
         var angle = atan2(b, a) * 180.0 / Float.pi
         if angle < 0 { angle += 360.0 }
         
-        let brightnessPrefix = l > 75.0 ? "明るい" : (l < 35.0 ? "濃い" : "")
+        let isBright = l > 75.0
+        let isDark = l < 35.0
         
-        let baseName: String
         switch angle {
-        // CIELAB の色相角は sRGB の色相と同じ境界にはならない。
-        // 代表的な sRGB 原色が自然な日本語名に入るよう調整している。
         case 15..<55:
-            baseName = "レッド・赤"
+            if isBright { return LocalizedStringResource("color.red.bright", defaultValue: "明るいレッド・赤") }
+            if isDark { return LocalizedStringResource("color.red.dark", defaultValue: "濃いレッド・赤") }
+            return LocalizedStringResource("color.red", defaultValue: "レッド・赤")
+            
         case 55..<85:
-            baseName = "オレンジ・橙"
+            if isBright { return LocalizedStringResource("color.orange.bright", defaultValue: "明るいオレンジ・橙") }
+            if isDark { return LocalizedStringResource("color.orange.dark", defaultValue: "濃いオレンジ・橙") }
+            return LocalizedStringResource("color.orange", defaultValue: "オレンジ・橙")
+            
         case 85..<115:
-            baseName = "イエロー・黄"
+            if isBright { return LocalizedStringResource("color.yellow.bright", defaultValue: "明るいイエロー・黄") }
+            if isDark { return LocalizedStringResource("color.yellow.dark", defaultValue: "濃いイエロー・黄") }
+            return LocalizedStringResource("color.yellow", defaultValue: "イエロー・黄")
+            
         case 115..<175:
-            baseName = "グリーン・緑"
+            if isBright { return LocalizedStringResource("color.green.bright", defaultValue: "明るいグリーン・緑") }
+            if isDark { return LocalizedStringResource("color.green.dark", defaultValue: "濃いグリーン・緑") }
+            return LocalizedStringResource("color.green", defaultValue: "グリーン・緑")
+            
         case 175..<235:
-            baseName = "シアン・水色"
+            if isBright { return LocalizedStringResource("color.cyan.bright", defaultValue: "明るいシアン・水色") }
+            if isDark { return LocalizedStringResource("color.cyan.dark", defaultValue: "濃いシアン・水色") }
+            return LocalizedStringResource("color.cyan", defaultValue: "シアン・水色")
+            
         case 235..<315:
-            baseName = "ブルー・青"
+            if isBright { return LocalizedStringResource("color.blue.bright", defaultValue: "明るいブルー・青") }
+            if isDark { return LocalizedStringResource("color.blue.dark", defaultValue: "濃いブルー・青") }
+            return LocalizedStringResource("color.blue", defaultValue: "ブルー・青")
+            
         case 315..<345:
-            baseName = "パープル・紫"
+            if isBright { return LocalizedStringResource("color.purple.bright", defaultValue: "明るいパープル・紫") }
+            if isDark { return LocalizedStringResource("color.purple.dark", defaultValue: "濃いパープル・紫") }
+            return LocalizedStringResource("color.purple", defaultValue: "パープル・紫")
+            
         default:
-            baseName = "マゼンタ・ピンク"
+            if isBright { return LocalizedStringResource("color.pink.bright", defaultValue: "明るいマゼンタ・ピンク") }
+            if isDark { return LocalizedStringResource("color.pink.dark", defaultValue: "濃いマゼンタ・ピンク") }
+            return LocalizedStringResource("color.pink", defaultValue: "マゼンタ・ピンク")
         }
-        
-        return brightnessPrefix.isEmpty ? baseName : "\(brightnessPrefix)\(baseName)"
+    }
+    
+    /// 既存コード互換用のローカライズ済み色名文字列
+    public var localizedName: String {
+        String(localized: localizedResource)
     }
 }
 

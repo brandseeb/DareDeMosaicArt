@@ -10,6 +10,15 @@ public enum PlacementOrigin: String, Codable, Sendable {
     case captured           // カメラによるミッション撮影
     case manuallySelected   // 類似色候補からの手動選択（再マッチングで上書きされない）
     case autoFilled         // 空きマスの段階的近似自動配置（リセット可能）
+    
+    public var localizedTitle: LocalizedStringResource {
+        switch self {
+        case .automatic: return LocalizedStringResource("placement.automatic", defaultValue: "ライブラリ自動配置")
+        case .captured: return LocalizedStringResource("placement.captured", defaultValue: "カメラ撮影")
+        case .manuallySelected: return LocalizedStringResource("placement.manual", defaultValue: "手動選択")
+        case .autoFilled: return LocalizedStringResource("placement.autoFilled", defaultValue: "自動配置")
+        }
+    }
 }
 
 /// モザイクアートを構成する1マス（タイル）の情報

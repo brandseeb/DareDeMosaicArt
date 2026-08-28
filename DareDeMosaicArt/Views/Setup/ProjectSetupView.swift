@@ -105,7 +105,7 @@ public struct ProjectSetupView: View {
                     
                     Picker("プレイスタイル", selection: $mode) {
                         ForEach(GameMode.allCases, id: \.self) { m in
-                            Text(m.rawValue).tag(m)
+                            Text(m.localizedTitle).tag(m)
                         }
                     }
                     

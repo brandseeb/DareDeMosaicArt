@@ -535,7 +535,7 @@ public struct CompletionView: View {
             let renderer = UIGraphicsImageRenderer(size: resultImage.size)
             resultImage = renderer.image { _ in
                 resultImage.draw(at: .zero)
-                let text = "Made with 誰でモザイクアート"
+                let text = String(localized: "export.watermark.madeWith", defaultValue: "Made with 誰でモザイクアート")
                 let attributes: [NSAttributedString.Key: Any] = [
                     .font: UIFont.systemFont(ofSize: 18, weight: .medium),
                     .foregroundColor: UIColor.white.withAlphaComponent(0.85)

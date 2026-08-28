@@ -17,6 +17,8 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXBuildFile section */
+		R00000000000000000000001 /* Localizable.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = R00000000000000000000002 /* Localizable.xcstrings */; };
+		R00000000000000000000003 /* InfoPlist.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = R00000000000000000000004 /* InfoPlist.xcstrings */; };
 		A00000000000000000000001 /* DareDeMosaicArtTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000002 /* DareDeMosaicArtTests.swift */; };
 		33F5F666EC344ECE867D347D /* DareDeMosaicArtApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = B85885B374C34338B8509924 /* DareDeMosaicArtApp.swift */; };
 		3B866E847FCA48F7AA78C747 /* HomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 42653DF475C848FD84DF52D0 /* HomeView.swift */; };
@@ -231,6 +233,15 @@
 			path = Services;
 			sourceTree = "<group>";
 		};
+		R00000000000000000000005 /* Resources */ = {
+			isa = PBXGroup;
+			children = (
+				R00000000000000000000002 /* Localizable.xcstrings */,
+				R00000000000000000000004 /* InfoPlist.xcstrings */,
+			);
+			path = Resources;
+			sourceTree = "<group>";
+		};
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
@@ -294,6 +305,7 @@
 			hasScannedForEncodings = 0;
 			knownRegions = (
 				ja,
+				en,
 				Base,
 			);
 			mainGroup = 990EAC47C06A416294622EAA;
