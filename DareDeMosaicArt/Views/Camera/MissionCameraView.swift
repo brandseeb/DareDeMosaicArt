@@ -70,12 +70,11 @@ public struct MissionCameraView: View {
             let finderSize = min(geometry.size.width - 40, geometry.size.height * 0.45)
             
             ZStack {
-                Color.black.ignoresSafeArea()
+                Color.black
                 
                 #if canImport(UIKit)
                 if cameraManager.availabilityState == .authorized {
                     CameraPreviewView(session: cameraManager.session)
-                        .ignoresSafeArea()
                 } else {
                     cameraFallbackOverlay
                 }
@@ -84,6 +83,23 @@ public struct MissionCameraView: View {
                 if cameraManager.availabilityState == .authorized {
                     // 正方形ファインダー枠のマスクオーバーレイ（枠外を暗くして、枠内を明確に）
                     squareFinderMaskOverlay(screenSize: geometry.size, finderSize: finderSize)
+                    
+                    // 中央ファインダー枠 ＆ レティクル（マスクと完全に同一の幾何中心に配置）
+                    ZStack {
+                        // 正方形ファインダー枠
+                        RoundedRectangle(cornerRadius: 16)
+                            .stroke(cameraManager.isMatchPass ? Color.green : Color.white.opacity(0.8), lineWidth: 3)
+                            .frame(width: finderSize, height: finderSize)
+                            .shadow(color: cameraManager.isMatchPass ? .green.opacity(0.5) : .clear, radius: 10)
+                        
+                        // 中央の色比較サークル
+                        ColorReticleView(
+                            targetColor: mission.targetColor,
+                            currentColor: cameraManager.currentLabColor,
+                            matchRatio: cameraManager.matchRatio,
+                            isPass: cameraManager.isMatchPass
+                        )
+                    }
                     
                     // 上部ミッションヘッダー
                     VStack {
@@ -108,7 +124,9 @@ public struct MissionCameraView: View {
                                     .foregroundColor(.yellow)
                             }
                         }
-                        .padding()
+                        .padding(.horizontal)
+                        .padding(.top, geometry.safeAreaInsets.top > 0 ? geometry.safeAreaInsets.top : 16)
+                        .padding(.bottom, 12)
                         .background(
                             LinearGradient(
                                 colors: [Color.black.opacity(0.7), Color.clear],
@@ -118,23 +136,6 @@ public struct MissionCameraView: View {
                         )
                         
                         Spacer()
-                    }
-                    
-                    // 中央ファインダー枠 ＆ レティクル
-                    ZStack {
-                        // 正方形ファインダー枠
-                        RoundedRectangle(cornerRadius: 16)
-                            .stroke(cameraManager.isMatchPass ? Color.green : Color.white.opacity(0.8), lineWidth: 3)
-                            .frame(width: finderSize, height: finderSize)
-                            .shadow(color: cameraManager.isMatchPass ? .green.opacity(0.5) : .clear, radius: 10)
-                        
-                        // 中央の色比較サークル
-                        ColorReticleView(
-                            targetColor: mission.targetColor,
-                            currentColor: cameraManager.currentLabColor,
-                            matchRatio: cameraManager.matchRatio,
-                            isPass: cameraManager.isMatchPass
-                        )
                     }
                     
                     // 下部UI（一致度メーター & シャッターボタン）
@@ -215,7 +216,7 @@ public struct MissionCameraView: View {
                             }
                         }
                         .disabled(isProcessing)
-                        .padding(.bottom, 24)
+                        .padding(.bottom, max(24, geometry.safeAreaInsets.bottom + 8))
                     }
                     
                     // 撮影成功時のポップアップ演出
@@ -245,6 +246,7 @@ public struct MissionCameraView: View {
                     }
                 }
             }
+            .ignoresSafeArea()
         }
         .task {
             cameraManager.targetColor = mission.targetColor
