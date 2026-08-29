@@ -7186,6 +7186,57 @@
           }
         }
       }
+    },
+    "home.alert.storageError.title": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Data Error"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "データエラー"
+          }
+        }
+      }
+    },
+    "home.error.loadFailed.format %@": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Failed to load project list: %@"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "作品リストの読み込みに失敗しました: %@"
+          }
+        }
+      }
+    },
+    "home.error.someProjectsFailed.format %lld": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Failed to load %lld project(s)."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "一部の作品データ（%lld件）の読み込みに失敗しました。"
+          }
+        }
+      }
     }
   },
   "version": "1.0"

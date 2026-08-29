@@ -838,16 +838,26 @@ private final class ImageRequestContinuationGate: @unchecked Sendable {
         lock.unlock()
     }
 
-    func setRequestID(_ id: PHImageRequestID) {
+    func setRequestID(_ id: PHImageRequestID, manager: PHImageManager = .default()) {
         lock.lock()
-        defer { lock.unlock() }
+        if isFinished {
+            lock.unlock()
+            manager.cancelImageRequest(id)
+            return
+        }
         self.requestID = id
+        lock.unlock()
     }
 
     func setTimeoutTask(_ task: Task<Void, Never>) {
         lock.lock()
-        defer { lock.unlock() }
+        if isFinished {
+            lock.unlock()
+            task.cancel()
+            return
+        }
         self.timeoutTask = task
+        lock.unlock()
     }
 
     func resume(with image: UIImage?) {

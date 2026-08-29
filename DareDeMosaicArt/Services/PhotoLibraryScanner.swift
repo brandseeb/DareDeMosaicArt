@@ -219,7 +219,7 @@ public final class PhotoLibraryScanner: ObservableObject {
                                     }
                                 }
                                 
-                                gate.setRequestID(reqID)
+                                gate.setRequestID(reqID, manager: imageManager)
                                 
                                 // タイムアウトTask（完了時に即座に破棄される）
                                 let tTask = Task {
@@ -350,7 +350,7 @@ public struct CachedPhotoIndexEntry: Codable, Sendable {
     }
 }
 
-private final class PhotoRequestContinuationGate: @unchecked Sendable {
+final class PhotoRequestContinuationGate: @unchecked Sendable {
     private let lock = NSLock()
     private var continuation: CheckedContinuation<CachedPhotoIndexEntry?, Never>?
     private var requestID: PHImageRequestID?
@@ -370,16 +370,26 @@ private final class PhotoRequestContinuationGate: @unchecked Sendable {
         lock.unlock()
     }
 
-    func setRequestID(_ id: PHImageRequestID) {
+    func setRequestID(_ id: PHImageRequestID, manager: PHImageManager = .default()) {
         lock.lock()
-        defer { lock.unlock() }
+        if isFinished {
+            lock.unlock()
+            manager.cancelImageRequest(id)
+            return
+        }
         self.requestID = id
+        lock.unlock()
     }
 
     func setTimeoutTask(_ task: Task<Void, Never>) {
         lock.lock()
-        defer { lock.unlock() }
+        if isFinished {
+            lock.unlock()
+            task.cancel()
+            return
+        }
         self.timeoutTask = task
+        lock.unlock()
     }
 
     func resume(returning value: CachedPhotoIndexEntry?) {

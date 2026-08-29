@@ -150,13 +150,14 @@ public struct PhotoPickerSheet: UIViewControllerRepresentable {
                 await withCheckedContinuation { continuation in
                     gate.setContinuation(continuation)
                     
-                    provider.loadDataRepresentation(forTypeIdentifier: UTType.image.identifier) { data, error in
+                    let progress = provider.loadDataRepresentation(forTypeIdentifier: UTType.image.identifier) { data, error in
                         guard let data = data, let image = UIImage(data: data) else {
                             gate.resume(with: nil)
                             return
                         }
                         gate.resume(with: image)
                     }
+                    gate.setProgress(progress)
                     
                     // 8秒タイムアウト保護
                     let tTask = Task {
@@ -176,9 +177,10 @@ public struct PhotoPickerSheet: UIViewControllerRepresentable {
                 await withCheckedContinuation { continuation in
                     gate.setContinuation(continuation)
                     
-                    provider.loadObject(ofClass: UIImage.self) { object, error in
+                    let progress = provider.loadObject(ofClass: UIImage.self) { object, error in
                         gate.resume(with: object as? UIImage)
                     }
+                    gate.setProgress(progress)
                     
                     // 8秒タイムアウト保護
                     let tTask = Task {
@@ -247,6 +249,7 @@ private final class PhotoPickerImageGate: @unchecked Sendable {
     private let lock = NSLock()
     private var continuation: CheckedContinuation<UIImage?, Never>?
     private var requestID: PHImageRequestID?
+    private var progress: Progress?
     private var timeoutTask: Task<Void, Never>?
     private var isFinished = false
 
@@ -263,16 +266,37 @@ private final class PhotoPickerImageGate: @unchecked Sendable {
         lock.unlock()
     }
 
-    func setRequestID(_ id: PHImageRequestID) {
+    func setRequestID(_ id: PHImageRequestID, manager: PHImageManager = .default()) {
         lock.lock()
-        defer { lock.unlock() }
+        if isFinished {
+            lock.unlock()
+            manager.cancelImageRequest(id)
+            return
+        }
         self.requestID = id
+        lock.unlock()
+    }
+
+    func setProgress(_ progress: Progress) {
+        lock.lock()
+        if isFinished {
+            lock.unlock()
+            progress.cancel()
+            return
+        }
+        self.progress = progress
+        lock.unlock()
     }
 
     func setTimeoutTask(_ task: Task<Void, Never>) {
         lock.lock()
-        defer { lock.unlock() }
+        if isFinished {
+            lock.unlock()
+            task.cancel()
+            return
+        }
         self.timeoutTask = task
+        lock.unlock()
     }
 
     func resume(with image: UIImage?) {
@@ -286,6 +310,7 @@ private final class PhotoPickerImageGate: @unchecked Sendable {
         let tTask = timeoutTask
         continuation = nil
         requestID = nil
+        progress = nil
         timeoutTask = nil
         lock.unlock()
         tTask?.cancel()
@@ -301,12 +326,15 @@ private final class PhotoPickerImageGate: @unchecked Sendable {
         isFinished = true
         let value = continuation
         let req = requestID
+        let prog = progress
         let tTask = timeoutTask
         continuation = nil
         requestID = nil
+        progress = nil
         timeoutTask = nil
         lock.unlock()
         tTask?.cancel()
+        prog?.cancel()
         if let req {
             PHImageManager.default().cancelImageRequest(req)
         }

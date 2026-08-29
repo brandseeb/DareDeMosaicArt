@@ -1151,4 +1151,46 @@ final class DareDeMosaicArtTests: XCTestCase {
         let privacyManifestURL = mainBundle.url(forResource: "PrivacyInfo", withExtension: "xcprivacy")
         XCTAssertNotNil(privacyManifestURL, "アプリバンドル内に PrivacyInfo.xcprivacy が正常に同梱されていること")
     }
+
+    // MARK: - PhotoKit Gate 競合順序・耐障害性テスト
+
+    func testPhotoRequestContinuationGateEarlyResumeThenSetTimeoutTask() async {
+        let gate = PhotoRequestContinuationGate()
+        
+        let dummyEntry = CachedPhotoIndexEntry(
+            id: "test-asset-id",
+            modificationDate: Date(),
+            photo: IndexedPhoto(id: "test-asset-id", labColor: LabColor(l: 50, a: 0, b: 0))
+        )
+        
+        // 1. 先にコールバックが完了（resume）
+        let receivedResult = await withCheckedContinuation { continuation in
+            gate.setContinuation(continuation)
+            gate.resume(returning: dummyEntry)
+        }
+        XCTAssertEqual(receivedResult?.id, "test-asset-id")
+        
+        // 2. その後に setTimeoutTask が呼ばれた場合、即座にキャンセルされ待機Taskが残らないこと
+        let timeoutTask: Task<Void, Never> = Task {
+            try? await Task.sleep(nanoseconds: 10_000_000_000)
+            return
+        }
+        gate.setTimeoutTask(timeoutTask)
+        
+        // 即座にキャンセルされていること
+        XCTAssertTrue(timeoutTask.isCancelled, "完了済みGateに渡されたタイムアウトTaskは即座にcancel()されること")
+    }
+
+    func testPhotoRequestContinuationGateEarlyCancelThenSetContinuation() async {
+        let gate = PhotoRequestContinuationGate()
+        
+        // 1. 先に親Taskキャンセルが発火
+        gate.cancel()
+        
+        // 2. その後に setContinuation された場合、永久待機せず即座に nil で復帰すること
+        let result = await withCheckedContinuation { continuation in
+            gate.setContinuation(continuation)
+        }
+        XCTAssertNil(result, "キャンセル済みGateにsetContinuationされた場合は即座にnilで復帰すること")
+    }
 }

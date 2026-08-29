@@ -12,13 +12,13 @@ struct DareDeMosaicArtApp: App {
                 projects: $projectStore.projects,
                 onDeleteProjects: projectStore.deleteProjects(ids:)
             )
-            .alert(String(localized: "home.alert.saveFailed.title", defaultValue: "保存に失敗しました"), isPresented: Binding(
-                get: { projectStore.saveErrorMessage != nil },
-                set: { if !$0 { projectStore.saveErrorMessage = nil } }
+            .alert(String(localized: "home.alert.storageError.title", defaultValue: "データエラー"), isPresented: Binding(
+                get: { projectStore.storageErrorMessage != nil },
+                set: { if !$0 { projectStore.storageErrorMessage = nil } }
             )) {
                 Button(String(localized: "common.ok", defaultValue: "OK"), role: .cancel) {}
             } message: {
-                Text(projectStore.saveErrorMessage ?? "")
+                Text(projectStore.storageErrorMessage ?? "")
             }
             .onChange(of: scenePhase) { _, newPhase in
                 if newPhase != .active {
@@ -48,13 +48,13 @@ final class ProjectStore: ObservableObject {
                 guard !Task.isCancelled else { return }
                 let error = await persistence.save(snapshot, revision: revision)
                 if let error {
-                    self.saveErrorMessage = error
+                    self.storageErrorMessage = error
                 }
             }
         }
     }
     
-    @Published var saveErrorMessage: String? = nil
+    @Published var storageErrorMessage: String? = nil
     
     private let saveKey = "SavedMosaicProjects_v1"
     private let persistence = ProjectPersistenceActor()
@@ -70,9 +70,12 @@ final class ProjectStore: ObservableObject {
             await PhotoColorIndexCache.prewarm()
         }
         
-        let diskProjects = ProjectDiskStore.load()
-        if !diskProjects.isEmpty {
-            projects = diskProjects
+        let loadResult = ProjectDiskStore.load()
+        if !loadResult.projects.isEmpty || loadResult.errorMessage != nil {
+            projects = loadResult.projects
+            if let error = loadResult.errorMessage {
+                self.storageErrorMessage = error
+            }
         } else if let legacyData = UserDefaults.standard.data(forKey: saveKey),
                   let legacyProjects = try? JSONDecoder().decode([MosaicProject].self, from: legacyData) {
             // 旧 UserDefaults データは消さず、新ファイル形式へ安全にコピーする。
@@ -98,7 +101,7 @@ final class ProjectStore: ObservableObject {
         saveTask = Task {
             let error = await persistence.save(snapshot, revision: revision)
             if let error {
-                self.saveErrorMessage = error
+                self.storageErrorMessage = error
             }
         }
     }
@@ -151,30 +154,67 @@ private enum ProjectDiskStore {
         rootURL?.appendingPathComponent("index.json")
     }
 
-    static func load() -> [MosaicProject] {
-        guard let rootURL, let indexURL,
-              let indexData = try? Data(contentsOf: indexURL),
-              let orderedIds = try? JSONDecoder().decode([String].self, from: indexData) else {
-            return []
+    struct LoadResult {
+        let projects: [MosaicProject]
+        let errorMessage: String?
+    }
+
+    static func load() -> LoadResult {
+        guard let rootURL, let indexURL else {
+            return LoadResult(projects: [], errorMessage: nil)
+        }
+        guard fileManager.fileExists(atPath: indexURL.path) else {
+            return LoadResult(projects: [], errorMessage: nil)
         }
 
-        let projects = orderedIds.compactMap { idString -> MosaicProject? in
-            guard let id = UUID(uuidString: idString) else { return nil }
+        let orderedIds: [String]
+        do {
+            let indexData = try Data(contentsOf: indexURL)
+            orderedIds = try JSONDecoder().decode([String].self, from: indexData)
+        } catch {
+            print("[ProjectStore] Index load failed: \(error.localizedDescription)")
+            let msg = String(localized: "home.error.loadFailed.format \(error.localizedDescription)")
+            return LoadResult(projects: [], errorMessage: msg)
+        }
+
+        var corruptCount = 0
+        var projects: [MosaicProject] = []
+
+        for idString in orderedIds {
+            guard let id = UUID(uuidString: idString) else {
+                corruptCount += 1
+                continue
+            }
             let metadataURL = rootURL.appendingPathComponent("\(id.uuidString).json")
             guard let data = try? Data(contentsOf: metadataURL),
-                  var project = try? JSONDecoder().decode(MosaicProject.self, from: data) else { return nil }
+                  var project = try? JSONDecoder().decode(MosaicProject.self, from: data) else {
+                print("[ProjectStore] Project metadata corrupted for id: \(idString)")
+                corruptCount += 1
+                continue
+            }
 
             let assetDirectory = rootURL.appendingPathComponent(id.uuidString, isDirectory: true)
             let targetURL = assetDirectory.appendingPathComponent("target.jpg")
-            if let targetData = try? Data(contentsOf: targetURL) {
+            if let targetData = try? Data(contentsOf: targetURL), !targetData.isEmpty {
                 project.targetImageData = targetData
+                projects.append(project)
+            } else {
+                print("[ProjectStore] Project target image missing for id: \(idString)")
+                corruptCount += 1
             }
-
-            // タイルJPEGは作品を開くまで読み込まない。起動・一覧表示のメモリとI/Oを抑える。
-            return project.targetImageData.isEmpty ? nil : project
         }
-        removeOrphanedFiles(validIds: Set(orderedIds))
-        return projects
+
+        let validIds = Set(projects.map { $0.id.uuidString })
+        removeOrphanedFiles(validIds: validIds)
+
+        let errorMsg: String?
+        if corruptCount > 0 {
+            errorMsg = String(localized: "home.error.someProjectsFailed.format \(corruptCount)")
+        } else {
+            errorMsg = nil
+        }
+
+        return LoadResult(projects: projects, errorMessage: errorMsg)
     }
 
     static func hydrate(_ project: MosaicProject) -> MosaicProject {
