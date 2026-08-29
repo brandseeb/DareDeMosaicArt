@@ -1,6 +1,7 @@
 import XCTest
 import AVFoundation
 import Vision
+import Photos
 @testable import DareDeMosaicArt
 
 final class DareDeMosaicArtTests: XCTestCase {
@@ -1192,5 +1193,88 @@ final class DareDeMosaicArtTests: XCTestCase {
             gate.setContinuation(continuation)
         }
         XCTAssertNil(result, "キャンセル済みGateにsetContinuationされた場合は即座にnilで復帰すること")
+    }
+
+    func testPhotoRequestContinuationGateEarlyResumeThenSetRequestID() async {
+        let gate = PhotoRequestContinuationGate()
+        
+        let dummyEntry = CachedPhotoIndexEntry(
+            id: "test-asset-id-2",
+            modificationDate: Date(),
+            photo: IndexedPhoto(id: "test-asset-id-2", labColor: LabColor(l: 50, a: 0, b: 0))
+        )
+        
+        // 1. 先にコールバックが完了（resume）
+        _ = await withCheckedContinuation { continuation in
+            gate.setContinuation(continuation)
+            gate.resume(returning: dummyEntry)
+        }
+        
+        // 2. その後に setRequestID が呼ばれた場合、クラッシュせず安全にキャンセル処理されること
+        let dummyReqID: PHImageRequestID = 9999
+        gate.setRequestID(dummyReqID)
+    }
+
+    func testCorruptedProjectPreservesFilesOnLoad() throws {
+        guard let projectsDir = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first?
+            .appendingPathComponent("Projects", isDirectory: true) else {
+            return
+        }
+        try FileManager.default.createDirectory(at: projectsDir, withIntermediateDirectories: true)
+        
+        let validID = UUID()
+        let corruptedID = UUID()
+        
+        let validProject = MosaicProject(
+            id: validID,
+            title: "Valid Project",
+            targetImageData: Data([0xFF, 0xD8, 0xFF, 0xE0]),
+            gridWidth: 1,
+            gridHeight: 1,
+            mode: .hybrid,
+            tiles: [],
+            missions: [],
+            isCompleted: false
+        )
+        
+        // 1. 有効なプロジェクトを保存
+        let validAssetDir = projectsDir.appendingPathComponent(validID.uuidString, isDirectory: true)
+        try FileManager.default.createDirectory(at: validAssetDir, withIntermediateDirectories: true)
+        try Data([0xFF, 0xD8, 0xFF, 0xE0]).write(to: validAssetDir.appendingPathComponent("target.jpg"))
+        let validData = try JSONEncoder().encode(validProject)
+        try validData.write(to: projectsDir.appendingPathComponent("\(validID.uuidString).json"))
+        
+        // 2. 壊れたプロジェクトJSONを作成（故意に不正なJSON構文）
+        let corruptAssetDir = projectsDir.appendingPathComponent(corruptedID.uuidString, isDirectory: true)
+        try FileManager.default.createDirectory(at: corruptAssetDir, withIntermediateDirectories: true)
+        try Data([0xFF, 0xD8, 0xFF, 0xE0]).write(to: corruptAssetDir.appendingPathComponent("target.jpg"))
+        let corruptFileURL = projectsDir.appendingPathComponent("\(corruptedID.uuidString).json")
+        try "{ corrupted_json_invalid_syntax: true ".data(using: .utf8)!.write(to: corruptFileURL)
+        
+        // 3. index.json を書き込み
+        let indexData = try JSONEncoder().encode([validID.uuidString, corruptedID.uuidString])
+        try indexData.write(to: projectsDir.appendingPathComponent("index.json"))
+        
+        defer {
+            try? FileManager.default.removeItem(at: validAssetDir)
+            try? FileManager.default.removeItem(at: projectsDir.appendingPathComponent("\(validID.uuidString).json"))
+            try? FileManager.default.removeItem(at: corruptAssetDir)
+            try? FileManager.default.removeItem(at: corruptFileURL)
+            try? FileManager.default.removeItem(at: projectsDir.appendingPathComponent("index.json"))
+        }
+        
+        // 4. load() を実行
+        let loadResult = ProjectDiskStore.load()
+        
+        // 正常な作品のみがロードされ、エラーメッセージが記録されていること
+        XCTAssertEqual(loadResult.projects.count, 1)
+        XCTAssertEqual(loadResult.projects.first?.id, validID)
+        XCTAssertNotNil(loadResult.errorMessage)
+        
+        // 5. 破損したプロジェクトのファイルが勝手に物理削除されていないことの検証
+        XCTAssertTrue(
+            FileManager.default.fileExists(atPath: corruptFileURL.path),
+            "破損した作品のファイルは勝手に物理削除されず保護されていること"
+        )
     }
 }

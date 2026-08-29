@@ -140,7 +140,7 @@ actor ProjectAssetLoader {
 }
 
 /// Documents/Projects に軽量JSONと画像キャッシュを分離保存する。（Swift 6 完全準拠）
-private enum ProjectDiskStore {
+enum ProjectDiskStore {
     private static var fileManager: FileManager {
         FileManager.default
     }
@@ -204,7 +204,7 @@ private enum ProjectDiskStore {
             }
         }
 
-        let validIds = Set(projects.map { $0.id.uuidString })
+        let validIds = Set(orderedIds)
         removeOrphanedFiles(validIds: validIds)
 
         let errorMsg: String?
