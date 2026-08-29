@@ -741,7 +741,7 @@ public struct CompletionView: View {
             options.isNetworkAccessAllowed = true
             let gate = ImageRequestContinuationGate(continuation)
 
-            PHImageManager.default().requestImage(
+            let reqID = PHImageManager.default().requestImage(
                 for: asset,
                 targetSize: CGSize(width: targetPixels, height: targetPixels),
                 contentMode: .aspectFill,
@@ -753,6 +753,14 @@ public struct CompletionView: View {
                 }
                 if (info?[PHImageResultIsDegradedKey] as? Bool) == true { return }
                 gate.resume(with: image)
+            }
+            
+            gate.setRequestID(reqID)
+            
+            // 8秒タイムアウト保護
+            Task {
+                try? await Task.sleep(nanoseconds: 8_000_000_000)
+                gate.cancel()
             }
         }
     }
@@ -807,16 +815,37 @@ private func sanitizeWatermarkText(_ rawText: String) -> String {
 private final class ImageRequestContinuationGate: @unchecked Sendable {
     private let lock = NSLock()
     private var continuation: CheckedContinuation<UIImage?, Never>?
+    private var requestID: PHImageRequestID?
 
     init(_ continuation: CheckedContinuation<UIImage?, Never>) {
         self.continuation = continuation
+    }
+
+    func setRequestID(_ id: PHImageRequestID) {
+        lock.lock()
+        defer { lock.unlock() }
+        self.requestID = id
     }
 
     func resume(with image: UIImage?) {
         lock.lock()
         let value = continuation
         continuation = nil
+        requestID = nil
         lock.unlock()
         value?.resume(returning: image)
+    }
+
+    func cancel() {
+        lock.lock()
+        let value = continuation
+        let req = requestID
+        continuation = nil
+        requestID = nil
+        lock.unlock()
+        if let req {
+            PHImageManager.default().cancelImageRequest(req)
+        }
+        value?.resume(returning: nil)
     }
 }

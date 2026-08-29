@@ -181,7 +181,7 @@ public final class PhotoLibraryScanner: ObservableObject {
 
                         return await withCheckedContinuation { continuation in
                             let gate = PhotoRequestContinuationGate(continuation)
-                            imageManager.requestImage(
+                            let reqID = imageManager.requestImage(
                                 for: asset,
                                 targetSize: targetSize,
                                 contentMode: .aspectFill,
@@ -219,6 +219,14 @@ public final class PhotoLibraryScanner: ObservableObject {
                                     gate.resume(returning: nil)
                                 }
                             }
+                            
+                            gate.setRequestID(reqID)
+                            
+                            // 8秒タイムアウト保護
+                            Task {
+                                try? await Task.sleep(nanoseconds: 8_000_000_000)
+                                gate.cancel(using: imageManager)
+                            }
                         }
                     }
                 }
@@ -252,17 +260,22 @@ public final class PhotoLibraryScanner: ObservableObject {
         self.hasCompletedScan = true
         self.isScanning = false
 
-        // キャッシュに差分マージ
+        // キャッシュに差分マージ & 削除済み写真の除去
         let newEntries = newlyProcessedEntries
-        if !newEntries.isEmpty {
-            Task.detached(priority: .utility) {
+        let validIDList = results.map(\.id)
+        let isAllPhotos = (source == .allLocalPhotos)
+        Task.detached(priority: .utility) {
+            if !newEntries.isEmpty {
                 await PhotoColorIndexCache.merge(newEntries)
+            }
+            if isAllPhotos {
+                await PhotoColorIndexCache.removeUnavailableEntries(validIDs: Set(validIDList))
             }
         }
         return results
     }
 
-    /// 永続キャッシュを先に返す。Photosとの最新状態照合は行わないため、UIの先行表示専用。
+    /// 永続キャッシュを返す（実在性検証付き）
     public func cachedPhotos(for source: PhotoSource) async -> [IndexedPhoto] {
         if lastScannedSource == source, !scannedPhotos.isEmpty {
             return scannedPhotos
@@ -274,7 +287,16 @@ public final class PhotoLibraryScanner: ObservableObject {
         let photos: [IndexedPhoto]
         switch source {
         case .allLocalPhotos:
-            photos = cachedEntries.values.map(\.photo).sorted { $0.id < $1.id }
+            let ids = Array(cachedEntries.keys)
+            let fetched = PHAsset.fetchAssets(withLocalIdentifiers: ids, options: nil)
+            var liveIDSet = Set<String>()
+            fetched.enumerateObjects { asset, _, _ in
+                liveIDSet.insert(asset.localIdentifier)
+            }
+            photos = cachedEntries.values
+                .filter { liveIDSet.contains($0.id) }
+                .map(\.photo)
+                .sorted { $0.id < $1.id }
 
         case .album(let localIdentifier, _):
             let collections = PHAssetCollection.fetchAssetCollections(
@@ -328,17 +350,38 @@ public struct CachedPhotoIndexEntry: Codable, Sendable {
 private final class PhotoRequestContinuationGate: @unchecked Sendable {
     private let lock = NSLock()
     private var continuation: CheckedContinuation<CachedPhotoIndexEntry?, Never>?
+    private var requestID: PHImageRequestID?
 
     init(_ continuation: CheckedContinuation<CachedPhotoIndexEntry?, Never>) {
         self.continuation = continuation
+    }
+
+    func setRequestID(_ id: PHImageRequestID) {
+        lock.lock()
+        defer { lock.unlock() }
+        self.requestID = id
     }
 
     func resume(returning value: CachedPhotoIndexEntry?) {
         lock.lock()
         let pending = continuation
         continuation = nil
+        requestID = nil
         lock.unlock()
         pending?.resume(returning: value)
+    }
+
+    func cancel(using manager: PHImageManager = .default()) {
+        lock.lock()
+        let pending = continuation
+        let req = requestID
+        continuation = nil
+        requestID = nil
+        lock.unlock()
+        if let req {
+            manager.cancelImageRequest(req)
+        }
+        pending?.resume(returning: nil)
     }
 }
 

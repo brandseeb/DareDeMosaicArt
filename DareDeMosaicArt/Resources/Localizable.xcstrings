@@ -7084,6 +7084,74 @@
           }
         }
       }
+    },
+    "workspace.alert.photoLoadFailed.title": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Failed to Load Photos"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "写真を読み込めませんでした"
+          }
+        }
+      }
+    },
+    "workspace.photoError.permissionDenied": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Photo library access is not allowed. Please enable access in Settings."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "写真ライブラリへのアクセスが許可されていません。設定アプリから写真へのアクセスを許可してください。"
+          }
+        }
+      }
+    },
+    "workspace.photoError.noPhotosAvailable": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No available photos found for auto-fill."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "自動配置に使用できる写真が見つかりませんでした。"
+          }
+        }
+      }
+    },
+    "workspace.photoError.format %@": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Failed to load photos: %@"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "写真の取得に失敗しました: %@"
+          }
+        }
+      }
     }
   },
   "version": "1.0"

@@ -96,6 +96,8 @@ public struct PhotoPickerSheet: UIViewControllerRepresentable {
         
         private func fetchImageFromPHAsset(_ asset: PHAsset) async -> UIImage? {
             await withCheckedContinuation { continuation in
+                let gate = PhotoPickerImageGate(continuation)
+                
                 let options = PHImageRequestOptions()
                 options.isNetworkAccessAllowed = true
                 options.deliveryMode = .highQualityFormat
@@ -105,16 +107,33 @@ public struct PhotoPickerSheet: UIViewControllerRepresentable {
                 // ターゲットサイズ（800px四方のモザイク原画用）
                 let targetSize = CGSize(width: 1200, height: 1200)
                 
-                PHImageManager.default().requestImage(
+                let reqID = PHImageManager.default().requestImage(
                     for: asset,
                     targetSize: targetSize,
                     contentMode: .aspectFill,
                     options: options
                 ) { image, info in
-                    let isDegraded = (info?[PHImageResultIsDegradedKey] as? Bool) ?? false
-                    if !isDegraded {
-                        continuation.resume(returning: image)
+                    let isCancelled = (info?[PHImageCancelledKey] as? Bool) == true
+                    let isError = info?[PHImageErrorKey] != nil
+                    let isDegraded = (info?[PHImageResultIsDegradedKey] as? Bool) == true
+                    
+                    if isCancelled || isError {
+                        gate.resume(with: nil)
+                    } else if let image = image {
+                        if !isDegraded {
+                            gate.resume(with: image)
+                        }
+                    } else {
+                        gate.resume(with: nil)
                     }
+                }
+                
+                gate.setRequestID(reqID)
+                
+                // 10秒タイムアウト保護
+                Task {
+                    try? await Task.sleep(nanoseconds: 10_000_000_000)
+                    gate.cancel()
                 }
             }
         }
@@ -187,6 +206,44 @@ public struct PhotoPickerSheet: UIViewControllerRepresentable {
             loadingView?.removeFromSuperview()
             loadingView = nil
         }
+    }
+}
+
+private final class PhotoPickerImageGate: @unchecked Sendable {
+    private let lock = NSLock()
+    private var continuation: CheckedContinuation<UIImage?, Never>?
+    private var requestID: PHImageRequestID?
+
+    init(_ continuation: CheckedContinuation<UIImage?, Never>) {
+        self.continuation = continuation
+    }
+
+    func setRequestID(_ id: PHImageRequestID) {
+        lock.lock()
+        defer { lock.unlock() }
+        self.requestID = id
+    }
+
+    func resume(with image: UIImage?) {
+        lock.lock()
+        let value = continuation
+        continuation = nil
+        requestID = nil
+        lock.unlock()
+        value?.resume(returning: image)
+    }
+
+    func cancel() {
+        lock.lock()
+        let value = continuation
+        let req = requestID
+        continuation = nil
+        requestID = nil
+        lock.unlock()
+        if let req {
+            PHImageManager.default().cancelImageRequest(req)
+        }
+        value?.resume(returning: nil)
     }
 }
 #endif

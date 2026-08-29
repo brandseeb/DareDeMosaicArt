@@ -18,6 +18,7 @@ public struct MosaicWorkspaceView: View {
     @State private var showResetConfirmAlert: Bool = false
     @State private var showAlbumMissingAlert: Bool = false
     @State private var albumMissingMessage: String = ""
+    @State private var photoLoadErrorMessage: String? = nil
     
     // 手動差し替え用の候補リスト
     @State private var replacementCandidates: [PhotoMatchCandidate] = []
@@ -165,6 +166,19 @@ public struct MosaicWorkspaceView: View {
             } message: {
                 Text(String(localized: "workspace.alert.resetAutoFill.message.format \(autoFilledTilesCount)"))
             }
+            .alert(String(localized: "workspace.alert.photoLoadFailed.title", defaultValue: "写真を読み込めませんでした"), isPresented: Binding(
+                get: { photoLoadErrorMessage != nil },
+                set: { if !$0 { photoLoadErrorMessage = nil } }
+            )) {
+                Button(String(localized: "common.ok", defaultValue: "OK"), role: .cancel) {}
+                Button(String(localized: "common.openSettings", defaultValue: "設定を開く")) {
+                    if let url = URL(string: UIApplication.openSettingsURLString) {
+                        UIApplication.shared.open(url)
+                    }
+                }
+            } message: {
+                Text(photoLoadErrorMessage ?? "")
+            }
             .task(id: project.photoSource) {
                 await prewarmCachedSourcePhotos()
             }
@@ -225,18 +239,24 @@ public struct MosaicWorkspaceView: View {
                 self.hasFullyLoadedSourcePhotos = true
             }
         } catch let error as PhotoLibraryScannerError {
-            if case .albumNotFound = error {
-                await MainActor.run {
+            await MainActor.run {
+                switch error {
+                case .albumNotFound:
                     self.albumMissingMessage = error.localizedDescription
                     self.showAlbumMissingAlert = true
-                    if self.allSourcePhotos.isEmpty {
-                        self.allSourcePhotos = []
-                    }
-                    self.hasFullyLoadedSourcePhotos = false
+                case .permissionDenied:
+                    self.photoLoadErrorMessage = String(localized: "workspace.photoError.permissionDenied", defaultValue: "写真ライブラリへのアクセスが許可されていません。設定アプリから写真へのアクセスを許可してください。")
+                case .cancelled:
+                    break
                 }
+                if self.allSourcePhotos.isEmpty {
+                    self.allSourcePhotos = []
+                }
+                self.hasFullyLoadedSourcePhotos = false
             }
         } catch {
             await MainActor.run {
+                self.photoLoadErrorMessage = String(localized: "workspace.photoError.format \(error.localizedDescription)")
                 if self.allSourcePhotos.isEmpty {
                     self.allSourcePhotos = []
                 }
@@ -250,7 +270,15 @@ public struct MosaicWorkspaceView: View {
         guard !isLoadingSourcePhotos else { return }
         Task {
             await loadSourcePhotos()
-            guard !Task.isCancelled, !allSourcePhotos.isEmpty else { return }
+            guard !Task.isCancelled else { return }
+            if allSourcePhotos.isEmpty {
+                await MainActor.run {
+                    if photoLoadErrorMessage == nil && !showAlbumMissingAlert {
+                        self.photoLoadErrorMessage = String(localized: "workspace.photoError.noPhotosAvailable", defaultValue: "自動配置に使用できる写真が見つかりませんでした。")
+                    }
+                }
+                return
+            }
             showAutoFillSheet = true
         }
     }
