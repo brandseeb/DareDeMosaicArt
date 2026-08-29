@@ -1,7 +1,7 @@
 import Foundation
-import AVFoundation
-import Photos
-import CoreGraphics
+@preconcurrency import AVFoundation
+@preconcurrency import Photos
+@preconcurrency import CoreGraphics
 import CoreMedia
 
 #if canImport(UIKit)
@@ -343,12 +343,21 @@ public final class TimelapseExportService: Sendable {
             writer: writer,
             videoInput: videoInput,
             audioInput: audioInput,
-            dispatchGroup: dispatchGroup
+            dispatchGroup: dispatchGroup,
+            baseContext: baseContext,
+            frameContext: frameContext,
+            adaptor: adaptor,
+            pool: pool
         )
         
         // A. 映像トラックの供給
         dispatchGroup.enter()
         videoInput.requestMediaDataWhenReady(on: videoQueue) { [renderContext] in
+            let bCtx = renderContext.baseContext
+            let fCtx = renderContext.frameContext
+            let adp = renderContext.adaptor
+            let pl = renderContext.pool
+            
             while renderContext.videoInput.isReadyForMoreMediaData {
                 if renderContext.shouldStop() {
                     renderContext.finishVideo()
@@ -366,7 +375,7 @@ public final class TimelapseExportService: Sendable {
                 do {
                     if f < TimelapseTimeline.openingFrames {
                         // オープニング
-                        try self.syncAppendFrame(context: baseContext, adaptor: adaptor, pool: pool, at: presentationTime)
+                        try self.syncAppendFrame(context: bCtx, adaptor: adp, pool: pl, at: presentationTime)
                     } else if f < TimelapseTimeline.openingFrames + TimelapseTimeline.buildFrames {
                         // ビルドフェーズ
                         let buildFrame = f - TimelapseTimeline.openingFrames
@@ -383,26 +392,26 @@ public final class TimelapseExportService: Sendable {
                                 )
                                 
                                 let rgb = tile.targetLabColor.toRGB()
-                                baseContext.setFillColor(red: CGFloat(rgb.red), green: CGFloat(rgb.green), blue: CGFloat(rgb.blue), alpha: 1.0)
-                                baseContext.fill(targetRect)
+                                bCtx.setFillColor(red: CGFloat(rgb.red), green: CGFloat(rgb.green), blue: CGFloat(rgb.blue), alpha: 1.0)
+                                bCtx.fill(targetRect)
                                 
                                 if let cg = cachedTileCGImages[tile.id] {
-                                    baseContext.saveGState()
-                                    baseContext.clip(to: targetRect)
+                                    bCtx.saveGState()
+                                    bCtx.clip(to: targetRect)
                                     let imageRect = ImageUtils.aspectFillRect(
                                         imageSize: CGSize(width: cg.width, height: cg.height),
                                         destinationRect: targetRect
                                     )
-                                    baseContext.draw(cg, in: imageRect)
-                                    baseContext.restoreGState()
+                                    bCtx.draw(cg, in: imageRect)
+                                    bCtx.restoreGState()
                                 }
                             }
                         }
                         
-                        guard let baseSnapshot = baseContext.makeImage() else {
+                        guard let baseSnapshot = bCtx.makeImage() else {
                             throw TimelapseExportError.contextCreationFailed
                         }
-                        frameContext.draw(baseSnapshot, in: CGRect(x: 0, y: 0, width: dimension, height: dimension))
+                        fCtx.draw(baseSnapshot, in: CGRect(x: 0, y: 0, width: dimension, height: dimension))
                         
                         let activeSchedules = tileSchedules.filter {
                             $0.isActive(atBuildFrame: buildFrame) && !renderContext.bakedTiles.contains($0.tileIndex)
@@ -431,44 +440,44 @@ public final class TimelapseExportService: Sendable {
                             let h = targetRect.height * transform.scale
                             let drawRect = CGRect(x: -w / 2, y: -h / 2, width: w, height: h)
                             
-                            frameContext.saveGState()
-                            frameContext.translateBy(x: centerX, y: centerY)
-                            frameContext.rotate(by: transform.rotationRadians)
+                            fCtx.saveGState()
+                            fCtx.translateBy(x: centerX, y: centerY)
+                            fCtx.rotate(by: transform.rotationRadians)
                             
                             if transform.shadowAlpha > 0.02, let shadowCG = shadowCache.shadowImage {
-                                frameContext.saveGState()
+                                fCtx.saveGState()
                                 let shadowRect = drawRect.offsetBy(dx: 0, dy: -transform.shadowYOffset)
                                     .insetBy(dx: -transform.shadowBlur, dy: -transform.shadowBlur)
-                                frameContext.setAlpha(transform.shadowAlpha)
-                                frameContext.draw(shadowCG, in: shadowRect)
-                                frameContext.restoreGState()
+                                fCtx.setAlpha(transform.shadowAlpha)
+                                fCtx.draw(shadowCG, in: shadowRect)
+                                fCtx.restoreGState()
                             }
                             
                             let rgb = tile.targetLabColor.toRGB()
-                            frameContext.setFillColor(red: CGFloat(rgb.red), green: CGFloat(rgb.green), blue: CGFloat(rgb.blue), alpha: 1.0)
-                            frameContext.fill(drawRect)
+                            fCtx.setFillColor(red: CGFloat(rgb.red), green: CGFloat(rgb.green), blue: CGFloat(rgb.blue), alpha: 1.0)
+                            fCtx.fill(drawRect)
                             
                             if let cg = cachedTileCGImages[tile.id] {
-                                frameContext.saveGState()
-                                frameContext.clip(to: drawRect)
+                                fCtx.saveGState()
+                                fCtx.clip(to: drawRect)
                                 let imageRect = ImageUtils.aspectFillRect(
                                     imageSize: CGSize(width: cg.width, height: cg.height),
                                     destinationRect: drawRect
                                 )
-                                frameContext.draw(cg, in: imageRect)
-                                frameContext.restoreGState()
+                                fCtx.draw(cg, in: imageRect)
+                                fCtx.restoreGState()
                             }
                             
                             if transform.isLanding {
-                                frameContext.setStrokeColor(red: 1.0, green: 1.0, blue: 1.0, alpha: 0.75)
-                                frameContext.setLineWidth(max(2.0, tilePixelWidth * 0.10))
-                                frameContext.stroke(drawRect)
+                                fCtx.setStrokeColor(red: 1.0, green: 1.0, blue: 1.0, alpha: 0.75)
+                                fCtx.setLineWidth(max(2.0, tilePixelWidth * 0.10))
+                                fCtx.stroke(drawRect)
                             }
                             
-                            frameContext.restoreGState()
+                            fCtx.restoreGState()
                         }
                         
-                        try self.syncAppendFrame(context: frameContext, adaptor: adaptor, pool: pool, at: presentationTime)
+                        try self.syncAppendFrame(context: fCtx, adaptor: adp, pool: pl, at: presentationTime)
                     } else {
                         // フィナーレ
                         let finaleFrame = f - (TimelapseTimeline.openingFrames + TimelapseTimeline.buildFrames)
@@ -486,30 +495,30 @@ public final class TimelapseExportService: Sendable {
                                     height: tilePixelHeight
                                 )
                                 let rgb = tile.targetLabColor.toRGB()
-                                baseContext.setFillColor(
+                                bCtx.setFillColor(
                                     red: CGFloat(rgb.red),
                                     green: CGFloat(rgb.green),
                                     blue: CGFloat(rgb.blue),
                                     alpha: 1.0
                                 )
-                                baseContext.fill(targetRect)
+                                bCtx.fill(targetRect)
                                 if let cg = cachedTileCGImages[tile.id] {
-                                    baseContext.saveGState()
-                                    baseContext.clip(to: targetRect)
+                                    bCtx.saveGState()
+                                    bCtx.clip(to: targetRect)
                                     let imageRect = ImageUtils.aspectFillRect(
                                         imageSize: CGSize(width: cg.width, height: cg.height),
                                         destinationRect: targetRect
                                     )
-                                    baseContext.draw(cg, in: imageRect)
-                                    baseContext.restoreGState()
+                                    bCtx.draw(cg, in: imageRect)
+                                    bCtx.restoreGState()
                                 }
                             }
                         }
                         
-                        guard let finalBaseSnapshot = baseContext.makeImage() else {
+                        guard let finalBaseSnapshot = bCtx.makeImage() else {
                             throw TimelapseExportError.contextCreationFailed
                         }
-                        frameContext.clear(CGRect(x: 0, y: 0, width: dimension, height: dimension))
+                        fCtx.clear(CGRect(x: 0, y: 0, width: dimension, height: dimension))
                         
                         let zoomScale: CGFloat
                         if finaleFrame < 30 {
@@ -527,22 +536,22 @@ public final class TimelapseExportService: Sendable {
                             width: zoomedW,
                             height: zoomedH
                         )
-                        frameContext.draw(finalBaseSnapshot, in: zoomedRect)
+                        fCtx.draw(finalBaseSnapshot, in: zoomedRect)
                         
                         if finaleFrame < 5 {
                             let glowAlpha = 0.15 * (1.0 - CGFloat(finaleFrame) / 5.0)
-                            frameContext.setFillColor(red: 1.0, green: 1.0, blue: 1.0, alpha: glowAlpha)
-                            frameContext.fill(CGRect(x: 0, y: 0, width: dimension, height: dimension))
+                            fCtx.setFillColor(red: 1.0, green: 1.0, blue: 1.0, alpha: glowAlpha)
+                            fCtx.fill(CGRect(x: 0, y: 0, width: dimension, height: dimension))
                         }
                         
                         #if canImport(UIKit)
                         if let watermarkConfig = project.watermarkConfig, !watermarkConfig.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                             let watermarkAlpha: CGFloat = (finaleFrame < 30) ? CGFloat(finaleFrame + 1) / 30.0 : 1.0
-                            self.drawWatermarkOverlay(context: frameContext, config: watermarkConfig, dimension: CGFloat(dimension), alpha: watermarkAlpha)
+                            self.drawWatermarkOverlay(context: fCtx, config: watermarkConfig, dimension: CGFloat(dimension), alpha: watermarkAlpha)
                         }
                         #endif
                         
-                        try self.syncAppendFrame(context: frameContext, adaptor: adaptor, pool: pool, at: presentationTime)
+                        try self.syncAppendFrame(context: fCtx, adaptor: adp, pool: pl, at: presentationTime)
                     }
                     
                     renderContext.currentFrame += 1
@@ -559,7 +568,11 @@ public final class TimelapseExportService: Sendable {
             dispatchGroup.enter()
             let chunkSize = 1024
             aInput.requestMediaDataWhenReady(on: audioQueue) { [renderContext] in
-                while renderContext.audioInput?.isReadyForMoreMediaData == true {
+                guard let input = renderContext.audioInput else {
+                    renderContext.finishAudio()
+                    return
+                }
+                while input.isReadyForMoreMediaData {
                     if renderContext.shouldStop() {
                         renderContext.finishAudio()
                         break
@@ -574,7 +587,7 @@ public final class TimelapseExportService: Sendable {
                     let samplesThisChunk = min(chunkSize, remaining)
                     
                     do {
-                        try helper.appendChunk(sampleOffset: renderContext.audioSampleOffset, count: samplesThisChunk, to: aInput)
+                        try helper.appendChunk(sampleOffset: renderContext.audioSampleOffset, count: samplesThisChunk, to: input)
                         renderContext.audioSampleOffset += samplesThisChunk
                     } catch {
                         renderContext.setError(error)
@@ -801,6 +814,10 @@ private final class RenderContext: @unchecked Sendable {
     let videoInput: AVAssetWriterInput
     let audioInput: AVAssetWriterInput?
     let dispatchGroup: DispatchGroup
+    let baseContext: CGContext
+    let frameContext: CGContext
+    let adaptor: AVAssetWriterInputPixelBufferAdaptor
+    let pool: CVPixelBufferPool
     
     private let lock = NSLock()
     var currentFrame: Int = 0
@@ -811,11 +828,24 @@ private final class RenderContext: @unchecked Sendable {
     private var videoFinished: Bool = false
     private var audioFinished: Bool = false
     
-    init(writer: AVAssetWriter, videoInput: AVAssetWriterInput, audioInput: AVAssetWriterInput?, dispatchGroup: DispatchGroup) {
+    init(
+        writer: AVAssetWriter,
+        videoInput: AVAssetWriterInput,
+        audioInput: AVAssetWriterInput?,
+        dispatchGroup: DispatchGroup,
+        baseContext: CGContext,
+        frameContext: CGContext,
+        adaptor: AVAssetWriterInputPixelBufferAdaptor,
+        pool: CVPixelBufferPool
+    ) {
         self.writer = writer
         self.videoInput = videoInput
         self.audioInput = audioInput
         self.dispatchGroup = dispatchGroup
+        self.baseContext = baseContext
+        self.frameContext = frameContext
+        self.adaptor = adaptor
+        self.pool = pool
     }
     
     func shouldStop() -> Bool {

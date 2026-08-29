@@ -42,7 +42,6 @@ public final class ColorAnalysisService: Sendable {
         // 1. アスペクト比を維持した中央正方形フィル（Aspect-Fill）で 48×48 に描画
         let imgW = CGFloat(cgImage.width)
         let imgH = CGFloat(cgImage.height)
-        let maxSide = max(imgW, imgH)
         let scale = CGFloat(sampleSize) / min(imgW, imgH) // 短辺を sampleSize に合わせる
         let drawW = imgW * scale
         let drawH = imgH * scale
