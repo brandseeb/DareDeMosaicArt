@@ -1108,6 +1108,18 @@ final class DareDeMosaicArtTests: XCTestCase {
         XCTAssertEqual(jaBundle.localizedString(forKey: "paywall.header.subtitle", value: nil, table: "Localizable"), "制限をすべて解除して、極限のモザイクアートを作ろう")
         XCTAssertEqual(enBundle.localizedString(forKey: "paywall.header.subtitle", value: nil, table: "Localizable"), "Unlock all limits and create ultimate mosaic artworks")
 
+        XCTAssertEqual(jaBundle.localizedString(forKey: "common.cancel", value: nil, table: "Localizable"), "キャンセル")
+        XCTAssertEqual(enBundle.localizedString(forKey: "common.cancel", value: nil, table: "Localizable"), "Cancel")
+
+        XCTAssertEqual(jaBundle.localizedString(forKey: "setup.navTitle", value: nil, table: "Localizable"), "新規プロジェクト")
+        XCTAssertEqual(enBundle.localizedString(forKey: "setup.navTitle", value: nil, table: "Localizable"), "New Project")
+
+        XCTAssertEqual(jaBundle.localizedString(forKey: "common.ok", value: nil, table: "Localizable"), "OK")
+        XCTAssertEqual(enBundle.localizedString(forKey: "common.ok", value: nil, table: "Localizable"), "OK")
+
+        XCTAssertEqual(jaBundle.localizedString(forKey: "common.confirm", value: nil, table: "Localizable"), "決定")
+        XCTAssertEqual(enBundle.localizedString(forKey: "common.confirm", value: nil, table: "Localizable"), "Done")
+
         XCTAssertEqual(jaBundle.localizedString(forKey: "timelapse.saveError.accessNotAllowed", value: nil, table: "Localizable"), "写真へのアクセスが許可されていないため、動画を保存できませんでした。")
         XCTAssertEqual(enBundle.localizedString(forKey: "timelapse.saveError.accessNotAllowed", value: nil, table: "Localizable"), "Could not save video because photo access is not allowed.")
 

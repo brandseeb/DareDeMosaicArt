@@ -1,35 +1,125 @@
 {
   "sourceLanguage": "ja",
   "strings": {
-    "": {},
-    "・": {},
+    "・": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "・"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "•"
+          }
+        }
+      }
+    },
     "(%lld/%lld)": {
+      "extractionState": "manual",
       "localizations": {
         "ja": {
           "stringUnit": {
-            "state": "new",
-            "value": "(%1$lld/%2$lld)"
+            "state": "translated",
+            "value": "(%lld/%lld)"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "(%lld/%lld)"
           }
         }
       }
     },
-    "「%@」を削除しますか？": {},
-    "%@ で永久解除": {},
-    "%lld / 60文字 (最大2行)": {},
-    "%lld 枚の写真": {},
-    "%lld%%": {},
+    "「%@」を削除しますか？": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "「%@」を削除しますか？"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Delete \"%@\"?"
+          }
+        }
+      }
+    },
+    "%lld%%": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld%%"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld%%"
+          }
+        }
+      }
+    },
     "%lld×%lld": {
+      "extractionState": "manual",
       "localizations": {
         "ja": {
           "stringUnit": {
-            "state": "new",
-            "value": "%1$lld×%2$lld"
+            "state": "translated",
+            "value": "%lld×%lld"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld×%lld"
           }
         }
       }
     },
-    "•": {},
-    "✨ OK! シャッターを切ろう！": {},
+    "•": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "•"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "•"
+          }
+        }
+      }
+    },
+    "✨ OK! シャッターを切ろう！": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "✨ OK! シャッターを切ろう！"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "✨ OK! Tap the shutter!"
+          }
+        }
+      }
+    },
     "✨ スマート・オートフィル": {
       "extractionState": "manual",
       "localizations": {
@@ -47,7 +137,6 @@
         }
       }
     },
-    "🎉 100%完成": {},
     "🎉 完成おめでとうございます！": {
       "extractionState": "manual",
       "localizations": {
@@ -65,9 +154,23 @@
         }
       }
     },
-    "🎉 完成おめでとうございます！ 🎉": {},
-    "🎬 制作タイムラプス動画を作成": {},
-    "👑Pro": {},
+    "👑Pro": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "👑Pro"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "👑Pro"
+          }
+        }
+      }
+    },
     "1. 元になる画像を選ぶ": {
       "extractionState": "manual",
       "localizations": {
@@ -85,7 +188,6 @@
         }
       }
     },
-    "1回の買い切りでずっと使えます（月額課金なし）": {},
     "2. 設定": {
       "extractionState": "manual",
       "localizations": {
@@ -120,7 +222,6 @@
         }
       }
     },
-    "4K (4,096px)": {},
     "4K最高画質で書き出す": {
       "extractionState": "manual",
       "localizations": {
@@ -155,7 +256,6 @@
         }
       }
     },
-    "10.0秒 / 1080p 正方形 (ショート動画用)": {},
     "15 × 15 (225マス・標準)": {
       "extractionState": "manual",
       "localizations": {
@@ -292,6 +392,176 @@
         }
       }
     },
+    "app.name": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "誰でモザイクアート"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "DareDe Mosaic Art"
+          }
+        }
+      }
+    },
+    "autofill.alert.reset.message.format %lld": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Revert %lld auto-filled tiles back to empty. Your captured photos and locked tiles will be preserved."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "自動配置（オートフィル）によって埋められた %lld マスを空き状態に戻します。自分で撮影した写真やロックしたマスはそのまま維持されます。"
+          }
+        }
+      }
+    },
+    "autofill.alert.reset.title": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reset Auto-Filled Tiles?"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "自動配置をリセットしますか？"
+          }
+        }
+      }
+    },
+    "autofill.alert.stale.message": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Workspace status was changed. The simulation has been recalculated with the latest data."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ワークスペースの状態が変更されたため、最新の状態でプレビューを再計算しました。内容を確認して再度お試しください。"
+          }
+        }
+      }
+    },
+    "autofill.alert.stale.title": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Project Updated"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "プロジェクトが更新されました"
+          }
+        }
+      }
+    },
+    "autofill.apply.count.format %lld": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Apply Auto-Fill (%lld Tiles)"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "選択した設定で自動配置する (%lldマス)"
+          }
+        }
+      }
+    },
+    "autofill.apply.noPhotos": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No eligible photos available"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "配置可能な写真がありません"
+          }
+        }
+      }
+    },
+    "autofill.badge.fullComplete": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "🎉 100% Complete"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "🎉 100%完成"
+          }
+        }
+      }
+    },
+    "autofill.button.reset": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reset"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "リセットする"
+          }
+        }
+      }
+    },
+    "autofill.header.desc": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Automatically fills empty tiles with the closest matching photos from your library."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "空いているマスに、手持ちの写真から最も近い写真を自動で配置します。"
+          }
+        }
+      }
+    },
     "autoFill.level.completeMax.desc": {
       "extractionState": "manual",
       "localizations": {
@@ -424,6 +694,125 @@
           "stringUnit": {
             "state": "translated",
             "value": "+30% ゆるめる"
+          }
+        }
+      }
+    },
+    "autofill.loading.simulation": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Calculating optimal photo assignments..."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "最適な写真の配置を計算中..."
+          }
+        }
+      }
+    },
+    "autofill.option.allowDuplicates": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Allow Duplicate Photo Usage"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "写真の重複使用を許可する"
+          }
+        }
+      }
+    },
+    "autofill.option.allowDuplicates.desc": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reuse matching photos if library has fewer photos, guaranteeing 100% completion."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "手持ちの写真枚数が少ない場合でも、同じ写真を使い回して確実に 100% 埋めることができます。"
+          }
+        }
+      }
+    },
+    "autofill.progress.format %@": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Current Progress: %@"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "現在の進捗: %@"
+          }
+        }
+      }
+    },
+    "autofill.progress.projected.format %lld": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Projected: %lld%%"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "配置後: %lld%%"
+          }
+        }
+      }
+    },
+    "autofill.reset.button.format %lld": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Undo %lld Auto-Filled Tiles (Reset)"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "自動配置した %lld マスを元に戻す（リセット）"
+          }
+        }
+      }
+    },
+    "autofill.section.levels": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Select Auto-Fill Level"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "配置レベルの選択"
           }
         }
       }
@@ -1193,8 +1582,499 @@
         }
       }
     },
-    "DEBUG: FREE": {},
-    "DEBUG: PRO": {},
+    "common.cancel": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "キャンセル"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cancel"
+          }
+        }
+      }
+    },
+    "common.capture": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "撮影する"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Capture"
+          }
+        }
+      }
+    },
+    "common.confirm": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "決定"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Done"
+          }
+        }
+      }
+    },
+    "common.ok": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "OK"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "OK"
+          }
+        }
+      }
+    },
+    "common.openSettings": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "設定を開く"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Open Settings"
+          }
+        }
+      }
+    },
+    "common.share": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "SNSや友達にシェアする"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Share Artwork"
+          }
+        }
+      }
+    },
+    "completion.export.4k": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "4K (4,096px)"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "4K (4,096px)"
+          }
+        }
+      }
+    },
+    "completion.export.proButton": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Unlock 4K & Signature with Pro"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Proで4K・サイン刻印"
+          }
+        }
+      }
+    },
+    "completion.export.standard": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Standard (1,080px)"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "標準画質 (1,080px)"
+          }
+        }
+      }
+    },
+    "completion.header.congrats": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "🎉 Congratulations on Completion! 🎉"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "🎉 完成おめでとうございます！ 🎉"
+          }
+        }
+      }
+    },
+    "completion.header.desc": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Your captured photos unite into a one-of-a-kind artwork."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "集めた写真がつながり、世界で1つのアートになりました"
+          }
+        }
+      }
+    },
+    "completion.header.inProgress": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Current Mosaic Artwork"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "現在のモザイクアート"
+          }
+        }
+      }
+    },
+    "completion.preview.generating": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Generating preview..."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "表示用プレビューを生成中..."
+          }
+        }
+      }
+    },
+    "completion.timelapse.button": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "🎬 Create Timelapse Video"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "🎬 制作タイムラプス動画を作成"
+          }
+        }
+      }
+    },
+    "completion.timelapse.lockedNotice": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Timelapse unlocked once all pieces are filled"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ピースがすべて埋まると動画を作成できます"
+          }
+        }
+      }
+    },
+    "completion.watermark.add": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Add Signature & Date"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "サイン・記念日を刻印する"
+          }
+        }
+      }
+    },
+    "completion.watermark.edit": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Edit Signature"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "刻印を編集"
+          }
+        }
+      }
+    },
+    "completion.watermark.limit.format %lld": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld / 60 characters (max 2 lines)"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld / 60文字 (最大2行)"
+          }
+        }
+      }
+    },
+    "completion.watermark.navTitle": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Signature Settings"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "サイン・刻印の設定"
+          }
+        }
+      }
+    },
+    "completion.watermark.pickerColor": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Color"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "カラー"
+          }
+        }
+      }
+    },
+    "completion.watermark.pickerFont": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Font"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "フォント"
+          }
+        }
+      }
+    },
+    "completion.watermark.pickerPosition": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Position"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "位置"
+          }
+        }
+      }
+    },
+    "completion.watermark.placeholder": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "e.g. 2026.08.26 Happy Wedding\nKen & Yui"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "例: 2026.08.26 Happy Wedding\nKen & Yui"
+          }
+        }
+      }
+    },
+    "completion.watermark.sectionColor": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Color & Style"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "文字カラー・スタイル"
+          }
+        }
+      }
+    },
+    "completion.watermark.sectionFont": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Font Style"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "フォントスタイル"
+          }
+        }
+      }
+    },
+    "completion.watermark.sectionPosition": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Position"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "配置位置"
+          }
+        }
+      }
+    },
+    "completion.watermark.sectionText": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Signature Text (Max 60 chars • up to 2 lines)"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "刻印テキスト (最大60文字・2行まで)"
+          }
+        }
+      }
+    },
+    "DEBUG: FREE": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "DEBUG: FREE"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "DEBUG: FREE"
+          }
+        }
+      }
+    },
+    "DEBUG: PRO": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "DEBUG: PRO"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "DEBUG: PRO"
+          }
+        }
+      }
+    },
     "error.photoFetchFailed.format %@": {
       "extractionState": "manual",
       "localizations": {
@@ -1433,6 +2313,64 @@
         }
       }
     },
+    "format.autoFillRemaining %lld": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Auto-Fill Remaining %lld Tile"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Auto-Fill Remaining %lld Tiles"
+                }
+              }
+            }
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "残り%lldマス自動配置"
+          }
+        }
+      }
+    },
+    "format.photoCount %lld": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld photo"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld photos"
+                }
+              }
+            }
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld 枚の写真"
+          }
+        }
+      }
+    },
     "format.projectsCount %lld": {
       "extractionState": "manual",
       "localizations": {
@@ -1465,12 +2403,6 @@
     "format.remainingTiles %lld": {
       "extractionState": "manual",
       "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "残り %lld マス"
-          }
-        },
         "en": {
           "variations": {
             "plural": {
@@ -1487,6 +2419,12 @@
                 }
               }
             }
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "残り %lld マス"
           }
         }
       }
@@ -1584,6 +2522,210 @@
           "stringUnit": {
             "state": "translated",
             "value": "端末写真＋不足色撮影 (おすすめ)"
+          }
+        }
+      }
+    },
+    "gridOption.10": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "10 × 10 (100 tiles • Easy)"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "10 × 10 (100マス・かんたん)"
+          }
+        }
+      }
+    },
+    "gridOption.15": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "15 × 15 (225 tiles • Standard)"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "15 × 15 (225マス・標準)"
+          }
+        }
+      }
+    },
+    "gridOption.20": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "20 × 20 (400 tiles • Advanced)"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "20 × 20 (400マス・本格派)"
+          }
+        }
+      }
+    },
+    "gridOption.25": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "25 × 25 (625 tiles • Fine 👑Pro)"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "25 × 25 (625マス・細密 👑Pro)"
+          }
+        }
+      }
+    },
+    "gridOption.30": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "30 × 30 (900 tiles • High-Def 👑Pro)"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "30 × 30 (900マス・高精細 👑Pro)"
+          }
+        }
+      }
+    },
+    "gridOption.40": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "40 × 40 (1,600 tiles • Masterpiece 👑Pro)"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "40 × 40 (1,600マス・大作 👑Pro)"
+          }
+        }
+      }
+    },
+    "gridOption.50": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "50 × 50 (2,500 tiles • Epic 👑Pro)"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "50 × 50 (2,500マス・超大作 👑Pro)"
+          }
+        }
+      }
+    },
+    "gridOption.60": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "60 × 60 (3,600 tiles • Ultimate 👑Pro)"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "60 × 60 (3,600マス・究極 👑Pro)"
+          }
+        }
+      }
+    },
+    "home.empty.button": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Create New Artwork"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "新しく作る"
+          }
+        }
+      }
+    },
+    "home.empty.description": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pick your favorite photo and capture\nmatching colors from daily life to complete it!"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "好きな写真を選んで、日常の景色から\n色を撮影して集めて完成させよう！"
+          }
+        }
+      }
+    },
+    "home.empty.title": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Create Mosaic Art"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "モザイクアートを作ろう"
+          }
+        }
+      }
+    },
+    "home.section.projects.format %lld %@": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "In Progress (%lld%@)"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "作成中のアート (%lld%@)"
           }
         }
       }
@@ -1775,6 +2917,431 @@
         }
       }
     },
+    "paywall.alert.purchase.message": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "All Pro features are permanently unlocked. Enjoy creating masterpiece mosaic arts!"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "すべてのPro機能が永久に解放されました。超大作モザイクアートをお楽しみください！"
+          }
+        }
+      }
+    },
+    "paywall.alert.purchase.title": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Upgraded to Pro! 🎉"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Proへのアップグレード完了！🎉"
+          }
+        }
+      }
+    },
+    "paywall.alert.restore.notFound": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No active purchases found."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "有効な購入履歴が見つかりませんでした。"
+          }
+        }
+      }
+    },
+    "paywall.alert.restore.success": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pro features have been successfully restored!"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pro機能が正常に復元されました！"
+          }
+        }
+      }
+    },
+    "paywall.alert.restore.title": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Purchases Restored"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "購入の復元が完了しました"
+          }
+        }
+      }
+    },
+    "paywall.appleIdNotice": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Payment will be charged to your Apple ID. This is a one-time purchase with no recurring fees."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "購入はお使いの Apple ID に請求されます。買い切りアイテムのため自動更新や継続課金は一切ありません。"
+          }
+        }
+      }
+    },
+    "paywall.badge.launchSpecial": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Special Launch Price • One-time Purchase"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "リリース記念特別価格・買い切り"
+          }
+        }
+      }
+    },
+    "paywall.button.unlockPrice.format %@": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Unlock Permanently for %@"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ で永久解除"
+          }
+        }
+      }
+    },
+    "paywall.feature.4k.desc": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Save at maximum print-ready quality for A3/A2 poster printing or special keepsakes."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "A3/A2ポスター印刷や記念写真にも耐えうる最高峰クオリティで保存。"
+          }
+        }
+      }
+    },
+    "paywall.feature.4k.title": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "4K Ultra-HD Export (4,096px)"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "4K 超高画質エクスポート (4,096px)"
+          }
+        }
+      }
+    },
+    "paywall.feature.future.desc": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Enjoy upcoming premium features in future updates with no extra subscriptions."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "今後のアップデートで追加される新機能も、追加料金なしでそのまま利用可能。"
+          }
+        }
+      }
+    },
+    "paywall.feature.future.title": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Future Pro Features Included Forever"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "今後のPro機能も永久に使い放題"
+          }
+        }
+      }
+    },
+    "paywall.feature.grid.desc": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Up to 3,600 tiles! Create giant mosaics with stunning resolution and detail."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "最大3,600マス！圧倒的な解像度と表現力で巨大モザイクを作成できます。"
+          }
+        }
+      }
+    },
+    "paywall.feature.grid.title": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Masterpiece Grids Unlocked (25×25 - 60×60)"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "超大作グリッド解放 (25×25 〜 60×60)"
+          }
+        }
+      }
+    },
+    "paywall.feature.unlimited.desc": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Remove the 3-project free limit. Work on and keep as many projects as you like."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "無料版の3作品制限を解除。好きなだけ作品を並行作成・ストック可能。"
+          }
+        }
+      }
+    },
+    "paywall.feature.unlimited.title": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Unlimited Concurrent Projects"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "作品の同時作成数・無制限"
+          }
+        }
+      }
+    },
+    "paywall.feature.watermark.desc": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Export pure square artworks without footer signature padding."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "下部の署名余白なしで、完全な正方形の純粋アートとして保存・シェア。"
+          }
+        }
+      }
+    },
+    "paywall.feature.watermark.title": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Completely Hide Watermark Logo"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "透かしロゴ完全非表示"
+          }
+        }
+      }
+    },
+    "paywall.header.subtitle": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Unlock all limits and create ultimate mosaic artworks"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "制限をすべて解除して、極限のモザイクアートを作ろう"
+          }
+        }
+      }
+    },
+    "paywall.loadingPrice": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Loading price info..."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "価格情報を読み込み中..."
+          }
+        }
+      }
+    },
+    "paywall.oneTimeNotice": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "One-time lifetime purchase (No recurring subscriptions)"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "1回の買い切りでずっと使えます（月額課金なし）"
+          }
+        }
+      }
+    },
+    "paywall.privacyPolicy": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Privacy"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "プライバシー"
+          }
+        }
+      }
+    },
+    "paywall.restorePurchases": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Restore Purchases"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "購入を復元する"
+          }
+        }
+      }
+    },
+    "paywall.support": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Support"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "サポート"
+          }
+        }
+      }
+    },
+    "paywall.termsOfService": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Terms of Service"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "利用規約"
+          }
+        }
+      }
+    },
     "photoSource.album.format %@": {
       "extractionState": "manual",
       "localizations": {
@@ -1792,19 +3359,87 @@
         }
       }
     },
+    "photoSource.albumSelected.format %@": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Selected: %@"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "選択中: %@"
+          }
+        }
+      }
+    },
     "photoSource.allPhotos": {
       "extractionState": "manual",
       "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "All Saved Photos on Device"
+          }
+        },
         "ja": {
           "stringUnit": {
             "state": "translated",
             "value": "端末内のすべての写真"
           }
-        },
+        }
+      }
+    },
+    "photoSource.allPhotos.desc": {
+      "extractionState": "manual",
+      "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "All Saved Photos on Device"
+            "value": "Matches tiles from all saved photos on device"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "カメラロール内の保存済み写真すべてからマッチング"
+          }
+        }
+      }
+    },
+    "photoSource.specificAlbum": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Select Specific Album"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "特定のアルバムを指定"
+          }
+        }
+      }
+    },
+    "photoSource.specificAlbum.desc": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Create from special folders like trips, weddings, or memories"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "旅行・結婚式・推し活など、思い出のフォルダから作成"
           }
         }
       }
@@ -1894,8 +3529,40 @@
         }
       }
     },
-    "Pro": {},
-    "PRO": {},
+    "Pro": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pro"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pro"
+          }
+        }
+      }
+    },
+    "PRO": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "PRO"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "PRO"
+          }
+        }
+      }
+    },
     "project.defaultTitle": {
       "extractionState": "manual",
       "localizations": {
@@ -1913,10 +3580,312 @@
         }
       }
     },
-    "Proで4K・サイン刻印": {},
-    "Proへのアップグレード完了！🎉": {},
-    "Pro機能が正常に復元されました！": {},
-    "SNSや友達にシェアする": {},
+    "project.titlePlaceholder": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Project Title"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "作品のタイトル"
+          }
+        }
+      }
+    },
+    "setup.albums.notFound": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No user-created albums found."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ユーザー作成のアルバムが見つかりませんでした。"
+          }
+        }
+      }
+    },
+    "setup.alert.albumNotFound.chooseOther": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "別のアルバムを選ぶ"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Choose Another Album"
+          }
+        }
+      }
+    },
+    "setup.alert.albumNotFound.title": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "アルバムが見つかりません"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Album Not Found"
+          }
+        }
+      }
+    },
+    "setup.alert.albumNotFound.useAll": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "端末内の全写真を使用する"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Use All Photos on Device"
+          }
+        }
+      }
+    },
+    "setup.alert.denied.message": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "写真素材をスキャンしてモザイクを生成するために、設定アプリで写真へのアクセスを許可してください。"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Please allow access to your photo library in Settings so we can scan photos to generate your mosaic."
+          }
+        }
+      }
+    },
+    "setup.alert.denied.title": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "写真へのアクセスが許可されていません"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Photo Access Not Allowed"
+          }
+        }
+      }
+    },
+    "setup.alert.limitedAccess.message": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "特定のアルバムを指定するには、設定で「すべての写真へのアクセス」を許可してください。"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "To select a specific album, please enable 'Full Access' to photos in Settings."
+          }
+        }
+      }
+    },
+    "setup.alert.limitedAccess.title": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "写真へのフルアクセスが必要です"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Full Photo Access Required"
+          }
+        }
+      }
+    },
+    "setup.button.changeImage": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Change Image"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "画像を変更する"
+          }
+        }
+      }
+    },
+    "setup.button.selectImage": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Select Image from Photo Library"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "写真ライブラリから画像を選択"
+          }
+        }
+      }
+    },
+    "setup.button.start": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Start Creating Mosaic Art!"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "モザイクアートを作成開始！"
+          }
+        }
+      }
+    },
+    "setup.navTitle": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "新規プロジェクト"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "New Project"
+          }
+        }
+      }
+    },
+    "setup.picker.gridSize": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Grid Resolution"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "マスの細かさ"
+          }
+        }
+      }
+    },
+    "setup.picker.playStyle": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Play Style"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "プレイスタイル"
+          }
+        }
+      }
+    },
+    "setup.section.photoSource": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "3. Photo Library Source"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "3. 使用する写真素材"
+          }
+        }
+      }
+    },
+    "setup.section.settings": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "2. Settings"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "2. 設定"
+          }
+        }
+      }
+    },
+    "setup.section.sourceImage": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "1. Choose Target Image"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "1. 元になる画像を選ぶ"
+          }
+        }
+      }
+    },
     "stage.finalizing.detail": {
       "extractionState": "manual",
       "localizations": {
@@ -2325,6 +4294,125 @@
         }
       }
     },
+    "tile.captureThisColor": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Capture this color"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "この色をカメラで撮影する"
+          }
+        }
+      }
+    },
+    "tile.coordinate.format %lld %lld": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tile (%lld, %lld)"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "マス (%lld, %lld)"
+          }
+        }
+      }
+    },
+    "tile.origin.format %@": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Source: %@"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "配置元: %@"
+          }
+        }
+      }
+    },
+    "tile.retakePhoto": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Retake photo with camera"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "カメラで撮り直す"
+          }
+        }
+      }
+    },
+    "tile.status.needsPhoto": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Status: Not found (Needs photo)"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "状態: 未発見（撮影が必要です）"
+          }
+        }
+      }
+    },
+    "tile.targetColor.format %@": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Target: %@"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "目標色: %@"
+          }
+        }
+      }
+    },
+    "timelapse.format.spec": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "10.0s / 1080p Square (Shorts / Reels)"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "10.0秒 / 1080p 正方形 (ショート動画用)"
+          }
+        }
+      }
+    },
     "timelapse.saveError.accessNotAllowed": {
       "extractionState": "manual",
       "localizations": {
@@ -2389,6 +4477,23 @@
           "stringUnit": {
             "state": "translated",
             "value": "予期しない写真アクセス状態です。"
+          }
+        }
+      }
+    },
+    "timelapse.setting.se": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Puzzle Sound Effects (SE)"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "パズル効果音 (SE)"
           }
         }
       }
@@ -2580,9 +4685,142 @@
         }
       }
     },
-    "アルバムが見つかりません": {},
-    "アルバムを選択": {},
-    "エラー": {},
+    "workspace.allMissionsComplete": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "All Missions Complete! 🎉"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "全ミッション完了！🎉"
+          }
+        }
+      }
+    },
+    "workspace.allPiecesCollected": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "All pieces have been collected!"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "すべてのピースが集まりました！"
+          }
+        }
+      }
+    },
+    "workspace.colorMissions": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Color Missions"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "探す色ミッション"
+          }
+        }
+      }
+    },
+    "workspace.showOriginal": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Original Image"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "元画像を表示"
+          }
+        }
+      }
+    },
+    "workspace.undoAutoFill": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Undo Auto-Fill"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "自動配置前に戻す"
+          }
+        }
+      }
+    },
+    "workspace.viewCompletion": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "View & Save Completed Artwork"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "完成した作品を見る・保存する"
+          }
+        }
+      }
+    },
+    "アルバムが見つかりません": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "アルバムが見つかりません"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Album Not Found"
+          }
+        }
+      }
+    },
+    "アルバムを選択": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "アルバムを選択"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Select Album"
+          }
+        }
+      }
+    },
     "オフ（重複なし・1マス1枚）": {
       "extractionState": "manual",
       "localizations": {
@@ -2634,7 +4872,23 @@
         }
       }
     },
-    "カメラの権限を確認中…": {},
+    "カメラの権限を確認中…": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "カメラの権限を確認中…"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Checking camera permission…"
+          }
+        }
+      }
+    },
     "カメラへのアクセスが必要です": {
       "extractionState": "manual",
       "localizations": {
@@ -2652,8 +4906,40 @@
         }
       }
     },
-    "カメラロールに保存": {},
-    "カメラロールに保存しました！": {},
+    "カメラロールに保存": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "カメラロールに保存"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Save to Camera Roll"
+          }
+        }
+      }
+    },
+    "カメラロールに保存しました！": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "カメラロールに保存しました！"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Saved to Camera Roll!"
+          }
+        }
+      }
+    },
     "カメラロール内の保存済み写真すべてからマッチング": {
       "extractionState": "manual",
       "localizations": {
@@ -2671,7 +4957,6 @@
         }
       }
     },
-    "カラー": {},
     "キャンセル": {
       "extractionState": "manual",
       "localizations": {
@@ -2689,7 +4974,23 @@
         }
       }
     },
-    "このアートで撮影した画像データも一緒に端末から完全に消去されます。この操作は取り消せません。": {},
+    "このアートで撮影した画像データも一緒に端末から完全に消去されます。この操作は取り消せません。": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "このアートで撮影した画像データも一緒に端末から完全に消去されます。この操作は取り消せません。"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "All photo data captured for this artwork will be permanently deleted from your device. This cannot be undone."
+          }
+        }
+      }
+    },
     "この色をカメラで撮影する": {
       "extractionState": "manual",
       "localizations": {
@@ -2707,10 +5008,6 @@
         }
       }
     },
-    "サイン・刻印の設定": {},
-    "サイン・記念日を刻印する": {},
-    "サポート": {},
-    "すべてのPro機能が永久に解放されました。超大作モザイクアートをお楽しみください！": {},
     "すべてのピースが集まりました！": {
       "extractionState": "manual",
       "localizations": {
@@ -2762,8 +5059,6 @@
         }
       }
     },
-    "パズル効果音 (SE)": {},
-    "ピースがすべて埋まると動画を作成できます": {},
     "ピースの確認・変更": {
       "extractionState": "manual",
       "localizations": {
@@ -2798,9 +5093,6 @@
         }
       }
     },
-    "フォント": {},
-    "フォントスタイル": {},
-    "プライバシー": {},
     "プライバシーポリシー": {
       "extractionState": "manual",
       "localizations": {
@@ -2835,7 +5127,6 @@
         }
       }
     },
-    "プロジェクトが更新されました": {},
     "マイモザイクアート": {
       "extractionState": "manual",
       "localizations": {
@@ -2849,16 +5140,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "マイモザイクアート"
-          }
-        }
-      }
-    },
-    "マス (%lld, %lld)": {
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "new",
-            "value": "マス (%1$lld, %2$lld)"
           }
         }
       }
@@ -2880,8 +5161,40 @@
         }
       }
     },
-    "ミッションに戻る": {},
-    "もう一度試す": {},
+    "ミッションに戻る": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ミッションに戻る"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Back to Mission"
+          }
+        }
+      }
+    },
+    "もう一度試す": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "もう一度試す"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Try Again"
+          }
+        }
+      }
+    },
     "モザイクアートにぴったりハマりました！": {
       "extractionState": "manual",
       "localizations": {
@@ -2950,7 +5263,6 @@
         }
       }
     },
-    "ユーザー作成のアルバムが見つかりませんでした。": {},
     "ライブラリから選び直す": {
       "extractionState": "manual",
       "localizations": {
@@ -2968,9 +5280,23 @@
         }
       }
     },
-    "リセットする": {},
-    "リリース記念特別価格・買い切り": {},
-    "ワークスペースの状態が変更されたため、最新の状態でプレビューを再計算しました。内容を確認して再度お試しください。": {},
+    "リリース記念特別価格・買い切り": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "リリース記念特別価格・買い切り"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Special Launch Price • One-time Purchase"
+          }
+        }
+      }
+    },
     "一致度 %lld%%": {
       "extractionState": "manual",
       "localizations": {
@@ -3005,7 +5331,6 @@
         }
       }
     },
-    "位置": {},
     "作品のタイトル": {
       "extractionState": "manual",
       "localizations": {
@@ -3023,19 +5348,23 @@
         }
       }
     },
-    "作成を中止する": {},
-    "作成中のアート (%lld%@)": {
+    "作成を中止する": {
+      "extractionState": "manual",
       "localizations": {
         "ja": {
           "stringUnit": {
-            "state": "new",
-            "value": "作成中のアート (%1$lld%2$@)"
+            "state": "translated",
+            "value": "作成を中止する"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cancel Creation"
           }
         }
       }
     },
-    "例: 2026.08.26 Happy Wedding\nKen & Yui": {},
-    "価格情報を読み込み中...": {},
     "元画像を表示": {
       "extractionState": "manual",
       "localizations": {
@@ -3104,12 +5433,40 @@
         }
       }
     },
-    "再試行する": {},
-    "最適な写真の配置を計算中...": {},
-    "写真の重複使用を許可する": {},
-    "写真ピースの物理落下・立体影・効果音を合成しています": {},
-    "写真へのアクセスが許可されていません": {},
-    "写真へのフルアクセスが必要です": {},
+    "再試行する": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "再試行する"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Retry"
+          }
+        }
+      }
+    },
+    "写真ピースの物理落下・立体影・効果音を合成しています": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "写真ピースの物理落下・立体影・効果音を合成しています"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rendering physics tile drops, 3D shadows, and sound effects"
+          }
+        }
+      }
+    },
     "写真へ保存": {
       "extractionState": "manual",
       "localizations": {
@@ -3161,8 +5518,6 @@
         }
       }
     },
-    "写真素材をスキャンしてモザイクを生成するために、設定アプリで写真へのアクセスを許可してください。": {},
-    "別のアルバムを選ぶ": {},
     "利用可能な類似写真が見つかりませんでした": {
       "extractionState": "manual",
       "localizations": {
@@ -3197,9 +5552,57 @@
         }
       }
     },
-    "制作ショート動画をレンダリング中...": {},
-    "制作タイムラプス動画": {},
-    "制限をすべて解除して、極限のモザイクアートを作ろう": {},
+    "制作ショート動画をレンダリング中...": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "制作ショート動画をレンダリング中..."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rendering timelapse video..."
+          }
+        }
+      }
+    },
+    "制作タイムラプス動画": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "制作タイムラプス動画"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Timelapse Video"
+          }
+        }
+      }
+    },
+    "制限をすべて解除して、極限のモザイクアートを作ろう": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "制限をすべて解除して、極限のモザイクアートを作ろう"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Unlock all limits and create ultimate mosaic artworks"
+          }
+        }
+      }
+    },
     "刻印・サインを追加": {
       "extractionState": "manual",
       "localizations": {
@@ -3217,8 +5620,6 @@
         }
       }
     },
-    "刻印テキスト (最大60文字・2行まで)": {},
-    "刻印を編集": {},
     "削除": {
       "extractionState": "manual",
       "localizations": {
@@ -3236,8 +5637,40 @@
         }
       }
     },
-    "動画の作成に失敗しました": {},
-    "動画を保存できません": {},
+    "動画の作成に失敗しました": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "動画の作成に失敗しました"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Failed to create video"
+          }
+        }
+      }
+    },
+    "動画を保存できません": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "動画を保存できません"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cannot save video"
+          }
+        }
+      }
+    },
     "同じ写真を複数マスに使う": {
       "extractionState": "manual",
       "localizations": {
@@ -3323,7 +5756,6 @@
         }
       }
     },
-    "手持ちの写真枚数が少ない場合でも、同じ写真を使い回して確実に 100% 埋めることができます。": {},
     "探す色ミッション": {
       "extractionState": "manual",
       "localizations": {
@@ -3358,7 +5790,6 @@
         }
       }
     },
-    "文字カラー・スタイル": {},
     "新しく作る": {
       "extractionState": "manual",
       "localizations": {
@@ -3410,7 +5841,6 @@
         }
       }
     },
-    "有効な購入履歴が見つかりませんでした。": {},
     "枠内の色の一致度": {
       "extractionState": "manual",
       "localizations": {
@@ -3428,11 +5858,6 @@
         }
       }
     },
-    "標準画質 (1,080px)": {},
-    "残り %lld マス": {},
-    "残り %lld マスが未配置です": {},
-    "残り%lldマス自動配置": {},
-    "決定": {},
     "特定のアルバムを指定": {
       "extractionState": "manual",
       "localizations": {
@@ -3450,7 +5875,6 @@
         }
       }
     },
-    "特定のアルバムを指定するには、設定で「すべての写真へのアクセス」を許可してください。": {},
     "状態: 未発見（撮影が必要です）": {
       "extractionState": "manual",
       "localizations": {
@@ -3468,8 +5892,6 @@
         }
       }
     },
-    "現在のモザイクアート": {},
-    "現在の進捗: %@": {},
     "画像を変更する": {
       "extractionState": "manual",
       "localizations": {
@@ -3504,10 +5926,40 @@
         }
       }
     },
-    "空いているマスに、手持ちの写真から最も近い写真を自動で配置します。": {},
-    "端末内のすべての写真": {},
-    "端末内の全写真に切り替える": {},
-    "端末内の全写真を使用する": {},
+    "端末内のすべての写真": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "端末内のすべての写真"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "All Saved Photos on Device"
+          }
+        }
+      }
+    },
+    "端末内の全写真に切り替える": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "端末内の全写真に切り替える"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Switch to All Photos"
+          }
+        }
+      }
+    },
     "自動配置": {
       "extractionState": "manual",
       "localizations": {
@@ -3525,9 +5977,35 @@
         }
       }
     },
-    "自動配置（オートフィル）によって埋められた %lld マスを空き状態に戻します。自分で撮影した写真やロックしたマスはそのまま維持されます。": {},
-    "自動配置された %lld マスを元の空きマスに戻します。撮影したピースや手動で選んだピースはそのまま保護されます。": {},
-    "自動配置した %lld マスを元に戻す（リセット）": {},
+    "自動配置された %lld マスを元の空きマスに戻します。撮影したピースや手動で選んだピースはそのまま保護されます。": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "自動配置された %lld マスを元の空きマスに戻します。撮影したピースや手動で選んだピースはそのまま保護されます。"
+          }
+        },
+        "en": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Reverts %lld auto-filled tile back to empty. Your captured pieces and manually selected tiles remain protected."
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Reverts %lld auto-filled tiles back to empty. Your captured pieces and manually selected tiles remain protected."
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "自動配置をリセットしますか？": {
       "extractionState": "manual",
       "localizations": {
@@ -3613,8 +6091,23 @@
         }
       }
     },
-    "色を近づけてね": {},
-    "表示用プレビューを生成中...": {},
+    "色を近づけてね": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "色を近づけてね"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Match the target color"
+          }
+        }
+      }
+    },
     "解析中…": {
       "extractionState": "manual",
       "localizations": {
@@ -3666,7 +6159,23 @@
         }
       }
     },
-    "設定を開く": {},
+    "設定を開く": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "設定を開く"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Open Settings"
+          }
+        }
+      }
+    },
     "誰でモザイクアート": {
       "extractionState": "manual",
       "localizations": {
@@ -3718,8 +6227,6 @@
         }
       }
     },
-    "購入の復元が完了しました": {},
-    "購入はお使いの Apple ID に請求されます。買い切りアイテムのため自動更新や継続課金は一切ありません。": {},
     "購入を復元": {
       "extractionState": "manual",
       "localizations": {
@@ -3737,7 +6244,6 @@
         }
       }
     },
-    "購入を復元する": {},
     "進捗: %@": {
       "extractionState": "manual",
       "localizations": {
@@ -3755,10 +6261,6 @@
         }
       }
     },
-    "選択した設定で自動配置する (%lldマス)": {},
-    "選択中: %@": {},
-    "配置レベルの選択": {},
-    "配置位置": {},
     "配置元: %@": {
       "extractionState": "manual",
       "localizations": {
@@ -3793,1768 +6295,7 @@
         }
       }
     },
-    "配置可能な写真がありません": {},
-    "配置後: %lld%%": {},
-    "閉じる": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Close"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "閉じる"
-          }
-        }
-      }
-    },
-    "集めた写真がつながり、世界で1つのアートになりました": {},
-    "setup.section.photoSource": {
-      "extractionState": "manual",
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "3. 使用する写真素材"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "3. Photo Library Source"
-          }
-        }
-      }
-    },
-    "photoSource.allPhotos.desc": {
-      "extractionState": "manual",
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "カメラロール内の保存済み写真すべてからマッチング"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Matches tiles from all saved photos on device"
-          }
-        }
-      }
-    },
-    "photoSource.specificAlbum": {
-      "extractionState": "manual",
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "特定のアルバムを指定"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Select Specific Album"
-          }
-        }
-      }
-    },
-    "photoSource.specificAlbum.desc": {
-      "extractionState": "manual",
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "旅行・結婚式・推し活など、思い出のフォルダから作成"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Create from special folders like trips, weddings, or memories"
-          }
-        }
-      }
-    },
-    "photoSource.albumSelected.format %@": {
-      "extractionState": "manual",
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "選択中: %@"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Selected: %@"
-          }
-        }
-      }
-    },
-    "setup.button.start": {
-      "extractionState": "manual",
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "モザイクアートを作成開始！"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Start Creating Mosaic Art!"
-          }
-        }
-      }
-    },
-    "setup.albums.notFound": {
-      "extractionState": "manual",
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "ユーザー作成のアルバムが見つかりませんでした。"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "No user-created albums found."
-          }
-        }
-      }
-    },
-    "format.photoCount %lld": {
-      "extractionState": "manual",
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%lld 枚の写真"
-          }
-        },
-        "en": {
-          "variations": {
-            "plural": {
-              "one": {
-                "stringUnit": {
-                  "state": "translated",
-                  "value": "%lld photo"
-                }
-              },
-              "other": {
-                "stringUnit": {
-                  "state": "translated",
-                  "value": "%lld photos"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "workspace.undoAutoFill": {
-      "extractionState": "manual",
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "自動配置前に戻す"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Undo Auto-Fill"
-          }
-        }
-      }
-    },
-    "format.autoFillRemaining %lld": {
-      "extractionState": "manual",
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "残り%lldマス自動配置"
-          }
-        },
-        "en": {
-          "variations": {
-            "plural": {
-              "one": {
-                "stringUnit": {
-                  "state": "translated",
-                  "value": "Auto-Fill Remaining %lld Tile"
-                }
-              },
-              "other": {
-                "stringUnit": {
-                  "state": "translated",
-                  "value": "Auto-Fill Remaining %lld Tiles"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "workspace.allMissionsComplete": {
-      "extractionState": "manual",
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "全ミッション完了！🎉"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "All Missions Complete! 🎉"
-          }
-        }
-      }
-    },
-    "workspace.colorMissions": {
-      "extractionState": "manual",
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "探す色ミッション"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Color Missions"
-          }
-        }
-      }
-    },
-    "workspace.showOriginal": {
-      "extractionState": "manual",
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "元画像を表示"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Original Image"
-          }
-        }
-      }
-    },
-    "workspace.allPiecesCollected": {
-      "extractionState": "manual",
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "すべてのピースが集まりました！"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "All pieces have been collected!"
-          }
-        }
-      }
-    },
-    "workspace.viewCompletion": {
-      "extractionState": "manual",
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "完成した作品を見る・保存する"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "View & Save Completed Artwork"
-          }
-        }
-      }
-    },
-    "tile.coordinate.format %lld %lld": {
-      "extractionState": "manual",
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "マス (%lld, %lld)"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Tile (%lld, %lld)"
-          }
-        }
-      }
-    },
-    "tile.targetColor.format %@": {
-      "extractionState": "manual",
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "目標色: %@"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Target: %@"
-          }
-        }
-      }
-    },
-    "tile.origin.format %@": {
-      "extractionState": "manual",
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "配置元: %@"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Source: %@"
-          }
-        }
-      }
-    },
-    "tile.status.needsPhoto": {
-      "extractionState": "manual",
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "状態: 未発見（撮影が必要です）"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Status: Not found (Needs photo)"
-          }
-        }
-      }
-    },
-    "tile.retakePhoto": {
-      "extractionState": "manual",
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "カメラで撮り直す"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Retake photo with camera"
-          }
-        }
-      }
-    },
-    "tile.captureThisColor": {
-      "extractionState": "manual",
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "この色をカメラで撮影する"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Capture this color"
-          }
-        }
-      }
-    },
-    "paywall.alert.restore.title": {
-      "extractionState": "manual",
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "購入の復元が完了しました"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Purchases Restored"
-          }
-        }
-      }
-    },
-    "paywall.alert.restore.success": {
-      "extractionState": "manual",
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Pro機能が正常に復元されました！"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Pro features have been successfully restored!"
-          }
-        }
-      }
-    },
-    "paywall.alert.restore.notFound": {
-      "extractionState": "manual",
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "有効な購入履歴が見つかりませんでした。"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "No active purchases found."
-          }
-        }
-      }
-    },
-    "paywall.alert.purchase.title": {
-      "extractionState": "manual",
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Proへのアップグレード完了！🎉"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Upgraded to Pro! 🎉"
-          }
-        }
-      }
-    },
-    "paywall.alert.purchase.message": {
-      "extractionState": "manual",
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "すべてのPro機能が永久に解放されました。超大作モザイクアートをお楽しみください！"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "All Pro features are permanently unlocked. Enjoy creating masterpiece mosaic arts!"
-          }
-        }
-      }
-    },
-    "paywall.header.subtitle": {
-      "extractionState": "manual",
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "制限をすべて解除して、極限のモザイクアートを作ろう"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Unlock all limits and create ultimate mosaic artworks"
-          }
-        }
-      }
-    },
-    "paywall.badge.launchSpecial": {
-      "extractionState": "manual",
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "リリース記念特別価格・買い切り"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Special Launch Price • One-time Purchase"
-          }
-        }
-      }
-    },
-    "paywall.feature.grid.title": {
-      "extractionState": "manual",
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "超大作グリッド解放 (25×25 〜 60×60)"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Masterpiece Grids Unlocked (25×25 - 60×60)"
-          }
-        }
-      }
-    },
-    "paywall.feature.grid.desc": {
-      "extractionState": "manual",
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "最大3,600マス！圧倒的な解像度と表現力で巨大モザイクを作成できます。"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Up to 3,600 tiles! Create giant mosaics with stunning resolution and detail."
-          }
-        }
-      }
-    },
-    "paywall.feature.4k.title": {
-      "extractionState": "manual",
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "4K 超高画質エクスポート (4,096px)"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "4K Ultra-HD Export (4,096px)"
-          }
-        }
-      }
-    },
-    "paywall.feature.4k.desc": {
-      "extractionState": "manual",
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "A3/A2ポスター印刷や記念写真にも耐えうる最高峰クオリティで保存。"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Save at maximum print-ready quality for A3/A2 poster printing or special keepsakes."
-          }
-        }
-      }
-    },
-    "paywall.feature.unlimited.title": {
-      "extractionState": "manual",
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "作品の同時作成数・無制限"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Unlimited Concurrent Projects"
-          }
-        }
-      }
-    },
-    "paywall.feature.unlimited.desc": {
-      "extractionState": "manual",
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "無料版の3作品制限を解除。好きなだけ作品を並行作成・ストック可能。"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Remove the 3-project free limit. Work on and keep as many projects as you like."
-          }
-        }
-      }
-    },
-    "paywall.feature.watermark.title": {
-      "extractionState": "manual",
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "透かしロゴ完全非表示"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Completely Hide Watermark Logo"
-          }
-        }
-      }
-    },
-    "paywall.feature.watermark.desc": {
-      "extractionState": "manual",
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "下部の署名余白なしで、完全な正方形の純粋アートとして保存・シェア。"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Export pure square artworks without footer signature padding."
-          }
-        }
-      }
-    },
-    "paywall.feature.future.title": {
-      "extractionState": "manual",
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "今後のPro機能も永久に使い放題"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Future Pro Features Included Forever"
-          }
-        }
-      }
-    },
-    "paywall.feature.future.desc": {
-      "extractionState": "manual",
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "今後のアップデートで追加される新機能も、追加料金なしでそのまま利用可能。"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Enjoy upcoming premium features in future updates with no extra subscriptions."
-          }
-        }
-      }
-    },
-    "paywall.button.unlockPrice.format %@": {
-      "extractionState": "manual",
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%@ で永久解除"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Unlock Permanently for %@"
-          }
-        }
-      }
-    },
-    "paywall.loadingPrice": {
-      "extractionState": "manual",
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "価格情報を読み込み中..."
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Loading price info..."
-          }
-        }
-      }
-    },
-    "paywall.oneTimeNotice": {
-      "extractionState": "manual",
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "1回の買い切りでずっと使えます（月額課金なし）"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "One-time lifetime purchase (No recurring subscriptions)"
-          }
-        }
-      }
-    },
-    "paywall.restorePurchases": {
-      "extractionState": "manual",
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "購入を復元する"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Restore Purchases"
-          }
-        }
-      }
-    },
-    "paywall.termsOfService": {
-      "extractionState": "manual",
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "利用規約"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Terms of Service"
-          }
-        }
-      }
-    },
-    "paywall.privacyPolicy": {
-      "extractionState": "manual",
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "プライバシー"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Privacy"
-          }
-        }
-      }
-    },
-    "paywall.support": {
-      "extractionState": "manual",
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "サポート"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Support"
-          }
-        }
-      }
-    },
-    "paywall.appleIdNotice": {
-      "extractionState": "manual",
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "購入はお使いの Apple ID に請求されます。買い切りアイテムのため自動更新や継続課金は一切ありません。"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Payment will be charged to your Apple ID. This is a one-time purchase with no recurring fees."
-          }
-        }
-      }
-    },
-    "setup.section.sourceImage": {
-      "extractionState": "manual",
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "1. 元になる画像を選ぶ"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "1. Choose Target Image"
-          }
-        }
-      }
-    },
-    "setup.button.changeImage": {
-      "extractionState": "manual",
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "画像を変更する"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Change Image"
-          }
-        }
-      }
-    },
-    "setup.button.selectImage": {
-      "extractionState": "manual",
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "写真ライブラリから画像を選択"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Select Image from Photo Library"
-          }
-        }
-      }
-    },
-    "setup.section.settings": {
-      "extractionState": "manual",
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "2. 設定"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "2. Settings"
-          }
-        }
-      }
-    },
-    "project.titlePlaceholder": {
-      "extractionState": "manual",
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "作品のタイトル"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Project Title"
-          }
-        }
-      }
-    },
-    "setup.picker.gridSize": {
-      "extractionState": "manual",
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "マスの細かさ"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Grid Resolution"
-          }
-        }
-      }
-    },
-    "gridOption.10": {
-      "extractionState": "manual",
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "10 × 10 (100マス・かんたん)"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "10 × 10 (100 tiles • Easy)"
-          }
-        }
-      }
-    },
-    "gridOption.15": {
-      "extractionState": "manual",
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "15 × 15 (225マス・標準)"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "15 × 15 (225 tiles • Standard)"
-          }
-        }
-      }
-    },
-    "gridOption.20": {
-      "extractionState": "manual",
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "20 × 20 (400マス・本格派)"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "20 × 20 (400 tiles • Advanced)"
-          }
-        }
-      }
-    },
-    "gridOption.25": {
-      "extractionState": "manual",
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "25 × 25 (625マス・細密 👑Pro)"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "25 × 25 (625 tiles • Fine 👑Pro)"
-          }
-        }
-      }
-    },
-    "gridOption.30": {
-      "extractionState": "manual",
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "30 × 30 (900マス・高精細 👑Pro)"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "30 × 30 (900 tiles • High-Def 👑Pro)"
-          }
-        }
-      }
-    },
-    "gridOption.40": {
-      "extractionState": "manual",
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "40 × 40 (1,600マス・大作 👑Pro)"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "40 × 40 (1,600 tiles • Masterpiece 👑Pro)"
-          }
-        }
-      }
-    },
-    "gridOption.50": {
-      "extractionState": "manual",
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "50 × 50 (2,500マス・超大作 👑Pro)"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "50 × 50 (2,500 tiles • Epic 👑Pro)"
-          }
-        }
-      }
-    },
-    "gridOption.60": {
-      "extractionState": "manual",
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "60 × 60 (3,600マス・究極 👑Pro)"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "60 × 60 (3,600 tiles • Ultimate 👑Pro)"
-          }
-        }
-      }
-    },
-    "setup.picker.playStyle": {
-      "extractionState": "manual",
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "プレイスタイル"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Play Style"
-          }
-        }
-      }
-    },
-    "completion.header.congrats": {
-      "extractionState": "manual",
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "🎉 完成おめでとうございます！ 🎉"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "🎉 Congratulations on Completion! 🎉"
-          }
-        }
-      }
-    },
-    "completion.header.inProgress": {
-      "extractionState": "manual",
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "現在のモザイクアート"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Current Mosaic Artwork"
-          }
-        }
-      }
-    },
-    "completion.header.desc": {
-      "extractionState": "manual",
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "集めた写真がつながり、世界で1つのアートになりました"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Your captured photos unite into a one-of-a-kind artwork."
-          }
-        }
-      }
-    },
-    "completion.preview.generating": {
-      "extractionState": "manual",
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "表示用プレビューを生成中..."
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Generating preview..."
-          }
-        }
-      }
-    },
-    "completion.export.4k": {
-      "extractionState": "manual",
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "4K (4,096px)"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "4K (4,096px)"
-          }
-        }
-      }
-    },
-    "completion.export.standard": {
-      "extractionState": "manual",
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "標準画質 (1,080px)"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Standard (1,080px)"
-          }
-        }
-      }
-    },
-    "completion.export.proButton": {
-      "extractionState": "manual",
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Proで4K・サイン刻印"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Unlock 4K & Signature with Pro"
-          }
-        }
-      }
-    },
-    "completion.watermark.add": {
-      "extractionState": "manual",
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "サイン・記念日を刻印する"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Add Signature & Date"
-          }
-        }
-      }
-    },
-    "completion.watermark.edit": {
-      "extractionState": "manual",
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "刻印を編集"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Edit Signature"
-          }
-        }
-      }
-    },
-    "completion.timelapse.button": {
-      "extractionState": "manual",
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "🎬 制作タイムラプス動画を作成"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "🎬 Create Timelapse Video"
-          }
-        }
-      }
-    },
-    "completion.timelapse.lockedNotice": {
-      "extractionState": "manual",
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "ピースがすべて埋まると動画を作成できます"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Timelapse unlocked once all pieces are filled"
-          }
-        }
-      }
-    },
-    "completion.watermark.sectionText": {
-      "extractionState": "manual",
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "刻印テキスト (最大60文字・2行まで)"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Signature Text (Max 60 chars • up to 2 lines)"
-          }
-        }
-      }
-    },
-    "completion.watermark.placeholder": {
-      "extractionState": "manual",
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "例: 2026.08.26 Happy Wedding\nKen & Yui"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "e.g. 2026.08.26 Happy Wedding\nKen & Yui"
-          }
-        }
-      }
-    },
-    "completion.watermark.limit.format %lld": {
-      "extractionState": "manual",
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%lld / 60文字 (最大2行)"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%lld / 60 characters (max 2 lines)"
-          }
-        }
-      }
-    },
-    "completion.watermark.sectionFont": {
-      "extractionState": "manual",
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "フォントスタイル"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Font Style"
-          }
-        }
-      }
-    },
-    "completion.watermark.pickerFont": {
-      "extractionState": "manual",
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "フォント"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Font"
-          }
-        }
-      }
-    },
-    "completion.watermark.sectionPosition": {
-      "extractionState": "manual",
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "配置位置"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Position"
-          }
-        }
-      }
-    },
-    "completion.watermark.pickerPosition": {
-      "extractionState": "manual",
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "位置"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Position"
-          }
-        }
-      }
-    },
-    "completion.watermark.sectionColor": {
-      "extractionState": "manual",
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "文字カラー・スタイル"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Color & Style"
-          }
-        }
-      }
-    },
-    "completion.watermark.pickerColor": {
-      "extractionState": "manual",
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "カラー"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Color"
-          }
-        }
-      }
-    },
-    "completion.watermark.navTitle": {
-      "extractionState": "manual",
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "サイン・刻印の設定"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Signature Settings"
-          }
-        }
-      }
-    },
-    "home.empty.title": {
-      "extractionState": "manual",
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "モザイクアートを作ろう"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Create Mosaic Art"
-          }
-        }
-      }
-    },
-    "home.empty.description": {
-      "extractionState": "manual",
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "好きな写真を選んで、日常の景色から\n色を撮影して集めて完成させよう！"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Pick your favorite photo and capture\nmatching colors from daily life to complete it!"
-          }
-        }
-      }
-    },
-    "home.empty.button": {
-      "extractionState": "manual",
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "新しく作る"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Create New Artwork"
-          }
-        }
-      }
-    },
-    "home.section.projects.format %lld %@": {
-      "extractionState": "manual",
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "作成中のアート (%lld%@)"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "In Progress (%lld%@)"
-          }
-        }
-      }
-    },
-    "autofill.alert.stale.title": {
-      "extractionState": "manual",
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "プロジェクトが更新されました"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Project Updated"
-          }
-        }
-      }
-    },
-    "autofill.alert.stale.message": {
-      "extractionState": "manual",
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "ワークスペースの状態が変更されたため、最新の状態でプレビューを再計算しました。内容を確認して再度お試しください。"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Workspace status was changed. The simulation has been recalculated with the latest data."
-          }
-        }
-      }
-    },
-    "autofill.alert.reset.title": {
-      "extractionState": "manual",
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "自動配置をリセットしますか？"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Reset Auto-Filled Tiles?"
-          }
-        }
-      }
-    },
-    "autofill.button.reset": {
-      "extractionState": "manual",
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "リセットする"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Reset"
-          }
-        }
-      }
-    },
-    "autofill.alert.reset.message.format %lld": {
-      "extractionState": "manual",
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "自動配置（オートフィル）によって埋められた %lld マスを空き状態に戻します。自分で撮影した写真やロックしたマスはそのまま維持されます。"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Revert %lld auto-filled tiles back to empty. Your captured photos and locked tiles will be preserved."
-          }
-        }
-      }
-    },
-    "autofill.header.desc": {
-      "extractionState": "manual",
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "空いているマスに、手持ちの写真から最も近い写真を自動で配置します。"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Automatically fills empty tiles with the closest matching photos from your library."
-          }
-        }
-      }
-    },
-    "autofill.progress.format %@": {
-      "extractionState": "manual",
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "現在の進捗: %@"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Current Progress: %@"
-          }
-        }
-      }
-    },
-    "autofill.option.allowDuplicates": {
-      "extractionState": "manual",
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "写真の重複使用を許可する"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Allow Duplicate Photo Usage"
-          }
-        }
-      }
-    },
-    "autofill.option.allowDuplicates.desc": {
-      "extractionState": "manual",
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "手持ちの写真枚数が少ない場合でも、同じ写真を使い回して確実に 100% 埋めることができます。"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Reuse matching photos if library has fewer photos, guaranteeing 100% completion."
-          }
-        }
-      }
-    },
-    "autofill.section.levels": {
-      "extractionState": "manual",
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "配置レベルの選択"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Select Auto-Fill Level"
-          }
-        }
-      }
-    },
-    "autofill.loading.simulation": {
-      "extractionState": "manual",
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "最適な写真の配置を計算中..."
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Calculating optimal photo assignments..."
-          }
-        }
-      }
-    },
-    "autofill.badge.fullComplete": {
-      "extractionState": "manual",
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "🎉 100%完成"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "🎉 100% Complete"
-          }
-        }
-      }
-    },
-    "autofill.progress.projected.format %lld": {
-      "extractionState": "manual",
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "配置後: %lld%%"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Projected: %lld%%"
-          }
-        }
-      }
-    },
-    "autofill.reset.button.format %lld": {
-      "extractionState": "manual",
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "自動配置した %lld マスを元に戻す（リセット）"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Undo %lld Auto-Filled Tiles (Reset)"
-          }
-        }
-      }
-    },
-    "autofill.apply.count.format %lld": {
-      "extractionState": "manual",
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "選択した設定で自動配置する (%lldマス)"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Apply Auto-Fill (%lld Tiles)"
-          }
-        }
-      }
-    },
-    "autofill.apply.noPhotos": {
+    "配置可能な写真がありません": {
       "extractionState": "manual",
       "localizations": {
         "ja": {
@@ -5571,36 +6312,19 @@
         }
       }
     },
-    "timelapse.setting.se": {
+    "閉じる": {
       "extractionState": "manual",
       "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "パズル効果音 (SE)"
-          }
-        },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Puzzle Sound Effects (SE)"
+            "value": "Close"
           }
-        }
-      }
-    },
-    "timelapse.format.spec": {
-      "extractionState": "manual",
-      "localizations": {
+        },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "10.0秒 / 1080p 正方形 (ショート動画用)"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "10.0s / 1080p Square (Shorts / Reels)"
+            "value": "閉じる"
           }
         }
       }
