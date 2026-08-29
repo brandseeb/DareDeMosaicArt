@@ -17,6 +17,7 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXBuildFile section */
+		A00000000000000000000010 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000011 /* Assets.xcassets */; };
 		R00000000000000000000001 /* Localizable.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = R00000000000000000000002 /* Localizable.xcstrings */; };
 		R00000000000000000000003 /* InfoPlist.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = R00000000000000000000004 /* InfoPlist.xcstrings */; };
 		A00000000000000000000001 /* DareDeMosaicArtTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000002 /* DareDeMosaicArtTests.swift */; };
@@ -49,6 +50,7 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
+		A00000000000000000000011 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		R00000000000000000000002 /* Localizable.xcstrings */ = {isa = PBXFileReference; lastKnownFileType = text.json.xcstrings; path = Localizable.xcstrings; sourceTree = "<group>"; };
 		R00000000000000000000004 /* InfoPlist.xcstrings */ = {isa = PBXFileReference; lastKnownFileType = text.json.xcstrings; path = InfoPlist.xcstrings; sourceTree = "<group>"; };
 		A00000000000000000000002 /* DareDeMosaicArtTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DareDeMosaicArtTests.swift; sourceTree = "<group>"; };
@@ -170,6 +172,7 @@
 		990EAC47C06A416294622EAA = {
 			isa = PBXGroup;
 			children = (
+				A00000000000000000000011 /* Assets.xcassets */,
 				R00000000000000000000005 /* Resources */,
 				B85885B374C34338B8509924 /* DareDeMosaicArtApp.swift */,
 				263B6D77658F4E218BBA3F9B /* Info.plist */,
@@ -336,6 +339,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				A00000000000000000000010 /* Assets.xcassets in Resources */,
 				R00000000000000000000001 /* Localizable.xcstrings in Resources */,
 				R00000000000000000000003 /* InfoPlist.xcstrings in Resources */,
 			);
