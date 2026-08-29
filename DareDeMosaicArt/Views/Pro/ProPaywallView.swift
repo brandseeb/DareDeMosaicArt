@@ -47,19 +47,19 @@ public struct ProPaywallView: View {
                     await storeKit.fetchProduct()
                 }
             }
-            .alert("購入の復元が完了しました", isPresented: $showRestoreSuccessAlert) {
-                Button("OK") {
+            .alert(String(localized: "paywall.alert.restore.title"), isPresented: $showRestoreSuccessAlert) {
+                Button(String(localized: "common.ok")) {
                     dismiss()
                 }
             } message: {
-                Text(storeKit.isProUser ? "Pro機能が正常に復元されました！" : "有効な購入履歴が見つかりませんでした。")
+                Text(storeKit.isProUser ? LocalizedStringResource("paywall.alert.restore.success") : LocalizedStringResource("paywall.alert.restore.notFound"))
             }
-            .alert("Proへのアップグレード完了！🎉", isPresented: $showPurchaseSuccessAlert) {
-                Button("OK") {
+            .alert(String(localized: "paywall.alert.purchase.title"), isPresented: $showPurchaseSuccessAlert) {
+                Button(String(localized: "common.ok")) {
                     dismiss()
                 }
             } message: {
-                Text("すべてのPro機能が永久に解放されました。超大作モザイクアートをお楽しみください！")
+                Text(LocalizedStringResource("paywall.alert.purchase.message"))
             }
         }
     }
@@ -86,7 +86,7 @@ public struct ProPaywallView: View {
             
             VStack(spacing: 6) {
                 HStack(spacing: 6) {
-                    Text("誰でモザイクアート")
+                    Text(LocalizedStringResource("app.name"))
                         .font(.title2.bold())
                     Text("PRO")
                         .font(.headline.bold())
@@ -103,7 +103,7 @@ public struct ProPaywallView: View {
                         .cornerRadius(6)
                 }
                 
-                Text("制限をすべて解除して、極限のモザイクアートを作ろう")
+                Text(LocalizedStringResource("paywall.header.subtitle"))
                     .font(.subheadline)
                     .foregroundColor(.secondary)
                     .multilineTextAlignment(.center)
@@ -112,7 +112,7 @@ public struct ProPaywallView: View {
             // リリース記念バッジ
             HStack(spacing: 4) {
                 Image(systemName: "sparkles")
-                Text("リリース記念特別価格・買い切り")
+                Text(LocalizedStringResource("paywall.badge.launchSpecial"))
                 Image(systemName: "sparkles")
             }
             .font(.caption.bold())
@@ -130,36 +130,36 @@ public struct ProPaywallView: View {
             featureRow(
                 icon: "square.grid.3x3.square.fill",
                 color: .orange,
-                title: "超大作グリッド解放 (25×25 〜 60×60)",
-                subtitle: "最大3,600マス！圧倒的な解像度と表現力で巨大モザイクを作成できます。"
+                title: LocalizedStringResource("paywall.feature.grid.title"),
+                subtitle: LocalizedStringResource("paywall.feature.grid.desc")
             )
             
             featureRow(
                 icon: "sparkles.tv.fill",
                 color: .blue,
-                title: "4K 超高画質エクスポート (4,096px)",
-                subtitle: "A3/A2ポスター印刷や記念写真にも耐えうる最高峰クオリティで保存。"
+                title: LocalizedStringResource("paywall.feature.4k.title"),
+                subtitle: LocalizedStringResource("paywall.feature.4k.desc")
             )
             
             featureRow(
                 icon: "infinity",
                 color: .purple,
-                title: "作品の同時作成数・無制限",
-                subtitle: "無料版の3作品制限を解除。好きなだけ作品を並行作成・ストック可能。"
+                title: LocalizedStringResource("paywall.feature.unlimited.title"),
+                subtitle: LocalizedStringResource("paywall.feature.unlimited.desc")
             )
             
             featureRow(
                 icon: "tag.slash.fill",
                 color: .green,
-                title: "透かしロゴ完全非表示",
-                subtitle: "下部の署名余白なしで、完全な正方形の純粋アートとして保存・シェア。"
+                title: LocalizedStringResource("paywall.feature.watermark.title"),
+                subtitle: LocalizedStringResource("paywall.feature.watermark.desc")
             )
             
             featureRow(
                 icon: "gift.fill",
                 color: .pink,
-                title: "今後のPro機能も永久に使い放題",
-                subtitle: "今後のアップデートで追加される新機能も、追加料金なしでそのまま利用可能。"
+                title: LocalizedStringResource("paywall.feature.future.title"),
+                subtitle: LocalizedStringResource("paywall.feature.future.desc")
             )
         }
         .padding(16)
@@ -167,7 +167,7 @@ public struct ProPaywallView: View {
         .cornerRadius(18)
     }
     
-    private func featureRow(icon: String, color: Color, title: String, subtitle: String) -> some View {
+    private func featureRow(icon: String, color: Color, title: LocalizedStringResource, subtitle: LocalizedStringResource) -> some View {
         HStack(alignment: .top, spacing: 14) {
             Image(systemName: icon)
                 .font(.title3)
@@ -215,18 +215,18 @@ public struct ProPaywallView: View {
                     
                     VStack(spacing: 2) {
                         if let product = storeKit.proProduct {
-                            Text("\(product.displayPrice) で永久解除")
+                            Text(LocalizedStringResource("paywall.button.unlockPrice.format \(product.displayPrice)"))
                                 .font(.headline)
                         } else {
                             HStack(spacing: 6) {
                                 ProgressView()
                                     .scaleEffect(0.8)
                                     .tint(.white)
-                                Text("価格情報を読み込み中...")
+                                Text(LocalizedStringResource("paywall.loadingPrice"))
                                     .font(.subheadline)
                             }
                         }
-                        Text("1回の買い切りでずっと使えます（月額課金なし）")
+                        Text(LocalizedStringResource("paywall.oneTimeNotice"))
                             .font(.caption2)
                             .opacity(0.85)
                     }
@@ -259,7 +259,7 @@ public struct ProPaywallView: View {
                     ProgressView()
                         .scaleEffect(0.8)
                 } else {
-                    Text("購入を復元する")
+                    Text(LocalizedStringResource("paywall.restorePurchases"))
                         .font(.caption.bold())
                         .foregroundColor(.secondary)
                 }
@@ -268,18 +268,18 @@ public struct ProPaywallView: View {
             
             // 利用規約 ＆ プライバシーポリシー ＆ お問い合わせリンク
             HStack(spacing: 14) {
-                Link("利用規約", destination: URL(string: "https://www.apple.com/legal/internet-services/itunes/dev/stdeula/")!)
+                Link(String(localized: "paywall.termsOfService"), destination: URL(string: "https://www.apple.com/legal/internet-services/itunes/dev/stdeula/")!)
                 Text("・")
                     .foregroundColor(.secondary)
-                Link("プライバシー", destination: URL(string: "https://brandseeb.github.io/DareDeMosaicArt/privacy.html")!)
+                Link(String(localized: "paywall.privacyPolicy"), destination: URL(string: "https://brandseeb.github.io/DareDeMosaicArt/privacy.html")!)
                 Text("・")
                     .foregroundColor(.secondary)
-                Link("サポート", destination: URL(string: "https://docs.google.com/forms/d/e/1FAIpQLSdlxMpCz5wvirp-X8LBdrJuT58UtP3eO8mkJsfrzm396mSUEQ/viewform?pli=1")!)
+                Link(String(localized: "paywall.support"), destination: URL(string: "https://docs.google.com/forms/d/e/1FAIpQLSdlxMpCz5wvirp-X8LBdrJuT58UtP3eO8mkJsfrzm396mSUEQ/viewform?pli=1")!)
             }
             .font(.caption2)
             .foregroundColor(.secondary)
             
-            Text("購入はお使いの Apple ID に請求されます。買い切りアイテムのため自動更新や継続課金は一切ありません。")
+            Text(LocalizedStringResource("paywall.appleIdNotice"))
                 .font(.caption2)
                 .foregroundColor(.secondary.opacity(0.8))
                 .multilineTextAlignment(.center)

@@ -116,10 +116,10 @@ public struct MissionCameraView: View {
                             Spacer()
                             
                             VStack(alignment: .trailing, spacing: 2) {
-                                Text(mission.title)
+                                Text(mission.localizedTitle)
                                     .font(.headline)
                                     .foregroundColor(.white)
-                                Text("残り \(mission.remainingCount) マス")
+                                Text(LocalizedStringResource("format.remainingTiles \(mission.remainingCount)"))
                                     .font(.caption)
                                     .foregroundColor(.yellow)
                             }
@@ -380,7 +380,7 @@ public struct MissionCameraView: View {
                 guard let croppedImage = ImageUtils.cropCenterSquare(image: image, ratio: 1.0, maxDimension: 512),
                       let cgImage = croppedImage.cgImage else {
                     await MainActor.run {
-                        feedbackMessage = String(localized: "camera.error.analyzeFailed", defaultValue: "写真を解析できませんでした。もう一度お試しください。")
+                        feedbackMessage = String(localized: "camera.error.analyzeFailed")
                         isProcessing = false
                     }
                     return
@@ -429,27 +429,27 @@ public struct MissionCameraView: View {
     private func retryAdvice(for captured: LabColor, target: LabColor) -> String {
         let lightnessDelta = target.l - captured.l
         if lightnessDelta > 8 {
-            return String(localized: "camera.advice.lighter", defaultValue: "もう少し明るい場所や光の当たる場所を狙ってみましょう。")
+            return String(localized: "camera.advice.lighter")
         }
         if lightnessDelta < -8 {
-            return String(localized: "camera.advice.darker", defaultValue: "もう少し暗い場所や影に近づけてみましょう。")
+            return String(localized: "camera.advice.darker")
         }
 
         let redGreenDelta = target.a - captured.a
         if redGreenDelta > 9 {
-            return String(localized: "camera.advice.moreRed", defaultValue: "赤みがもう少し必要です。赤・オレンジ側の色を狙ってみましょう。")
+            return String(localized: "camera.advice.moreRed")
         }
         if redGreenDelta < -9 {
-            return String(localized: "camera.advice.moreGreen", defaultValue: "緑みがもう少し必要です。植物や緑の小物を探してみましょう。")
+            return String(localized: "camera.advice.moreGreen")
         }
 
         let yellowBlueDelta = target.b - captured.b
         if yellowBlueDelta > 9 {
-            return String(localized: "camera.advice.moreYellow", defaultValue: "黄色みがもう少し必要です。暖色系の色を狙ってみましょう。")
+            return String(localized: "camera.advice.moreYellow")
         }
         if yellowBlueDelta < -9 {
-            return String(localized: "camera.advice.moreBlue", defaultValue: "青みがもう少し必要です。空や青い小物に近づけてみましょう。")
+            return String(localized: "camera.advice.moreBlue")
         }
-        return String(localized: "camera.advice.alignFrame", defaultValue: "ファインダー枠の中に、探している色を入れてみましょう！")
+        return String(localized: "camera.advice.alignFrame")
     }
 }

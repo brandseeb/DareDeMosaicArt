@@ -344,7 +344,7 @@ public struct MosaicWorkspaceView: View {
                 } label: {
                     HStack(spacing: 4) {
                         Image(systemName: "arrow.uturn.backward")
-                        Text("自動配置前に戻す")
+                        Text(LocalizedStringResource("workspace.undoAutoFill"))
                     }
                     .font(.caption.bold())
                     .foregroundColor(.white)
@@ -360,7 +360,7 @@ public struct MosaicWorkspaceView: View {
                 } label: {
                     HStack(spacing: 4) {
                         Image(systemName: "wand.and.stars")
-                        Text("残り\(emptyTilesCount)マス自動配置")
+                        Text(LocalizedStringResource("format.autoFillRemaining \(emptyTilesCount)"))
                     }
                     .font(.caption.bold())
                     .foregroundColor(.white)
@@ -412,15 +412,20 @@ public struct MosaicWorkspaceView: View {
             HStack {
                 Image(systemName: "camera.badge.ellipsis")
                     .foregroundColor(.accentColor)
-                Text(project.missions.isEmpty ? "全ミッション完了！🎉" : "探す色ミッション")
-                    .font(.headline)
+                if project.missions.isEmpty {
+                    Text(LocalizedStringResource("workspace.allMissionsComplete"))
+                        .font(.headline)
+                } else {
+                    Text(LocalizedStringResource("workspace.colorMissions"))
+                        .font(.headline)
+                }
                 
                 Spacer()
                 
                 // 元画像表示ボタン（長押ししている間だけ元画像を表示）
                 HStack(spacing: 4) {
                     Image(systemName: isPressingOriginalImage ? "eye.fill" : "eye")
-                    Text("元画像を表示")
+                    Text(LocalizedStringResource("workspace.showOriginal"))
                         .font(.caption.bold())
                 }
                 .foregroundColor(isPressingOriginalImage ? .white : .accentColor)
@@ -452,14 +457,14 @@ public struct MosaicWorkspaceView: View {
             
             if project.missions.isEmpty {
                 VStack(spacing: 8) {
-                    Text("すべてのピースが集まりました！")
+                    Text(LocalizedStringResource("workspace.allPiecesCollected"))
                         .font(.subheadline)
                         .foregroundColor(.secondary)
                     
                     Button {
                         showCompletion = true
                     } label: {
-                        Text("完成した作品を見る・保存する")
+                        Text(LocalizedStringResource("workspace.viewCompletion"))
                             .font(.headline)
                             .foregroundColor(.white)
                             .frame(maxWidth: .infinity)
@@ -496,12 +501,12 @@ public struct MosaicWorkspaceView: View {
                     .frame(width: 24, height: 24)
                     .overlay(Circle().stroke(Color.white, lineWidth: 1.5))
                 
-                Text(mission.title)
+                Text(mission.localizedTitle)
                     .font(.subheadline.bold())
                     .lineLimit(1)
             }
             
-            Text("残り \(mission.remainingCount) マス")
+            Text(LocalizedStringResource("format.remainingTiles \(mission.remainingCount)"))
                 .font(.caption2)
                 .foregroundColor(.secondary)
             
@@ -510,7 +515,7 @@ public struct MosaicWorkspaceView: View {
             } label: {
                 HStack(spacing: 4) {
                     Image(systemName: "camera.fill")
-                    Text("撮影する")
+                    Text(LocalizedStringResource("common.capture"))
                 }
                 .font(.caption.bold())
                 .foregroundColor(.white)
@@ -547,18 +552,18 @@ public struct MosaicWorkspaceView: View {
                         }
                         
                         VStack(alignment: .leading, spacing: 4) {
-                            Text("マス (\(tile.gridX + 1), \(tile.gridY + 1))")
+                            Text(LocalizedStringResource("tile.coordinate.format \(tile.gridX + 1) \(tile.gridY + 1)"))
                                 .font(.headline)
-                            Text("目標色: \(tile.targetLabColor.localizedName)")
+                            Text(LocalizedStringResource("tile.targetColor.format \(String(localized: tile.targetLabColor.localizedResource))"))
                                 .font(.subheadline)
                                 .foregroundColor(.secondary)
                             
                             if tile.isFilled {
-                                Text("配置元: \(tile.origin == .captured ? "カメラ撮影 📸" : (tile.origin == .manuallySelected ? "手動選択 👑" : "自動配置 ⚡️"))")
+                                Text(LocalizedStringResource("tile.origin.format \(String(localized: tile.origin.localizedTitle))"))
                                     .font(.caption.bold())
                                     .foregroundColor(.green)
                             } else {
-                                Text("状態: 未発見（撮影が必要です）")
+                                Text(LocalizedStringResource("tile.status.needsPhoto"))
                                     .font(.caption.bold())
                                     .foregroundColor(.orange)
                             }
@@ -573,7 +578,7 @@ public struct MosaicWorkspaceView: View {
                         let mission = ColorMission(
                             targetColor: tile.targetLabColor,
                             targetSignature: tile.targetSignature,
-                            title: tile.isFilled ? "ピース撮り直し: \(tile.targetLabColor.localizedName)" : nil,
+                            title: nil,
                             targetTileIds: [tile.id]
                         )
                         selectedTile = nil
@@ -581,7 +586,11 @@ public struct MosaicWorkspaceView: View {
                     } label: {
                         HStack(spacing: 6) {
                             Image(systemName: tile.isFilled ? "arrow.triangle.2.circlepath.camera.fill" : "camera.fill")
-                            Text(tile.isFilled ? "カメラで撮り直す" : "この色をカメラで撮影する")
+                            if tile.isFilled {
+                                Text(LocalizedStringResource("tile.retakePhoto"))
+                            } else {
+                                Text(LocalizedStringResource("tile.captureThisColor"))
+                            }
                         }
                         .font(.headline)
                         .foregroundColor(.white)

@@ -75,7 +75,7 @@ public struct TimelapseExportView: View {
                     openAppSettings()
                 }
             } message: {
-                Text(saveError ?? String(localized: "timelapse.saveError.fallback", defaultValue: "写真への追加アクセスを確認してください。"))
+                Text(saveError ?? String(localized: "timelapse.saveError.fallback"))
             }
             .sheet(item: $shareItem) { item in
                 ActivityShareSheet(activityItems: [item.url])
@@ -171,7 +171,7 @@ public struct TimelapseExportView: View {
                 HStack(spacing: 4) {
                     Image(systemName: includeAudio ? "speaker.wave.2.fill" : "speaker.slash.fill")
                         .foregroundColor(includeAudio ? .accentColor : .secondary)
-                    Text("パズル効果音 (SE)")
+                    Text(LocalizedStringResource("timelapse.setting.se"))
                         .font(.subheadline.bold())
                 }
                 Spacer()
@@ -190,7 +190,7 @@ public struct TimelapseExportView: View {
             HStack(spacing: 4) {
                 Image(systemName: "repeat")
                     .font(.caption2)
-                Text("10.0秒 / 1080p 正方形 (ショート動画用)")
+                Text(LocalizedStringResource("timelapse.format.spec"))
                     .font(.caption)
             }
             .foregroundColor(.secondary)
@@ -207,7 +207,7 @@ public struct TimelapseExportView: View {
                 } label: {
                     HStack {
                         Image(systemName: "square.and.arrow.up")
-                        Text("SNSや友達にシェアする")
+                        Text(LocalizedStringResource("common.share"))
                     }
                     .font(.headline)
                     .foregroundColor(.white)
@@ -314,16 +314,16 @@ public struct TimelapseExportView: View {
                         self.performPhotoSave(url: url)
                     } else {
                         self.isSaving = false
-                        self.saveError = String(localized: "timelapse.saveError.accessNotAllowed", defaultValue: "写真へのアクセスが許可されていないため、動画を保存できませんでした。")
+                        self.saveError = String(localized: "timelapse.saveError.accessNotAllowed")
                     }
                 }
             }
         case .denied, .restricted:
             isSaving = false
-            saveError = String(localized: "timelapse.saveError.openSettings", defaultValue: "設定アプリで「誰でモザイクアート」の写真アクセスを許可してください。")
+            saveError = String(localized: "timelapse.saveError.openSettings")
         @unknown default:
             isSaving = false
-            saveError = String(localized: "timelapse.saveError.unexpectedStatus", defaultValue: "予期しない写真アクセス状態です。")
+            saveError = String(localized: "timelapse.saveError.unexpectedStatus")
         }
     }
     

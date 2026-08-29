@@ -24,7 +24,7 @@ public struct ProjectSetupView: View {
     @State private var albumNotFoundMessage: String = ""
     
     @State private var selectedImage: UIImage? = nil
-    @State private var title: String = String(localized: "project.defaultTitle", defaultValue: "マイモザイクアート")
+    @State private var title: String = String(localized: "project.defaultTitle")
     @State private var gridSize: Int = 20
     @State private var mode: GameMode = .hybrid
     @State private var selectedPhotoSource: PhotoSource = .allLocalPhotos
@@ -41,168 +41,18 @@ public struct ProjectSetupView: View {
     public var body: some View {
         NavigationStack {
             Form {
-                // 1. 元画像選択
-                Section(header: Text("1. 元になる画像を選ぶ")) {
-                    if let img = selectedImage {
-                        VStack {
-                            Image(uiImage: img)
-                                .resizable()
-                                .aspectRatio(1.0, contentMode: .fit)
-                                .frame(maxHeight: 220)
-                                .cornerRadius(12)
-                            
-                            Button {
-                                showPickerSheet = true
-                            } label: {
-                                Text("画像を変更する")
-                                    .font(.subheadline)
-                            }
-                            .padding(.top, 4)
-                        }
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 8)
-                    } else {
-                        Button {
-                            showPickerSheet = true
-                        } label: {
-                            HStack {
-                                Spacer()
-                                VStack(spacing: 12) {
-                                    Image(systemName: "photo.badge.plus")
-                                        .font(.system(size: 40))
-                                        .foregroundColor(.accentColor)
-                                    Text("写真ライブラリから画像を選択")
-                                        .font(.headline)
-                                }
-                                Spacer()
-                            }
-                            .padding(.vertical, 24)
-                        }
-                    }
-                }
-                
-                // 2. 基本設定
-                Section(header: Text("2. 設定")) {
-                    TextField("作品のタイトル", text: $title)
-                    
-                    Picker("マスの細かさ", selection: $gridSize) {
-                        Text("10 × 10 (100マス・かんたん)").tag(10)
-                        Text("15 × 15 (225マス・標準)").tag(15)
-                        Text("20 × 20 (400マス・本格派)").tag(20)
-                        
-                        // 25x25以上はPro限定
-                        Text("25 × 25 (625マス・細密 👑Pro)").tag(25)
-                        Text("30 × 30 (900マス・高精細 👑Pro)").tag(30)
-                        Text("40 × 40 (1,600マス・大作 👑Pro)").tag(40)
-                        Text("50 × 50 (2,500マス・超大作 👑Pro)").tag(50)
-                        Text("60 × 60 (3,600マス・究極 👑Pro)").tag(60)
-                    }
-                    .onChange(of: gridSize) { _, newSize in
-                        if newSize > 20 && !storeKit.isProUser && storeKit.proStatus != .loading {
-                            showPaywall = true
-                        }
-                    }
-                    
-                    Picker("プレイスタイル", selection: $mode) {
-                        ForEach(GameMode.allCases, id: \.self) { m in
-                            Text(m.localizedTitle).tag(m)
-                        }
-                    }
-                    
-                    Text(mode.description)
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                }
-                
-                // 3. 写真ソース選択（ハイブリッドモード時のみ）
+                sourceImageSection
+                settingsSection
                 if mode == .hybrid {
-                    Section(header: Text("3. 使用する写真素材")) {
-                        Button {
-                            selectedPhotoSource = .allLocalPhotos
-                        } label: {
-                            HStack {
-                                Image(systemName: selectedPhotoSource == .allLocalPhotos ? "checkmark.circle.fill" : "circle")
-                                    .foregroundColor(selectedPhotoSource == .allLocalPhotos ? .accentColor : .secondary)
-                                VStack(alignment: .leading, spacing: 2) {
-                                    Text("端末内のすべての写真")
-                                        .foregroundColor(.primary)
-                                    Text("カメラロール内の保存済み写真すべてからマッチング")
-                                        .font(.caption2)
-                                        .foregroundColor(.secondary)
-                                }
-                            }
-                        }
-                        
-                        Button {
-                            handleAlbumSourceSelected()
-                        } label: {
-                            HStack {
-                                Image(systemName: selectedPhotoSource != .allLocalPhotos ? "checkmark.circle.fill" : "circle")
-                                    .foregroundColor(selectedPhotoSource != .allLocalPhotos ? .accentColor : .secondary)
-                                VStack(alignment: .leading, spacing: 2) {
-                                    HStack(spacing: 4) {
-                                        Text("特定のアルバムを指定")
-                                            .foregroundColor(.primary)
-                                        Text("👑Pro")
-                                            .font(.caption2.bold())
-                                            .foregroundColor(.orange)
-                                    }
-                                    if case .album(_, let albumTitle) = selectedPhotoSource {
-                                        Text("選択中: \(albumTitle)")
-                                            .font(.caption.bold())
-                                            .foregroundColor(.accentColor)
-                                    } else {
-                                        Text("旅行・結婚式・推し活など、思い出のフォルダから作成")
-                                            .font(.caption2)
-                                            .foregroundColor(.secondary)
-                                    }
-                                }
-                                Spacer()
-                                Image(systemName: "chevron.right")
-                                    .font(.caption)
-                                    .foregroundColor(.secondary)
-                            }
-                        }
-                    }
+                    photoSourceSection
                 }
-                
-                // 4. 作成ボタン & 1本の統合進捗バー表示
-                Section {
-                    if isCreating {
-                        unifiedProgressView
-                            .padding(.vertical, 8)
-                    } else {
-                        Button {
-                            handleStartButtonTapped()
-                        } label: {
-                            HStack {
-                                if gridSize > 20 && storeKit.proStatus == .loading {
-                                    ProgressView()
-                                        .tint(.white)
-                                        .padding(.trailing, 4)
-                                }
-                                Text("モザイクアートを作成開始！")
-                            }
-                            .font(.headline)
-                            .foregroundColor(.white)
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 10)
-                            .background(
-                                (selectedImage == nil || (gridSize > 20 && storeKit.proStatus == .loading))
-                                ? Color.gray
-                                : Color.accentColor
-                            )
-                            .cornerRadius(10)
-                        }
-                        .disabled(selectedImage == nil || (gridSize > 20 && storeKit.proStatus == .loading))
-                    }
-                }
+                createButtonSection
             }
-            .navigationTitle("新規プロジェクト")
+            .navigationTitle(Text(LocalizedStringResource("setup.navTitle")))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("キャンセル") {
+                    Button(String(localized: "common.cancel")) {
                         dismiss()
                     }
                 }
@@ -218,45 +68,198 @@ public struct ProjectSetupView: View {
             .sheet(isPresented: $showAlbumPickerSheet) {
                 albumSelectionView
             }
-            .alert("写真へのフルアクセスが必要です", isPresented: $showLimitedAccessAlert) {
-                Button("設定を開く") {
+            .alert(String(localized: "setup.alert.limitedAccess.title"), isPresented: $showLimitedAccessAlert) {
+                Button(String(localized: "common.openSettings")) {
                     if let url = URL(string: UIApplication.openSettingsURLString) {
                         UIApplication.shared.open(url)
                     }
                 }
-                Button("キャンセル", role: .cancel) {}
+                Button(String(localized: "common.cancel"), role: .cancel) {}
             } message: {
-                Text("特定のアルバムを指定するには、設定で「すべての写真へのアクセス」を許可してください。")
+                Text(LocalizedStringResource("setup.alert.limitedAccess.message"))
             }
-            .alert("写真へのアクセスが許可されていません", isPresented: $showPermissionDeniedAlert) {
-                Button("設定を開く") {
+            .alert(String(localized: "setup.alert.denied.title"), isPresented: $showPermissionDeniedAlert) {
+                Button(String(localized: "common.openSettings")) {
                     if let url = URL(string: UIApplication.openSettingsURLString) {
                         UIApplication.shared.open(url)
                     }
                 }
-                Button("キャンセル", role: .cancel) {}
+                Button(String(localized: "common.cancel"), role: .cancel) {}
             } message: {
-                Text("写真素材をスキャンしてモザイクを生成するために、設定アプリで写真へのアクセスを許可してください。")
+                Text(LocalizedStringResource("setup.alert.denied.message"))
             }
-            .alert("アルバムが見つかりません", isPresented: $showAlbumNotFoundAlert) {
-                Button("別のアルバムを選ぶ") {
+            .alert(String(localized: "setup.alert.albumNotFound.title"), isPresented: $showAlbumNotFoundAlert) {
+                Button(String(localized: "setup.alert.albumNotFound.chooseOther")) {
                     showAlbumPickerSheet = true
                 }
-                Button("端末内の全写真を使用する") {
+                Button(String(localized: "setup.alert.albumNotFound.useAll")) {
                     selectedPhotoSource = .allLocalPhotos
                     startGeneration()
                 }
-                Button("キャンセル", role: .cancel) {}
-            } message: {
-                Text(albumNotFoundMessage)
-            }
-            .alert("エラー", isPresented: $showGeneralErrorAlert) {
                 Button("OK", role: .cancel) {}
             } message: {
                 Text(errorMessage)
             }
             .onAppear {
                 scanner.checkPermission()
+            }
+        }
+    }
+    
+    // MARK: - サブビュー分割
+    private var sourceImageSection: some View {
+        Section(header: Text(LocalizedStringResource("setup.section.sourceImage"))) {
+            if let img = selectedImage {
+                VStack {
+                    Image(uiImage: img)
+                        .resizable()
+                        .aspectRatio(1.0, contentMode: .fit)
+                        .frame(maxHeight: 220)
+                        .cornerRadius(12)
+                    
+                    Button {
+                        showPickerSheet = true
+                    } label: {
+                        Text(LocalizedStringResource("setup.button.changeImage"))
+                            .font(.subheadline)
+                    }
+                    .padding(.top, 4)
+                }
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 8)
+            } else {
+                Button {
+                    showPickerSheet = true
+                } label: {
+                    HStack {
+                        Spacer()
+                        VStack(spacing: 12) {
+                            Image(systemName: "photo.badge.plus")
+                                .font(.system(size: 40))
+                                .foregroundColor(.accentColor)
+                            Text(LocalizedStringResource("setup.button.selectImage"))
+                                .font(.headline)
+                        }
+                        Spacer()
+                    }
+                    .padding(.vertical, 24)
+                }
+            }
+        }
+    }
+    
+    private var settingsSection: some View {
+        Section(header: Text(LocalizedStringResource("setup.section.settings"))) {
+            TextField(String(localized: "project.titlePlaceholder"), text: $title)
+            
+            Picker(String(localized: "setup.picker.gridSize"), selection: $gridSize) {
+                Text(LocalizedStringResource("gridOption.10")).tag(10)
+                Text(LocalizedStringResource("gridOption.15")).tag(15)
+                Text(LocalizedStringResource("gridOption.20")).tag(20)
+                Text(LocalizedStringResource("gridOption.25")).tag(25)
+                Text(LocalizedStringResource("gridOption.30")).tag(30)
+                Text(LocalizedStringResource("gridOption.40")).tag(40)
+                Text(LocalizedStringResource("gridOption.50")).tag(50)
+                Text(LocalizedStringResource("gridOption.60")).tag(60)
+            }
+            .onChange(of: gridSize) { _, newSize in
+                if newSize > 20 && !storeKit.isProUser && storeKit.proStatus != .loading {
+                    showPaywall = true
+                }
+            }
+            
+            Picker(String(localized: "setup.picker.playStyle"), selection: $mode) {
+                ForEach(GameMode.allCases, id: \.self) { m in
+                    Text(m.localizedTitle).tag(m)
+                }
+            }
+            
+            Text(mode.description)
+                .font(.caption)
+                .foregroundColor(.secondary)
+        }
+    }
+    
+    private var photoSourceSection: some View {
+        Section(header: Text(LocalizedStringResource("setup.section.photoSource"))) {
+            Button {
+                selectedPhotoSource = .allLocalPhotos
+            } label: {
+                HStack {
+                    Image(systemName: selectedPhotoSource == .allLocalPhotos ? "checkmark.circle.fill" : "circle")
+                        .foregroundColor(selectedPhotoSource == .allLocalPhotos ? .accentColor : .secondary)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(LocalizedStringResource("photoSource.allPhotos"))
+                            .foregroundColor(.primary)
+                        Text(LocalizedStringResource("photoSource.allPhotos.desc"))
+                            .font(.caption2)
+                            .foregroundColor(.secondary)
+                    }
+                }
+            }
+            
+            Button {
+                handleAlbumSourceSelected()
+            } label: {
+                HStack {
+                    Image(systemName: selectedPhotoSource != .allLocalPhotos ? "checkmark.circle.fill" : "circle")
+                        .foregroundColor(selectedPhotoSource != .allLocalPhotos ? .accentColor : .secondary)
+                    VStack(alignment: .leading, spacing: 2) {
+                        HStack(spacing: 4) {
+                            Text(LocalizedStringResource("photoSource.specificAlbum"))
+                                .foregroundColor(.primary)
+                            Text("👑Pro")
+                                .font(.caption2.bold())
+                                .foregroundColor(.orange)
+                        }
+                        if case .album(_, let albumTitle) = selectedPhotoSource {
+                            Text(LocalizedStringResource("photoSource.albumSelected.format \(albumTitle)"))
+                                .font(.caption.bold())
+                                .foregroundColor(.accentColor)
+                        } else {
+                            Text(LocalizedStringResource("photoSource.specificAlbum.desc"))
+                                .font(.caption2)
+                                .foregroundColor(.secondary)
+                        }
+                    }
+                    Spacer()
+                    Image(systemName: "chevron.right")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+            }
+        }
+    }
+    
+    private var createButtonSection: some View {
+        Section {
+            if isCreating {
+                unifiedProgressView
+                    .padding(.vertical, 8)
+            } else {
+                Button {
+                    handleStartButtonTapped()
+                } label: {
+                    HStack {
+                        if gridSize > 20 && storeKit.proStatus == .loading {
+                            ProgressView()
+                                .tint(.white)
+                                .padding(.trailing, 4)
+                        }
+                        Text(LocalizedStringResource("setup.button.start"))
+                    }
+                    .font(.headline)
+                    .foregroundColor(.white)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 10)
+                    .background(
+                        (selectedImage == nil || (gridSize > 20 && storeKit.proStatus == .loading))
+                        ? Color.gray
+                        : Color.accentColor
+                    )
+                    .cornerRadius(10)
+                }
+                .disabled(selectedImage == nil || (gridSize > 20 && storeKit.proStatus == .loading))
             }
         }
     }
@@ -369,7 +372,7 @@ public struct ProjectSetupView: View {
         NavigationStack {
             List {
                 if userAlbums.isEmpty {
-                    Text("ユーザー作成のアルバムが見つかりませんでした。")
+                    Text(LocalizedStringResource("setup.albums.notFound"))
                         .font(.caption)
                         .foregroundColor(.secondary)
                 } else {
@@ -383,7 +386,7 @@ public struct ProjectSetupView: View {
                                     Text(album.title)
                                         .font(.headline)
                                         .foregroundColor(.primary)
-                                    Text("\(album.assetCount) 枚の写真")
+                                    Text(LocalizedStringResource("format.photoCount \(album.assetCount)"))
                                         .font(.caption)
                                         .foregroundColor(.secondary)
                                 }
@@ -613,10 +616,10 @@ public enum MosaicCreationStep: Int, CaseIterable, Sendable {
     
     public var localizedName: LocalizedStringResource {
         switch self {
-        case .slicing: return LocalizedStringResource("step.slicing", defaultValue: "① 分割解析")
-        case .scanning: return LocalizedStringResource("step.scanning", defaultValue: "② 写真解析")
-        case .matching: return LocalizedStringResource("step.matching", defaultValue: "③ 最適探索")
-        case .finalizing: return LocalizedStringResource("step.finalizing", defaultValue: "④ 仕上げ")
+        case .slicing: return LocalizedStringResource("step.slicing")
+        case .scanning: return LocalizedStringResource("step.scanning")
+        case .matching: return LocalizedStringResource("step.matching")
+        case .finalizing: return LocalizedStringResource("step.finalizing")
         }
     }
     
@@ -652,10 +655,10 @@ public enum MosaicCreationStage: Sendable {
     
     public var localizedTitle: LocalizedStringResource {
         switch self {
-        case .slicing: return LocalizedStringResource("stage.slicing.title", defaultValue: "画像のグリッド分割・解析中")
-        case .scanning: return LocalizedStringResource("stage.scanning.title", defaultValue: "写真素材のスキャン・解析中")
-        case .matching: return LocalizedStringResource("stage.matching.title", defaultValue: "ベストマッチ写真を探索・配置中")
-        case .finalizing: return LocalizedStringResource("stage.finalizing.title", defaultValue: "モザイクアートを完成中")
+        case .slicing: return LocalizedStringResource("stage.slicing.title")
+        case .scanning: return LocalizedStringResource("stage.scanning.title")
+        case .matching: return LocalizedStringResource("stage.matching.title")
+        case .finalizing: return LocalizedStringResource("stage.finalizing.title")
         }
     }
     
@@ -669,19 +672,19 @@ public enum MosaicCreationStage: Sendable {
             if total > 0 {
                 return LocalizedStringResource("stage.slicing.detail.progress \(current) \(total)")
             }
-            return LocalizedStringResource("stage.slicing.detail.start", defaultValue: "画像を分割中...")
+            return LocalizedStringResource("stage.slicing.detail.start")
         case .scanning(let processed, let total, _):
             if total > 0 {
                 return LocalizedStringResource("stage.scanning.detail.progress \(processed) \(total)")
             }
-            return LocalizedStringResource("stage.scanning.detail.start", defaultValue: "写真ライブラリを読み込み中...")
+            return LocalizedStringResource("stage.scanning.detail.start")
         case .matching(let current, let total):
             if total > 0 {
                 return LocalizedStringResource("stage.matching.detail.progress \(current) \(total)")
             }
-            return LocalizedStringResource("stage.matching.detail.start", defaultValue: "最適な写真を選択中...")
+            return LocalizedStringResource("stage.matching.detail.start")
         case .finalizing:
-            return LocalizedStringResource("stage.finalizing.detail", defaultValue: "不足色ミッションとプロジェクトデータを構築しています...")
+            return LocalizedStringResource("stage.finalizing.detail")
         }
     }
     
@@ -692,13 +695,13 @@ public enum MosaicCreationStage: Sendable {
     public var localizedSubMessage: LocalizedStringResource? {
         switch self {
         case .slicing:
-            return LocalizedStringResource("stage.slicing.sub", defaultValue: "48×48 Sobelエッジと明暗重心を抽出")
+            return LocalizedStringResource("stage.slicing.sub")
         case .scanning(_, _, let available):
             return available > 0 ? LocalizedStringResource("stage.scanning.sub.available \(available)") : nil
         case .matching:
-            return LocalizedStringResource("stage.matching.sub", defaultValue: "多次元空間インデックスと二部マッチングで最適化")
+            return LocalizedStringResource("stage.matching.sub")
         case .finalizing:
-            return LocalizedStringResource("stage.finalizing.sub", defaultValue: "まもなく作品が完成します！")
+            return LocalizedStringResource("stage.finalizing.sub")
         }
     }
     

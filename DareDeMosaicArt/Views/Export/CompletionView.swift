@@ -33,9 +33,14 @@ public struct CompletionView: View {
                 VStack(spacing: 16) {
                     // セレモニーヘッダー
                     VStack(spacing: 6) {
-                        Text(project.isCompleted ? "🎉 完成おめでとうございます！ 🎉" : "現在のモザイクアート")
-                            .font(.title2.bold())
-                        Text("集めた写真がつながり、世界で1つのアートになりました")
+                        if project.isCompleted {
+                            Text(LocalizedStringResource("completion.header.congrats"))
+                                .font(.title2.bold())
+                        } else {
+                            Text(LocalizedStringResource("completion.header.inProgress"))
+                                .font(.title2.bold())
+                        }
+                        Text(LocalizedStringResource("completion.header.desc"))
                             .font(.caption)
                             .foregroundColor(.secondary)
                     }
@@ -59,7 +64,7 @@ public struct CompletionView: View {
                         } else {
                             VStack(spacing: 12) {
                                 ProgressView()
-                                Text("表示用プレビューを生成中...")
+                                Text(LocalizedStringResource("completion.preview.generating"))
                                     .font(.caption)
                                     .foregroundColor(.secondary)
                             }
@@ -75,7 +80,7 @@ public struct CompletionView: View {
                             HStack(spacing: 4) {
                                 Image(systemName: "crown.fill")
                                     .foregroundColor(.yellow)
-                                Text("4K (4,096px)")
+                                Text(LocalizedStringResource("completion.export.4k"))
                                     .font(.caption.bold())
                             }
                             
@@ -86,7 +91,11 @@ public struct CompletionView: View {
                             } label: {
                                 HStack(spacing: 4) {
                                     Image(systemName: "pencil.and.outline")
-                                    Text(draftWatermark.text.isEmpty ? "サイン・記念日を刻印する" : "刻印を編集")
+                                    if draftWatermark.text.isEmpty {
+                                        Text(LocalizedStringResource("completion.watermark.add"))
+                                    } else {
+                                        Text(LocalizedStringResource("completion.watermark.edit"))
+                                    }
                                 }
                                 .font(.caption.bold())
                                 .foregroundColor(.accentColor)
@@ -96,7 +105,7 @@ public struct CompletionView: View {
                                 .cornerRadius(12)
                             }
                         } else {
-                            Text("標準画質 (1,080px)")
+                            Text(LocalizedStringResource("completion.export.standard"))
                                 .font(.caption)
                                 .foregroundColor(.secondary)
                             
@@ -107,7 +116,7 @@ public struct CompletionView: View {
                             } label: {
                                 HStack(spacing: 2) {
                                     Image(systemName: "crown.fill")
-                                    Text("Proで4K・サイン刻印")
+                                    Text(LocalizedStringResource("completion.export.proButton"))
                                 }
                                 .font(.caption.bold())
                                 .foregroundColor(.orange)
@@ -132,7 +141,11 @@ public struct CompletionView: View {
                                 HStack {
                                     Image(systemName: "film.stack.fill")
                                         .foregroundColor(.yellow)
-                                    Text(project.isCompleted ? "🎬 制作タイムラプス動画を作成" : "ピースがすべて埋まると動画を作成できます")
+                                    if project.isCompleted {
+                                        Text(LocalizedStringResource("completion.timelapse.button"))
+                                    } else {
+                                        Text(LocalizedStringResource("completion.timelapse.lockedNotice"))
+                                    }
                                     if !storeKit.isProUser && project.isCompleted {
                                         Text("PRO")
                                             .font(.system(size: 10, weight: .bold))
@@ -160,7 +173,7 @@ public struct CompletionView: View {
                                     } else {
                                         Image(systemName: "square.and.arrow.up")
                                     }
-                                    Text("SNSや友達にシェアする")
+                                    Text(LocalizedStringResource("common.share"))
                                 }
                                 .font(.headline)
                                 .foregroundColor(.white)
@@ -308,47 +321,47 @@ public struct CompletionView: View {
     private var watermarkEditorSheet: some View {
         NavigationStack {
             Form {
-                Section(header: Text("刻印テキスト (最大60文字・2行まで)")) {
-                    TextField("例: 2026.08.26 Happy Wedding\nKen & Yui", text: $draftWatermark.text, axis: .vertical)
+                Section(header: Text(LocalizedStringResource("completion.watermark.sectionText"))) {
+                    TextField(String(localized: "completion.watermark.placeholder"), text: $draftWatermark.text, axis: .vertical)
                         .lineLimit(2)
                         .onChange(of: draftWatermark.text) { _, newText in
                             draftWatermark.text = sanitizeWatermarkText(newText)
                         }
                     
-                    Text("\(draftWatermark.text.count) / 60文字 (最大2行)")
+                    Text(LocalizedStringResource("completion.watermark.limit.format \(draftWatermark.text.count)"))
                         .font(.caption2)
                         .foregroundColor(.secondary)
                 }
                 
-                Section(header: Text("フォントスタイル")) {
-                    Picker("フォント", selection: $draftWatermark.fontDesign) {
+                Section(header: Text(LocalizedStringResource("completion.watermark.sectionFont"))) {
+                    Picker(String(localized: "completion.watermark.pickerFont"), selection: $draftWatermark.fontDesign) {
                         ForEach(WatermarkConfig.FontDesignOption.allCases, id: \.self) { opt in
                             Text(opt.localizedResource).tag(opt)
                         }
                     }
                 }
                 
-                Section(header: Text("配置位置")) {
-                    Picker("位置", selection: $draftWatermark.position) {
+                Section(header: Text(LocalizedStringResource("completion.watermark.sectionPosition"))) {
+                    Picker(String(localized: "completion.watermark.pickerPosition"), selection: $draftWatermark.position) {
                         ForEach(WatermarkConfig.PositionOption.allCases, id: \.self) { opt in
                             Text(opt.localizedResource).tag(opt)
                         }
                     }
                 }
                 
-                Section(header: Text("文字カラー・スタイル")) {
-                    Picker("カラー", selection: $draftWatermark.colorStyle) {
+                Section(header: Text(LocalizedStringResource("completion.watermark.sectionColor"))) {
+                    Picker(String(localized: "completion.watermark.pickerColor"), selection: $draftWatermark.colorStyle) {
                         ForEach(WatermarkConfig.ColorStyleOption.allCases, id: \.self) { opt in
                             Text(opt.localizedResource).tag(opt)
                         }
                     }
                 }
             }
-            .navigationTitle("サイン・刻印の設定")
+            .navigationTitle(Text(LocalizedStringResource("completion.watermark.navTitle")))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("キャンセル") {
+                    Button(String(localized: "common.cancel")) {
                         if let original = project.watermarkConfig {
                             draftWatermark = original
                         } else {
@@ -359,7 +372,7 @@ public struct CompletionView: View {
                 }
                 
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("決定") {
+                    Button(String(localized: "common.confirm")) {
                         project.watermarkConfig = draftWatermark
                         showWatermarkEditor = false
                     }
@@ -535,7 +548,7 @@ public struct CompletionView: View {
             let renderer = UIGraphicsImageRenderer(size: resultImage.size)
             resultImage = renderer.image { _ in
                 resultImage.draw(at: .zero)
-                let text = String(localized: "export.watermark.madeWith", defaultValue: "Made with 誰でモザイクアート")
+                let text = String(localized: "export.watermark.madeWith")
                 let attributes: [NSAttributedString.Key: Any] = [
                     .font: UIFont.systemFont(ofSize: 18, weight: .medium),
                     .foregroundColor: UIColor.white.withAlphaComponent(0.85)

@@ -1096,6 +1096,18 @@ final class DareDeMosaicArtTests: XCTestCase {
         XCTAssertEqual(jaBundle.localizedString(forKey: "album.untitled", value: nil, table: "Localizable"), "無題のアルバム")
         XCTAssertEqual(enBundle.localizedString(forKey: "album.untitled", value: nil, table: "Localizable"), "Untitled Album")
 
+        XCTAssertEqual(jaBundle.localizedString(forKey: "photoSource.allPhotos", value: nil, table: "Localizable"), "端末内のすべての写真")
+        XCTAssertEqual(enBundle.localizedString(forKey: "photoSource.allPhotos", value: nil, table: "Localizable"), "All Saved Photos on Device")
+
+        XCTAssertEqual(jaBundle.localizedString(forKey: "workspace.undoAutoFill", value: nil, table: "Localizable"), "自動配置前に戻す")
+        XCTAssertEqual(enBundle.localizedString(forKey: "workspace.undoAutoFill", value: nil, table: "Localizable"), "Undo Auto-Fill")
+
+        XCTAssertEqual(jaBundle.localizedString(forKey: "paywall.badge.launchSpecial", value: nil, table: "Localizable"), "リリース記念特別価格・買い切り")
+        XCTAssertEqual(enBundle.localizedString(forKey: "paywall.badge.launchSpecial", value: nil, table: "Localizable"), "Special Launch Price • One-time Purchase")
+
+        XCTAssertEqual(jaBundle.localizedString(forKey: "paywall.header.subtitle", value: nil, table: "Localizable"), "制限をすべて解除して、極限のモザイクアートを作ろう")
+        XCTAssertEqual(enBundle.localizedString(forKey: "paywall.header.subtitle", value: nil, table: "Localizable"), "Unlock all limits and create ultimate mosaic artworks")
+
         XCTAssertEqual(jaBundle.localizedString(forKey: "timelapse.saveError.accessNotAllowed", value: nil, table: "Localizable"), "写真へのアクセスが許可されていないため、動画を保存できませんでした。")
         XCTAssertEqual(enBundle.localizedString(forKey: "timelapse.saveError.accessNotAllowed", value: nil, table: "Localizable"), "Could not save video because photo access is not allowed.")
 

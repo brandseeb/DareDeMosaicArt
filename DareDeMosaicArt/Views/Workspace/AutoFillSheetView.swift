@@ -73,20 +73,20 @@ public struct AutoFillSheetView: View {
             .safeAreaInset(edge: .bottom) {
                 applyButtonBottomBar
             }
-            .alert("プロジェクトが更新されました", isPresented: $showStaleAlert) {
-                Button("OK") {
+            .alert(String(localized: "autofill.alert.stale.title"), isPresented: $showStaleAlert) {
+                Button(String(localized: "common.ok")) {
                     startSimulation()
                 }
             } message: {
-                Text("ワークスペースの状態が変更されたため、最新の状態でプレビューを再計算しました。内容を確認して再度お試しください。")
+                Text(LocalizedStringResource("autofill.alert.stale.message"))
             }
-            .alert("自動配置をリセットしますか？", isPresented: $showResetConfirmAlert) {
-                Button("リセットする", role: .destructive) {
+            .alert(String(localized: "autofill.alert.reset.title"), isPresented: $showResetConfirmAlert) {
+                Button(String(localized: "autofill.button.reset"), role: .destructive) {
                     handleReset()
                 }
-                Button("キャンセル", role: .cancel) {}
+                Button(String(localized: "common.cancel"), role: .cancel) {}
             } message: {
-                Text("自動配置（オートフィル）によって埋められた \(autoFilledCount) マスを空き状態に戻します。自分で撮影した写真やロックしたマスはそのまま維持されます。")
+                Text(LocalizedStringResource("autofill.alert.reset.message.format \(autoFilledCount)"))
             }
             .onAppear {
                 startSimulation()
@@ -100,15 +100,15 @@ public struct AutoFillSheetView: View {
     // MARK: - 現在のステータスヘッダー
     private var currentStatusHeader: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("空いているマスに、手持ちの写真から最も近い写真を自動で配置します。")
+            Text(LocalizedStringResource("autofill.header.desc"))
                 .font(.subheadline)
                 .foregroundColor(.secondary)
             
             HStack {
                 VStack(alignment: .leading, spacing: 2) {
-                    Text("現在の進捗: \(project.progressPercentageString)")
+                    Text(LocalizedStringResource("autofill.progress.format \(project.progressPercentageString)"))
                         .font(.headline)
-                    Text("残り \(emptyCount) マスが未配置です")
+                    Text(LocalizedStringResource("format.remainingTiles \(emptyCount)"))
                         .font(.caption)
                         .foregroundColor(.secondary)
                 }
@@ -127,9 +127,9 @@ public struct AutoFillSheetView: View {
         VStack(alignment: .leading, spacing: 8) {
             Toggle(isOn: $allowDuplicates) {
                 VStack(alignment: .leading, spacing: 2) {
-                    Text("写真の重複使用を許可する")
+                    Text(LocalizedStringResource("autofill.option.allowDuplicates"))
                         .font(.subheadline.bold())
-                    Text("手持ちの写真枚数が少ない場合でも、同じ写真を使い回して確実に 100% 埋めることができます。")
+                    Text(LocalizedStringResource("autofill.option.allowDuplicates.desc"))
                         .font(.caption2)
                         .foregroundColor(.secondary)
                 }
@@ -147,7 +147,7 @@ public struct AutoFillSheetView: View {
     private var simulationLevelsSection: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
-                Text("配置レベルの選択")
+                Text(LocalizedStringResource("autofill.section.levels"))
                     .font(.headline)
                 Spacer()
                 if isLoading {
@@ -159,7 +159,7 @@ public struct AutoFillSheetView: View {
             if isLoading && simulations.isEmpty {
                 VStack(spacing: 12) {
                     ProgressView()
-                    Text("最適な写真の配置を計算中...")
+                    Text(LocalizedStringResource("autofill.loading.simulation"))
                         .font(.caption)
                         .foregroundColor(.secondary)
                 }
@@ -191,7 +191,7 @@ public struct AutoFillSheetView: View {
                                 .foregroundColor(.primary)
                             
                             if sim.isFullCompletion {
-                                Text("🎉 100%完成")
+                                Text(LocalizedStringResource("autofill.badge.fullComplete"))
                                     .font(.caption2.bold())
                                     .foregroundColor(.white)
                                     .padding(.horizontal, 6)
@@ -225,7 +225,7 @@ public struct AutoFillSheetView: View {
                             .foregroundColor(sim.additionalCount > 0 ? .primary : .secondary)
                     }
                     Spacer()
-                    Text("配置後: \(Int(sim.projectedProgress * 100))%")
+                    Text(LocalizedStringResource("autofill.progress.projected.format \(Int(sim.projectedProgress * 100))"))
                         .font(.system(.caption, design: .monospaced).bold())
                         .foregroundColor(sim.isFullCompletion ? .green : .accentColor)
                 }
@@ -256,7 +256,7 @@ public struct AutoFillSheetView: View {
             } label: {
                 HStack(spacing: 6) {
                     Image(systemName: "arrow.counterclockwise")
-                    Text("自動配置した \(autoFilledCount) マスを元に戻す（リセット）")
+                    Text(LocalizedStringResource("autofill.reset.button.format \(autoFilledCount)"))
                 }
                 .font(.subheadline)
                 .foregroundColor(.red)
@@ -280,7 +280,11 @@ public struct AutoFillSheetView: View {
                 } label: {
                     HStack {
                         Image(systemName: "wand.and.stars")
-                        Text(canApply ? "選択した設定で自動配置する (\(count)マス)" : "配置可能な写真がありません")
+                        if canApply {
+                            Text(LocalizedStringResource("autofill.apply.count.format \(count)"))
+                        } else {
+                            Text(LocalizedStringResource("autofill.apply.noPhotos"))
+                        }
                     }
                     .font(.headline)
                     .foregroundColor(.white)

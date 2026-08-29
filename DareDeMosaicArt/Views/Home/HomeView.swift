@@ -193,9 +193,9 @@ public struct HomeView: View {
                 .foregroundColor(.accentColor.opacity(0.8))
             
             VStack(spacing: 8) {
-                Text("モザイクアートを作ろう")
+                Text(LocalizedStringResource("home.empty.title"))
                     .font(.title2.bold())
-                Text("好きな写真を選んで、日常の景色から\n色を撮影して集めて完成させよう！")
+                Text(LocalizedStringResource("home.empty.description"))
                     .font(.subheadline)
                     .foregroundColor(.secondary)
                     .multilineTextAlignment(.center)
@@ -212,7 +212,7 @@ public struct HomeView: View {
                     } else {
                         Image(systemName: "plus.circle.fill")
                     }
-                    Text("新しく作る")
+                    Text(LocalizedStringResource("home.empty.button"))
                 }
                 .font(.headline)
                 .foregroundColor(.white)
@@ -231,7 +231,7 @@ public struct HomeView: View {
     // MARK: - プロジェクト一覧
     private var projectListView: some View {
         List {
-            Section(header: Text("作成中のアート (\(projects.count)\(storeKit.isProUser ? "" : "/3作品"))")) {
+            Section(header: Text(LocalizedStringResource("home.section.projects.format \(projects.count) \(storeKit.isProUser ? "" : "/ 3")"))) {
                 ForEach(Array(projects.enumerated()), id: \.element.id) { index, project in
                     projectRow(for: project)
                         .contentShape(Rectangle())
