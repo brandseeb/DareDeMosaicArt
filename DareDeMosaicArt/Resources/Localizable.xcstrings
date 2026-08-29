@@ -3657,6 +3657,23 @@
           }
         }
       }
+    },
+    "timelapse.saveError.fallback": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "写真への追加アクセスを確認してください。"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Please check additional photo access permissions."
+          }
+        }
+      }
     }
   },
   "version": "1.0"

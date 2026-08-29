@@ -49,6 +49,8 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
+		R00000000000000000000002 /* Localizable.xcstrings */ = {isa = PBXFileReference; lastKnownFileType = text.json.xcstrings; path = Localizable.xcstrings; sourceTree = "<group>"; };
+		R00000000000000000000004 /* InfoPlist.xcstrings */ = {isa = PBXFileReference; lastKnownFileType = text.json.xcstrings; path = InfoPlist.xcstrings; sourceTree = "<group>"; };
 		A00000000000000000000002 /* DareDeMosaicArtTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DareDeMosaicArtTests.swift; sourceTree = "<group>"; };
 		A00000000000000000000003 /* DareDeMosaicArtTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = DareDeMosaicArtTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		263B6D77658F4E218BBA3F9B /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
@@ -168,6 +170,7 @@
 		990EAC47C06A416294622EAA = {
 			isa = PBXGroup;
 			children = (
+				R00000000000000000000005 /* Resources */,
 				B85885B374C34338B8509924 /* DareDeMosaicArtApp.swift */,
 				263B6D77658F4E218BBA3F9B /* Info.plist */,
 				E1F2A3B4C5D60718293E4F5A /* DareDeMosaicArt.storekit */,
@@ -324,6 +327,8 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				R00000000000000000000001 /* Localizable.xcstrings in Resources */,
+				R00000000000000000000003 /* InfoPlist.xcstrings in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -331,6 +336,8 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				R00000000000000000000001 /* Localizable.xcstrings in Resources */,
+				R00000000000000000000003 /* InfoPlist.xcstrings in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

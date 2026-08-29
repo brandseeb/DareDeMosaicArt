@@ -75,7 +75,7 @@ public struct TimelapseExportView: View {
                     openAppSettings()
                 }
             } message: {
-                Text(saveError ?? "写真への追加アクセスを確認してください。")
+                Text(saveError ?? String(localized: "timelapse.saveError.fallback", defaultValue: "写真への追加アクセスを確認してください。"))
             }
             .sheet(item: $shareItem) { item in
                 ActivityShareSheet(activityItems: [item.url])

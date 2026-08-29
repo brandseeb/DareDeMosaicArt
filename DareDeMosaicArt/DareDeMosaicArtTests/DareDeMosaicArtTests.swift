@@ -1067,51 +1067,45 @@ final class DareDeMosaicArtTests: XCTestCase {
         XCTAssertEqual(MosaicCreationStep.slicing.localizedName.key, "step.slicing")
         XCTAssertEqual(MosaicCreationStep.finalizing.localizedName.key, "step.finalizing")
 
-        // 7. Localizable.xcstrings の実テキスト翻訳検証（ja & en 完全一致）
-        let bundle = Bundle(for: DareDeMosaicArtTests.self)
-        let xcstringsURL = bundle.url(forResource: "Localizable", withExtension: "xcstrings") ??
-                           Bundle.main.url(forResource: "Localizable", withExtension: "xcstrings")
-        if let url = xcstringsURL {
-            let data = try Data(contentsOf: url)
-            if let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
-               let strings = json["strings"] as? [String: [String: Any]] {
-                XCTAssertGreaterThan(strings.count, 200, "200件以上のローカライズキーが登録されていること")
-                
-                for (key, val) in strings {
-                    guard let localizations = val["localizations"] as? [String: [String: Any]] else {
-                        XCTFail("キー \(key) にローカライズ定義がありません")
-                        continue
-                    }
-                    XCTAssertNotNil(localizations["ja"], "キー \(key) に日本語定義が存在すること")
-                    XCTAssertNotNil(localizations["en"], "キー \(key) に英語定義が存在すること")
-                }
-                
-                // 主要キーの英語・日本語テキストの完全検証
-                let redJa = (strings["color.red"]?["localizations"] as? [String: Any])?["ja"] as? [String: Any]
-                let redEn = (strings["color.red"]?["localizations"] as? [String: Any])?["en"] as? [String: Any]
-                XCTAssertEqual(((redJa?["stringUnit"] as? [String: Any])?["value"] as? String), "赤")
-                XCTAssertEqual(((redEn?["stringUnit"] as? [String: Any])?["value"] as? String), "Red")
-                
-                let modeJa = (strings["gameMode.hybrid.title"]?["localizations"] as? [String: Any])?["ja"] as? [String: Any]
-                let modeEn = (strings["gameMode.hybrid.title"]?["localizations"] as? [String: Any])?["en"] as? [String: Any]
-                XCTAssertEqual(((modeJa?["stringUnit"] as? [String: Any])?["value"] as? String), "ハイブリッド（写真＋撮影）")
-                XCTAssertEqual(((modeEn?["stringUnit"] as? [String: Any])?["value"] as? String), "Hybrid (Photos + Camera)")
-
-                let watermarkJa = (strings["watermark.pos.bottomCenter"]?["localizations"] as? [String: Any])?["ja"] as? [String: Any]
-                let watermarkEn = (strings["watermark.pos.bottomCenter"]?["localizations"] as? [String: Any])?["en"] as? [String: Any]
-                XCTAssertEqual(((watermarkJa?["stringUnit"] as? [String: Any])?["value"] as? String), "中央下")
-                XCTAssertEqual(((watermarkEn?["stringUnit"] as? [String: Any])?["value"] as? String), "Bottom Center")
-
-                let pickerJa = (strings["picker.loadingPhoto"]?["localizations"] as? [String: Any])?["ja"] as? [String: Any]
-                let pickerEn = (strings["picker.loadingPhoto"]?["localizations"] as? [String: Any])?["en"] as? [String: Any]
-                XCTAssertEqual(((pickerJa?["stringUnit"] as? [String: Any])?["value"] as? String), "写真を読み込み中…")
-                XCTAssertEqual(((pickerEn?["stringUnit"] as? [String: Any])?["value"] as? String), "Loading photo…")
-
-                let albumJa = (strings["album.untitled"]?["localizations"] as? [String: Any])?["ja"] as? [String: Any]
-                let albumEn = (strings["album.untitled"]?["localizations"] as? [String: Any])?["en"] as? [String: Any]
-                XCTAssertEqual(((albumJa?["stringUnit"] as? [String: Any])?["value"] as? String), "無題のアルバム")
-                XCTAssertEqual(((albumEn?["stringUnit"] as? [String: Any])?["value"] as? String), "Untitled Album")
-            }
+        // 7. 実アプリ Bundle からの日本語・英語ローカライズ解決検証 (ja.lproj / en.lproj)
+        let mainBundle = Bundle.main
+        guard let jaPath = mainBundle.path(forResource: "ja", ofType: "lproj"),
+              let jaBundle = Bundle(path: jaPath) else {
+            XCTFail("アプリバンドル内に ja.lproj が存在しません。Resources Build Phase を確認してください。")
+            return
         }
+        guard let enPath = mainBundle.path(forResource: "en", ofType: "lproj"),
+              let enBundle = Bundle(path: enPath) else {
+            XCTFail("アプリバンドル内に en.lproj が存在しません。Resources Build Phase を確認してください。")
+            return
+        }
+
+        // 7-1. Localizable.strings の解決検証
+        XCTAssertEqual(jaBundle.localizedString(forKey: "color.red", value: nil, table: "Localizable"), "レッド・赤")
+        XCTAssertEqual(enBundle.localizedString(forKey: "color.red", value: nil, table: "Localizable"), "Red")
+
+        XCTAssertEqual(jaBundle.localizedString(forKey: "gameMode.hybrid.title", value: nil, table: "Localizable"), "端末写真＋不足色撮影 (おすすめ)")
+        XCTAssertEqual(enBundle.localizedString(forKey: "gameMode.hybrid.title", value: nil, table: "Localizable"), "Photo Library + Camera (Recommended)")
+
+        XCTAssertEqual(jaBundle.localizedString(forKey: "watermark.pos.bottomCenter", value: nil, table: "Localizable"), "中央下")
+        XCTAssertEqual(enBundle.localizedString(forKey: "watermark.pos.bottomCenter", value: nil, table: "Localizable"), "Bottom Center")
+
+        XCTAssertEqual(jaBundle.localizedString(forKey: "picker.loadingPhoto", value: nil, table: "Localizable"), "写真を読み込み中…")
+        XCTAssertEqual(enBundle.localizedString(forKey: "picker.loadingPhoto", value: nil, table: "Localizable"), "Loading photo…")
+
+        XCTAssertEqual(jaBundle.localizedString(forKey: "album.untitled", value: nil, table: "Localizable"), "無題のアルバム")
+        XCTAssertEqual(enBundle.localizedString(forKey: "album.untitled", value: nil, table: "Localizable"), "Untitled Album")
+
+        XCTAssertEqual(jaBundle.localizedString(forKey: "timelapse.saveError.accessNotAllowed", value: nil, table: "Localizable"), "写真へのアクセスが許可されていないため、動画を保存できませんでした。")
+        XCTAssertEqual(enBundle.localizedString(forKey: "timelapse.saveError.accessNotAllowed", value: nil, table: "Localizable"), "Could not save video because photo access is not allowed.")
+
+        // 7-2. InfoPlist.strings の解決検証（アプリ名 & 権限文言）
+        XCTAssertEqual(jaBundle.localizedString(forKey: "CFBundleDisplayName", value: nil, table: "InfoPlist"), "誰でモザイクアート")
+        XCTAssertEqual(enBundle.localizedString(forKey: "CFBundleDisplayName", value: nil, table: "InfoPlist"), "DareDe Mosaic Art")
+
+        let jaCamDesc = jaBundle.localizedString(forKey: "NSCameraUsageDescription", value: nil, table: "InfoPlist")
+        let enCamDesc = enBundle.localizedString(forKey: "NSCameraUsageDescription", value: nil, table: "InfoPlist")
+        XCTAssertTrue(jaCamDesc.contains("カメラで撮影して集める"), "日本語カメラ権限説明が含まれること: \(jaCamDesc)")
+        XCTAssertTrue(enCamDesc.contains("capture real-world colors"), "英語カメラ権限説明が含まれること: \(enCamDesc)")
     }
 }
