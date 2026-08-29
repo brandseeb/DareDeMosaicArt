@@ -249,7 +249,13 @@ public struct TimelapseExportView: View {
         renderError = nil
         saveSuccess = false
         
-        renderTask?.cancel()
+        // 以前生成した一時動画ファイルを即座に削除しストレージ圧迫を防止
+        if let previousURL = videoURL {
+            try? FileManager.default.removeItem(at: previousURL)
+            videoURL = nil
+        }
+        cleanupPlayerAndTask()
+        
         let projectSnapshot = project
         let audioFlag = includeAudio
         

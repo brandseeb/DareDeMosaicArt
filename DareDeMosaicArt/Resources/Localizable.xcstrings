@@ -3026,13 +3026,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Special Launch Price • One-time Purchase"
+            "value": "One-Time Purchase • Lifetime Access"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "リリース記念特別価格・買い切り"
+            "value": "買い切りプラン・永久利用"
           }
         }
       }
@@ -6996,6 +6996,91 @@
           "stringUnit": {
             "state": "translated",
             "value": "すべてのマスが既に埋まっています！"
+          }
+        }
+      }
+    },
+    "completion.alert.saveFailed.title": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Unable to Save Image"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "画像を保存できませんでした"
+          }
+        }
+      }
+    },
+    "completion.saveError.accessDenied": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Photo library access is not allowed. Please allow access in Settings to save your mosaic."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "写真ライブラリへのアクセスが許可されていません。設定アプリから写真の追加権限を許可してください。"
+          }
+        }
+      }
+    },
+    "completion.saveError.generationFailed": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Failed to generate high-resolution mosaic image."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "高解像度モザイク画像の生成に失敗しました。"
+          }
+        }
+      }
+    },
+    "completion.saveError.format %@": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Failed to save image: %@"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "画像の保存に失敗しました: %@"
+          }
+        }
+      }
+    },
+    "setup.alert.error.title": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "An Error Occurred"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "エラーが発生しました"
           }
         }
       }

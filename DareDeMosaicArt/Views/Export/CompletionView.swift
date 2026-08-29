@@ -15,6 +15,7 @@ public struct CompletionView: View {
     @State private var isRendering: Bool = false
     @State private var isExporting: Bool = false
     @State private var saveSuccess: Bool = false
+    @State private var saveErrorMessage: String? = nil
     @State private var showPaywall: Bool = false
     @State private var showWatermarkEditor: Bool = false
     @State private var showTimelapseSheet: Bool = false
@@ -233,6 +234,19 @@ public struct CompletionView: View {
                 MosaicImageActivityShareSheet(activityItems: [item.image])
                     .ignoresSafeArea()
             }
+            .alert(String(localized: "completion.alert.saveFailed.title", defaultValue: "画像を保存できませんでした"), isPresented: Binding(
+                get: { saveErrorMessage != nil },
+                set: { if !$0 { saveErrorMessage = nil } }
+            )) {
+                Button(String(localized: "common.ok", defaultValue: "OK"), role: .cancel) {}
+                Button(String(localized: "common.openSettings", defaultValue: "設定を開く")) {
+                    if let url = URL(string: UIApplication.openSettingsURLString) {
+                        UIApplication.shared.open(url)
+                    }
+                }
+            } message: {
+                Text(saveErrorMessage ?? "")
+            }
             .onAppear {
                 if let saved = project.watermarkConfig {
                     self.draftWatermark = saved
@@ -422,16 +436,45 @@ public struct CompletionView: View {
     private func exportAndSaveToPhotos() {
         guard !isExporting else { return }
         isExporting = true
+        saveErrorMessage = nil
         
         Task {
-            if let finalImage = await generateFinalExportImage() {
+            // 1. 写真ライブラリへの追加権限を確認
+            let status = await PHPhotoLibrary.requestAuthorization(for: .addOnly)
+            guard status == .authorized || status == .limited else {
                 await MainActor.run {
-                    UIImageWriteToSavedPhotosAlbum(finalImage, nil, nil, nil)
-                    self.saveSuccess = true
+                    self.saveErrorMessage = String(localized: "completion.saveError.accessDenied", defaultValue: "写真ライブラリへのアクセスが許可されていません。設定アプリから写真の追加権限を許可してください。")
                     self.isExporting = false
                 }
-            } else {
-                await MainActor.run { self.isExporting = false }
+                return
+            }
+            
+            // 2. 画像生成
+            guard let finalImage = await generateFinalExportImage() else {
+                await MainActor.run {
+                    self.saveErrorMessage = String(localized: "completion.saveError.generationFailed", defaultValue: "高解像度モザイク画像の生成に失敗しました。")
+                    self.isExporting = false
+                }
+                return
+            }
+            
+            // 3. 写真ライブラリへ書き込み（非同期保証）
+            do {
+                try await PHPhotoLibrary.shared().performChanges {
+                    PHAssetChangeRequest.creationRequestForAsset(from: finalImage)
+                }
+                await MainActor.run {
+                    self.saveSuccess = true
+                    self.isExporting = false
+                    #if canImport(UIKit)
+                    UINotificationFeedbackGenerator().notificationOccurred(.success)
+                    #endif
+                }
+            } catch {
+                await MainActor.run {
+                    self.saveErrorMessage = String(localized: "completion.saveError.format \(error.localizedDescription)")
+                    self.isExporting = false
+                }
             }
         }
     }
@@ -500,15 +543,15 @@ public struct CompletionView: View {
                 context.fill(rect)
             }
 
-            let tileImage: UIImage?
+            var tileImage: UIImage? = nil
             if useHighQualityAssets,
                let identifier = tile.placedPhotoIdentifier,
                let asset = assetsByIdentifier[identifier] {
                 tileImage = await requestHighQualityImage(for: asset, targetPixels: isPro ? 256 : 128)
-            } else if let data = tile.thumbnailData {
+            }
+            // 高解像度写真の取得失敗時（または非アセット時）は確実にタイルのサムネイルへフォールバック
+            if tileImage == nil, let data = tile.thumbnailData {
                 tileImage = UIImage(data: data)
-            } else {
-                tileImage = nil
             }
 
             if let tileImage {

@@ -7,7 +7,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "DareDe Mosaic Art"
+            "value": "EveryMosaic"
           }
         },
         "ja": {
@@ -24,7 +24,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "DareDe Mosaic Art"
+            "value": "EveryMosaic"
           }
         },
         "ja": {
@@ -41,7 +41,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Used to capture real-world colors for your mosaic art pieces."
+            "value": "Used to capture real-world colors for your photo mosaic pieces."
           }
         },
         "ja": {
@@ -58,7 +58,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Used to save your completed mosaic artwork to your photo library."
+            "value": "Used to save your completed photo mosaic to your photo library."
           }
         },
         "ja": {
@@ -75,7 +75,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Used to select target photos and match mosaic pieces from your library."
+            "value": "Used to select a target image and match photo mosaic pieces from your library."
           }
         },
         "ja": {

@@ -180,13 +180,12 @@ public final class TimelapseExportService: Sendable {
         for tile in sortedTiles {
             if Task.isCancelled { throw TimelapseExportError.cancelled }
             
-            let tileImage: UIImage?
+            var tileImage: UIImage? = nil
             if let identifier = tile.placedPhotoIdentifier, let asset = assetsByIdentifier[identifier] {
                 tileImage = await requestImageForTimelapse(for: asset, targetPixels: max(tilePixelWidth, tilePixelHeight) * 1.5)
-            } else if let data = tile.thumbnailData {
+            }
+            if tileImage == nil, let data = tile.thumbnailData {
                 tileImage = UIImage(data: data)
-            } else {
-                tileImage = nil
             }
             
             if let tileImage, let cg = ImageUtils.normalizeOrientationAndFit(image: tileImage, maxDimension: CGFloat(max(tilePixelWidth, tilePixelHeight) * 1.5)).cgImage {

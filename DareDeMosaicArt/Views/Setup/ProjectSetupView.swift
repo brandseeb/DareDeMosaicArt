@@ -96,7 +96,12 @@ public struct ProjectSetupView: View {
                     selectedPhotoSource = .allLocalPhotos
                     startGeneration()
                 }
-                Button("OK", role: .cancel) {}
+                Button(String(localized: "common.cancel"), role: .cancel) {}
+            } message: {
+                Text(albumNotFoundMessage)
+            }
+            .alert(String(localized: "setup.alert.error.title", defaultValue: "エラーが発生しました"), isPresented: $showGeneralErrorAlert) {
+                Button(String(localized: "common.ok", defaultValue: "OK"), role: .cancel) {}
             } message: {
                 Text(errorMessage)
             }

@@ -1102,8 +1102,8 @@ final class DareDeMosaicArtTests: XCTestCase {
         XCTAssertEqual(jaBundle.localizedString(forKey: "workspace.undoAutoFill", value: nil, table: "Localizable"), "自動配置前に戻す")
         XCTAssertEqual(enBundle.localizedString(forKey: "workspace.undoAutoFill", value: nil, table: "Localizable"), "Undo Auto-Fill")
 
-        XCTAssertEqual(jaBundle.localizedString(forKey: "paywall.badge.launchSpecial", value: nil, table: "Localizable"), "リリース記念特別価格・買い切り")
-        XCTAssertEqual(enBundle.localizedString(forKey: "paywall.badge.launchSpecial", value: nil, table: "Localizable"), "Special Launch Price • One-time Purchase")
+        XCTAssertEqual(jaBundle.localizedString(forKey: "paywall.badge.launchSpecial", value: nil, table: "Localizable"), "買い切りプラン・永久利用")
+        XCTAssertEqual(enBundle.localizedString(forKey: "paywall.badge.launchSpecial", value: nil, table: "Localizable"), "One-Time Purchase • Lifetime Access")
 
         XCTAssertEqual(jaBundle.localizedString(forKey: "paywall.header.subtitle", value: nil, table: "Localizable"), "制限をすべて解除して、極限のモザイクアートを作ろう")
         XCTAssertEqual(enBundle.localizedString(forKey: "paywall.header.subtitle", value: nil, table: "Localizable"), "Unlock all limits and create stunning photo mosaics")
@@ -1146,5 +1146,9 @@ final class DareDeMosaicArtTests: XCTestCase {
         let enCamDesc = enBundle.localizedString(forKey: "NSCameraUsageDescription", value: nil, table: "InfoPlist")
         XCTAssertTrue(jaCamDesc.contains("カメラで撮影して集める"), "日本語カメラ権限説明が含まれること: \(jaCamDesc)")
         XCTAssertTrue(enCamDesc.contains("capture real-world colors"), "英語カメラ権限説明が含まれること: \(enCamDesc)")
+
+        // 7-3. PrivacyInfo.xcprivacy のバンドル同梱検証
+        let privacyManifestURL = mainBundle.url(forResource: "PrivacyInfo", withExtension: "xcprivacy")
+        XCTAssertNotNil(privacyManifestURL, "アプリバンドル内に PrivacyInfo.xcprivacy が正常に同梱されていること")
     }
 }
