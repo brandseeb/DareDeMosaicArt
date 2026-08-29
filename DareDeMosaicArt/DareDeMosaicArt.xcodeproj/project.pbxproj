@@ -6,6 +6,41 @@
 	objectVersion = 56;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		02334CA330429198002D9AB2 /* Localizable.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = R00000000000000000000002 /* Localizable.xcstrings */; };
+		02334CA430429198002D9AB2 /* InfoPlist.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = R00000000000000000000004 /* InfoPlist.xcstrings */; };
+		33F5F666EC344ECE867D347D /* DareDeMosaicArtApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = B85885B374C34338B8509924 /* DareDeMosaicArtApp.swift */; };
+		3B866E847FCA48F7AA78C747 /* HomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 42653DF475C848FD84DF52D0 /* HomeView.swift */; };
+		3FC133FD9DC04144B1320ED7 /* ColorReticleView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 50D329E420404142A6FA8684 /* ColorReticleView.swift */; };
+		487E74D7275549989489BB6C /* MissionCameraView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 78518D38E9ED4A0DA0327D73 /* MissionCameraView.swift */; };
+		5F3543E076174F38996ABC58 /* MosaicCanvasView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E67B44FC18614016829B0065 /* MosaicCanvasView.swift */; };
+		6096610D434A49ADAA6EC204 /* ImageUtils.swift in Sources */ = {isa = PBXBuildFile; fileRef = 93991EEF49754767894CFD67 /* ImageUtils.swift */; };
+		64E172AF81564F41B8FC0A36 /* MosaicProject.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2C8CEBC40494F08A3C3166F /* MosaicProject.swift */; };
+		6CC9C264943D4F4DA62A76B7 /* CameraManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 53D8C646E0624282A67483E7 /* CameraManager.swift */; };
+		77229BA79301489584AC3A0C /* MosaicEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5EC0609BFA1494489DFB830 /* MosaicEngine.swift */; };
+		7E0393FE1CCA4E3685998252 /* PhotoLibraryScanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5C6DA243AAE249D997D5550E /* PhotoLibraryScanner.swift */; };
+		7E8C45DE5EB94CAEA55B3329 /* ColorMission.swift in Sources */ = {isa = PBXBuildFile; fileRef = B858C29533BE47ACB221DDFE /* ColorMission.swift */; };
+		88A4D42F9E394CFC8018BCE8 /* ColorAnalysisService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 908098770B744B06B6BDCF9C /* ColorAnalysisService.swift */; };
+		8C252FD8C1894CB9A8804E85 /* LabColor.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1765F55AD4448BDB62F246B /* LabColor.swift */; };
+		A00000000000000000000001 /* DareDeMosaicArtTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000002 /* DareDeMosaicArtTests.swift */; };
+		A00000000000000000000010 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000011 /* Assets.xcassets */; };
+		A1B2C3D4E5F60718293A4B5C /* StoreKitManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1C2D3E4F5A60718293B4C5D /* StoreKitManager.swift */; };
+		A6D1F2E3C4B50718293A4B6C /* PerformanceDiagnostics.swift in Sources */ = {isa = PBXBuildFile; fileRef = B6D1F2E3C4B50718293A4B6D /* PerformanceDiagnostics.swift */; };
+		A8E81459D5DB4716B1203BBA /* ProjectSetupView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 693839DAD1DE41C59D5A6720 /* ProjectSetupView.swift */; };
+		AAC13EAB3F594DA6B7FA5E8B /* CompletionView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F7D6302B058C4E26A777421A /* CompletionView.swift */; };
+		B2C3D4E5F6A70718293E4F6A /* IndexedPhoto.swift in Sources */ = {isa = PBXBuildFile; fileRef = C2D3E4F5A6B70718293F4A6B /* IndexedPhoto.swift */; };
+		C1D2E3F4A5B60718293C4D5E /* ProPaywallView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1E2F3A4B5C60718293D4E5F /* ProPaywallView.swift */; };
+		CF356C2F486F490493C9B349 /* MosaicTile.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8B963E4E9D3E42B39B1E03D3 /* MosaicTile.swift */; };
+		E1A2B3C4D5E60718293A4B5C /* TimelapseTimeline.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1A2B3C4D5E60718293A4B5D /* TimelapseTimeline.swift */; };
+		E2A2B3C4D5E60718293A4B5E /* TimelapseExportService.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2A2B3C4D5E60718293A4B5F /* TimelapseExportService.swift */; };
+		E3A2B3C4D5E60718293A4B60 /* TimelapseExportView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F3A2B3C4D5E60718293A4B61 /* TimelapseExportView.swift */; };
+		E479F603623C46649F87A62D /* MosaicWorkspaceView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 42A223887F8D47BAA6CB6F02 /* MosaicWorkspaceView.swift */; };
+		F4A2B3C4D5E60718293A4B62 /* AutoFillSheetView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F5A2B3C4D5E60718293A4B63 /* AutoFillSheetView.swift */; };
+		F78F4DD3EDC54AD4A3272BAF /* PhotoPickerSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = BE1EFD8C760149F7A906A5CD /* PhotoPickerSheet.swift */; };
+		R00000000000000000000001 /* Localizable.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = R00000000000000000000002 /* Localizable.xcstrings */; };
+		R00000000000000000000003 /* InfoPlist.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = R00000000000000000000004 /* InfoPlist.xcstrings */; };
+/* End PBXBuildFile section */
+
 /* Begin PBXContainerItemProxy section */
 		A0000000000000000000000B /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -16,45 +51,7 @@
 		};
 /* End PBXContainerItemProxy section */
 
-/* Begin PBXBuildFile section */
-		A00000000000000000000010 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000011 /* Assets.xcassets */; };
-		R00000000000000000000001 /* Localizable.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = R00000000000000000000002 /* Localizable.xcstrings */; };
-		R00000000000000000000003 /* InfoPlist.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = R00000000000000000000004 /* InfoPlist.xcstrings */; };
-		A00000000000000000000001 /* DareDeMosaicArtTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000002 /* DareDeMosaicArtTests.swift */; };
-		33F5F666EC344ECE867D347D /* DareDeMosaicArtApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = B85885B374C34338B8509924 /* DareDeMosaicArtApp.swift */; };
-		3B866E847FCA48F7AA78C747 /* HomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 42653DF475C848FD84DF52D0 /* HomeView.swift */; };
-		3FC133FD9DC04144B1320ED7 /* ColorReticleView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 50D329E420404142A6FA8684 /* ColorReticleView.swift */; };
-		487E74D7275549989489BB6C /* MissionCameraView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 78518D38E9ED4A0DA0327D73 /* MissionCameraView.swift */; };
-		5F3543E076174F38996ABC58 /* MosaicCanvasView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E67B44FC18614016829B0065 /* MosaicCanvasView.swift */; };
-		6096610D434A49ADAA6EC204 /* ImageUtils.swift in Sources */ = {isa = PBXBuildFile; fileRef = 93991EEF49754767894CFD67 /* ImageUtils.swift */; };
-		A6D1F2E3C4B50718293A4B6C /* PerformanceDiagnostics.swift in Sources */ = {isa = PBXBuildFile; fileRef = B6D1F2E3C4B50718293A4B6D /* PerformanceDiagnostics.swift */; };
-		64E172AF81564F41B8FC0A36 /* MosaicProject.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2C8CEBC40494F08A3C3166F /* MosaicProject.swift */; };
-		6CC9C264943D4F4DA62A76B7 /* CameraManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 53D8C646E0624282A67483E7 /* CameraManager.swift */; };
-		77229BA79301489584AC3A0C /* MosaicEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5EC0609BFA1494489DFB830 /* MosaicEngine.swift */; };
-		7E0393FE1CCA4E3685998252 /* PhotoLibraryScanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5C6DA243AAE249D997D5550E /* PhotoLibraryScanner.swift */; };
-		7E8C45DE5EB94CAEA55B3329 /* ColorMission.swift in Sources */ = {isa = PBXBuildFile; fileRef = B858C29533BE47ACB221DDFE /* ColorMission.swift */; };
-		88A4D42F9E394CFC8018BCE8 /* ColorAnalysisService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 908098770B744B06B6BDCF9C /* ColorAnalysisService.swift */; };
-		8C252FD8C1894CB9A8804E85 /* LabColor.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1765F55AD4448BDB62F246B /* LabColor.swift */; };
-		A8E81459D5DB4716B1203BBA /* ProjectSetupView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 693839DAD1DE41C59D5A6720 /* ProjectSetupView.swift */; };
-		AAC13EAB3F594DA6B7FA5E8B /* CompletionView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F7D6302B058C4E26A777421A /* CompletionView.swift */; };
-		CF356C2F486F490493C9B349 /* MosaicTile.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8B963E4E9D3E42B39B1E03D3 /* MosaicTile.swift */; };
-		E479F603623C46649F87A62D /* MosaicWorkspaceView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 42A223887F8D47BAA6CB6F02 /* MosaicWorkspaceView.swift */; };
-		F78F4DD3EDC54AD4A3272BAF /* PhotoPickerSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = BE1EFD8C760149F7A906A5CD /* PhotoPickerSheet.swift */; };
-		A1B2C3D4E5F60718293A4B5C /* StoreKitManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1C2D3E4F5A60718293B4C5D /* StoreKitManager.swift */; };
-		C1D2E3F4A5B60718293C4D5E /* ProPaywallView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1E2F3A4B5C60718293D4E5F /* ProPaywallView.swift */; };
-		B2C3D4E5F6A70718293E4F6A /* IndexedPhoto.swift in Sources */ = {isa = PBXBuildFile; fileRef = C2D3E4F5A6B70718293F4A6B /* IndexedPhoto.swift */; };
-		E1A2B3C4D5E60718293A4B5C /* TimelapseTimeline.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1A2B3C4D5E60718293A4B5D /* TimelapseTimeline.swift */; };
-		E2A2B3C4D5E60718293A4B5E /* TimelapseExportService.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2A2B3C4D5E60718293A4B5F /* TimelapseExportService.swift */; };
-		E3A2B3C4D5E60718293A4B60 /* TimelapseExportView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F3A2B3C4D5E60718293A4B61 /* TimelapseExportView.swift */; };
-		F4A2B3C4D5E60718293A4B62 /* AutoFillSheetView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F5A2B3C4D5E60718293A4B63 /* AutoFillSheetView.swift */; };
-/* End PBXBuildFile section */
-
 /* Begin PBXFileReference section */
-		A00000000000000000000011 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
-		R00000000000000000000002 /* Localizable.xcstrings */ = {isa = PBXFileReference; lastKnownFileType = text.json.xcstrings; path = Localizable.xcstrings; sourceTree = "<group>"; };
-		R00000000000000000000004 /* InfoPlist.xcstrings */ = {isa = PBXFileReference; lastKnownFileType = text.json.xcstrings; path = InfoPlist.xcstrings; sourceTree = "<group>"; };
-		A00000000000000000000002 /* DareDeMosaicArtTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DareDeMosaicArtTests.swift; sourceTree = "<group>"; };
-		A00000000000000000000003 /* DareDeMosaicArtTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = DareDeMosaicArtTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		263B6D77658F4E218BBA3F9B /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		42653DF475C848FD84DF52D0 /* HomeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeView.swift; sourceTree = "<group>"; };
 		42A223887F8D47BAA6CB6F02 /* MosaicWorkspaceView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MosaicWorkspaceView.swift; sourceTree = "<group>"; };
@@ -67,34 +64,39 @@
 		8B963E4E9D3E42B39B1E03D3 /* MosaicTile.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MosaicTile.swift; sourceTree = "<group>"; };
 		908098770B744B06B6BDCF9C /* ColorAnalysisService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ColorAnalysisService.swift; sourceTree = "<group>"; };
 		93991EEF49754767894CFD67 /* ImageUtils.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImageUtils.swift; sourceTree = "<group>"; };
-		B6D1F2E3C4B50718293A4B6D /* PerformanceDiagnostics.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PerformanceDiagnostics.swift; sourceTree = "<group>"; };
+		A00000000000000000000002 /* DareDeMosaicArtTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DareDeMosaicArtTests.swift; sourceTree = "<group>"; };
+		A00000000000000000000003 /* DareDeMosaicArtTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = DareDeMosaicArtTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		A00000000000000000000011 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		A2C8CEBC40494F08A3C3166F /* MosaicProject.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MosaicProject.swift; sourceTree = "<group>"; };
 		A5EC0609BFA1494489DFB830 /* MosaicEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MosaicEngine.swift; sourceTree = "<group>"; };
+		B1C2D3E4F5A60718293B4C5D /* StoreKitManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StoreKitManager.swift; sourceTree = "<group>"; };
+		B6D1F2E3C4B50718293A4B6D /* PerformanceDiagnostics.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PerformanceDiagnostics.swift; sourceTree = "<group>"; };
 		B85885B374C34338B8509924 /* DareDeMosaicArtApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DareDeMosaicArtApp.swift; sourceTree = "<group>"; };
 		B858C29533BE47ACB221DDFE /* ColorMission.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ColorMission.swift; sourceTree = "<group>"; };
 		BE1EFD8C760149F7A906A5CD /* PhotoPickerSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PhotoPickerSheet.swift; sourceTree = "<group>"; };
+		C2D3E4F5A6B70718293F4A6B /* IndexedPhoto.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IndexedPhoto.swift; sourceTree = "<group>"; };
 		D1765F55AD4448BDB62F246B /* LabColor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LabColor.swift; sourceTree = "<group>"; };
-		E67B44FC18614016829B0065 /* MosaicCanvasView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MosaicCanvasView.swift; sourceTree = "<group>"; };
-		F7D6302B058C4E26A777421A /* CompletionView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CompletionView.swift; sourceTree = "<group>"; };
-		B1C2D3E4F5A60718293B4C5D /* StoreKitManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StoreKitManager.swift; sourceTree = "<group>"; };
 		D1E2F3A4B5C60718293D4E5F /* ProPaywallView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProPaywallView.swift; sourceTree = "<group>"; };
 		E1F2A3B4C5D60718293E4F5A /* DareDeMosaicArt.storekit */ = {isa = PBXFileReference; lastKnownFileType = text; path = DareDeMosaicArt.storekit; sourceTree = "<group>"; };
-		C2D3E4F5A6B70718293F4A6B /* IndexedPhoto.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IndexedPhoto.swift; sourceTree = "<group>"; };
+		E67B44FC18614016829B0065 /* MosaicCanvasView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MosaicCanvasView.swift; sourceTree = "<group>"; };
 		F1A2B3C4D5E60718293A4B5D /* TimelapseTimeline.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TimelapseTimeline.swift; sourceTree = "<group>"; };
 		F2A2B3C4D5E60718293A4B5F /* TimelapseExportService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TimelapseExportService.swift; sourceTree = "<group>"; };
 		F3A2B3C4D5E60718293A4B61 /* TimelapseExportView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TimelapseExportView.swift; sourceTree = "<group>"; };
 		F5A2B3C4D5E60718293A4B63 /* AutoFillSheetView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AutoFillSheetView.swift; sourceTree = "<group>"; };
+		F7D6302B058C4E26A777421A /* CompletionView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CompletionView.swift; sourceTree = "<group>"; };
+		R00000000000000000000002 /* Localizable.xcstrings */ = {isa = PBXFileReference; lastKnownFileType = text.json.xcstrings; path = Localizable.xcstrings; sourceTree = "<group>"; };
+		R00000000000000000000004 /* InfoPlist.xcstrings */ = {isa = PBXFileReference; lastKnownFileType = text.json.xcstrings; path = InfoPlist.xcstrings; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
-		A00000000000000000000004 /* Frameworks */ = {
+		8ED0D8FAC3E844469ED9239B /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		8ED0D8FAC3E844469ED9239B /* Frameworks */ = {
+		A00000000000000000000004 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -104,14 +106,6 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
-		A0000000000000000000000D /* DareDeMosaicArtTests */ = {
-			isa = PBXGroup;
-			children = (
-				A00000000000000000000002 /* DareDeMosaicArtTests.swift */,
-			);
-			path = DareDeMosaicArtTests;
-			sourceTree = "<group>";
-		};
 		17BFB9DA5CCF4BED9F54B6BE /* Models */ = {
 			isa = PBXGroup;
 			children = (
@@ -184,6 +178,14 @@
 				A0000000000000000000000D /* DareDeMosaicArtTests */,
 				3C69C5F12A6C4B7685BDA6F1 /* Products */,
 			);
+			sourceTree = "<group>";
+		};
+		A0000000000000000000000D /* DareDeMosaicArtTests */ = {
+			isa = PBXGroup;
+			children = (
+				A00000000000000000000002 /* DareDeMosaicArtTests.swift */,
+			);
+			path = DareDeMosaicArtTests;
 			sourceTree = "<group>";
 		};
 		A81CBAD4085445618E56554A /* Views */ = {
@@ -326,15 +328,6 @@
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
-		A00000000000000000000006 /* Resources */ = {
-			isa = PBXResourcesBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-				R00000000000000000000001 /* Localizable.xcstrings in Resources */,
-				R00000000000000000000003 /* InfoPlist.xcstrings in Resources */,
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
 		3CC8F887361344488B97B089 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -345,17 +338,18 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-/* End PBXResourcesBuildPhase section */
-
-/* Begin PBXSourcesBuildPhase section */
-		A00000000000000000000005 /* Sources */ = {
-			isa = PBXSourcesBuildPhase;
+		A00000000000000000000006 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				A00000000000000000000001 /* DareDeMosaicArtTests.swift in Sources */,
+				02334CA330429198002D9AB2 /* Localizable.xcstrings in Resources */,
+				02334CA430429198002D9AB2 /* InfoPlist.xcstrings in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
 		13AC6BB2F8B44E74A02CD3F5 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -389,15 +383,112 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		A00000000000000000000005 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A00000000000000000000001 /* DareDeMosaicArtTests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
 
+/* Begin PBXTargetDependency section */
+		A0000000000000000000000C /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = B795BE0F0CBC40FE89805DF5 /* 誰でモザイクアート */;
+			targetProxy = A0000000000000000000000B /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
 /* Begin XCBuildConfiguration section */
+		43CE1A7490BD4D82A0237B10 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_LOCALIZABILITY_NONLOCALIZED = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				DEVELOPMENT_TEAM = T9BBQN2J96;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				SDKROOT = iphoneos;
+				STRING_CATALOG_GENERATE_SYMBOLS = NO;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 6.0;
+			};
+			name = Debug;
+		};
+		7B59221064A04ED89C4F2C56 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				ENABLE_APP_INTENTS_METADATA_EXTRACTION = NO;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.daredemosaic.app;
+				PRODUCT_MODULE_NAME = DareDeMosaicArt;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 6.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
 		A00000000000000000000009 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				BUNDLE_LOADER = "$(TEST_HOST)";
 				CODE_SIGN_STYLE = Automatic;
-				DEVELOPMENT_TEAM = T9BBQN2J96;
 				GENERATE_INFOPLIST_FILE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -418,7 +509,6 @@
 			buildSettings = {
 				BUNDLE_LOADER = "$(TEST_HOST)";
 				CODE_SIGN_STYLE = Automatic;
-				DEVELOPMENT_TEAM = T9BBQN2J96;
 				GENERATE_INFOPLIST_FILE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -439,7 +529,6 @@
 			buildSettings = {
 				BUNDLE_LOADER = "$(TEST_HOST)";
 				CODE_SIGN_STYLE = Automatic;
-				DEVELOPMENT_TEAM = T9BBQN2J96;
 				GENERATE_INFOPLIST_FILE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -455,103 +544,51 @@
 			};
 			name = Profile;
 		};
-		43CE1A7490BD4D82A0237B10 /* Debug */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				ALWAYS_SEARCH_USER_PATHS = NO;
-				CLANG_ANALYZER_NONNULL = YES;
-				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
-				CLANG_ENABLE_MODULES = YES;
-				CLANG_ENABLE_OBJC_ARC = YES;
-				COPY_PHASE_STRIP = NO;
-				DEBUG_INFORMATION_FORMAT = dwarf;
-				ENABLE_STRICT_OBJC_MSGSEND = YES;
-				ENABLE_TESTABILITY = YES;
-				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_NO_COMMON_BLOCKS = YES;
-				GCC_OPTIMIZATION_LEVEL = 0;
-				GCC_PREPROCESSOR_DEFINITIONS = (
-					"DEBUG=1",
-					"$(inherited)",
-				);
-				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
-				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
-				MTL_FAST_MATH = YES;
-				ONLY_ACTIVE_ARCH = YES;
-				SDKROOT = iphoneos;
-				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
-				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
-				SWIFT_VERSION = 6.0;
-			};
-			name = Debug;
-		};
-		7B59221064A04ED89C4F2C56 /* Release */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
-				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = T9BBQN2J96;
-				GENERATE_INFOPLIST_FILE = NO;
-				INFOPLIST_FILE = Info.plist;
-				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
-				LD_RUNPATH_SEARCH_PATHS = (
-					"$(inherited)",
-					"@executable_path/Frameworks",
-				);
-				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.daredemosaic.app;
-				PRODUCT_MODULE_NAME = DareDeMosaicArt;
-				PRODUCT_NAME = "$(TARGET_NAME)";
-				SWIFT_EMIT_LOC_STRINGS = YES;
-				SWIFT_VERSION = 6.0;
-				TARGETED_DEVICE_FAMILY = "1,2";
-				ENABLE_APP_INTENTS_METADATA_EXTRACTION = NO;
-			};
-			name = Release;
-		};
-		F00000000000000000000002 /* Profile */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
-				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = T9BBQN2J96;
-				ENABLE_APP_INTENTS_METADATA_EXTRACTION = NO;
-				GENERATE_INFOPLIST_FILE = NO;
-				INFOPLIST_FILE = Info.plist;
-				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
-				LD_RUNPATH_SEARCH_PATHS = (
-					"$(inherited)",
-					"@executable_path/Frameworks",
-				);
-				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.daredemosaic.app;
-				PRODUCT_MODULE_NAME = DareDeMosaicArt;
-				PRODUCT_NAME = "$(TARGET_NAME)";
-				SWIFT_EMIT_LOC_STRINGS = YES;
-				SWIFT_VERSION = 6.0;
-				TARGETED_DEVICE_FAMILY = "1,2";
-			};
-			name = Profile;
-		};
 		DC05736E1B1741018B1A9886 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_LOCALIZABILITY_NONLOCALIZED = YES;
 				CLANG_ANALYZER_NONNULL = YES;
 				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
 				CLANG_ENABLE_MODULES = YES;
 				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				DEVELOPMENT_TEAM = T9BBQN2J96;
 				ENABLE_NS_ASSERTIONS = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
 				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
 				SDKROOT = iphoneos;
+				STRING_CATALOG_GENERATE_SYMBOLS = NO;
 				SWIFT_COMPILATION_MODE = wholemodule;
 				SWIFT_OPTIMIZATION_LEVEL = "-O";
 				SWIFT_VERSION = 6.0;
@@ -559,23 +596,75 @@
 			};
 			name = Release;
 		};
+		DEB8A31FDC67449DB5CAF79F /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				ENABLE_APP_INTENTS_METADATA_EXTRACTION = NO;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.daredemosaic.app;
+				PRODUCT_MODULE_NAME = DareDeMosaicArt;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 6.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
 		F00000000000000000000001 /* Profile */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_LOCALIZABILITY_NONLOCALIZED = YES;
 				CLANG_ANALYZER_NONNULL = YES;
 				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
 				CLANG_ENABLE_MODULES = YES;
 				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				DEVELOPMENT_TEAM = T9BBQN2J96;
 				ENABLE_NS_ASSERTIONS = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
 				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
 				SDKROOT = iphoneos;
+				STRING_CATALOG_GENERATE_SYMBOLS = NO;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "PERFORMANCE_PROFILE $(inherited)";
 				SWIFT_COMPILATION_MODE = wholemodule;
 				SWIFT_OPTIMIZATION_LEVEL = "-O";
@@ -584,13 +673,13 @@
 			};
 			name = Profile;
 		};
-		DEB8A31FDC67449DB5CAF79F /* Debug */ = {
+		F00000000000000000000002 /* Profile */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = T9BBQN2J96;
+				ENABLE_APP_INTENTS_METADATA_EXTRACTION = NO;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
@@ -605,23 +694,12 @@
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 6.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
-				ENABLE_APP_INTENTS_METADATA_EXTRACTION = NO;
 			};
-			name = Debug;
+			name = Profile;
 		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
-		A00000000000000000000008 /* Build configuration list for PBXNativeTarget "DareDeMosaicArtTests" */ = {
-			isa = XCConfigurationList;
-			buildConfigurations = (
-				A00000000000000000000009 /* Debug */,
-				A0000000000000000000000A /* Release */,
-				A0000000000000000000000E /* Profile */,
-			);
-			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
-		};
 		5765576670E84D8D9A7D3A13 /* Build configuration list for PBXProject "DareDeMosaicArt" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
@@ -642,15 +720,17 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-/* End XCConfigurationList section */
-
-/* Begin PBXTargetDependency section */
-		A0000000000000000000000C /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = B795BE0F0CBC40FE89805DF5 /* 誰でモザイクアート */;
-			targetProxy = A0000000000000000000000B /* PBXContainerItemProxy */;
+		A00000000000000000000008 /* Build configuration list for PBXNativeTarget "DareDeMosaicArtTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				A00000000000000000000009 /* Debug */,
+				A0000000000000000000000A /* Release */,
+				A0000000000000000000000E /* Profile */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
 		};
-/* End PBXTargetDependency section */
+/* End XCConfigurationList section */
 	};
 	rootObject = 96DD5F7188D74443967B30C6 /* Project object */;
 }
