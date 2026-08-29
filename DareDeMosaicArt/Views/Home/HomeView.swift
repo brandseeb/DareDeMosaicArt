@@ -62,7 +62,7 @@ public struct HomeView: View {
                     projectListView
                 }
             }
-            .navigationTitle("誰でモザイクアート")
+            .navigationTitle(Text(LocalizedStringResource("app.name")))
             .toolbar {
                 // 左側: Pro アップグレードボタン
                 ToolbarItem(placement: .topBarLeading) {
@@ -154,22 +154,24 @@ public struct HomeView: View {
             }
             // 削除確認アラート
             .alert(
-                "「\(projectPendingDeletion?.title ?? "")」を削除しますか？",
+                projectPendingDeletion != nil
+                ? String(localized: "home.alert.delete.title.format \(projectPendingDeletion?.title ?? "")")
+                : "",
                 isPresented: Binding(
                     get: { projectPendingDeletion != nil },
                     set: { if !$0 { projectPendingDeletion = nil } }
                 ),
                 presenting: projectPendingDeletion
             ) { target in
-                Button("削除", role: .destructive) {
+                Button(String(localized: "common.delete"), role: .destructive) {
                     onDeleteProjects([target.id])
                     projectPendingDeletion = nil
                 }
-                Button("キャンセル", role: .cancel) {
+                Button(String(localized: "common.cancel"), role: .cancel) {
                     projectPendingDeletion = nil
                 }
             } message: { _ in
-                Text("このアートで撮影した画像データも一緒に端末から完全に消去されます。この操作は取り消せません。")
+                Text(LocalizedStringResource("home.alert.delete.message", defaultValue: "このアートで撮影した画像データも一緒に端末から完全に消去されます。この操作は取り消せません。"))
             }
         }
     }
@@ -242,7 +244,7 @@ public struct HomeView: View {
                             Button(role: .destructive) {
                                 projectPendingDeletion = project
                             } label: {
-                                Label("削除", systemImage: "trash")
+                                Label(String(localized: "common.delete"), systemImage: "trash")
                             }
                         }
                 }
@@ -283,7 +285,7 @@ public struct HomeView: View {
                         .frame(width: 100)
                     
                     if project.isCompleted {
-                        Text("完成！✨")
+                        Text(LocalizedStringResource("home.status.completed", defaultValue: "完成！✨"))
                             .font(.caption.bold())
                             .foregroundColor(.green)
                     } else {

@@ -432,7 +432,7 @@ public final class MosaicEngine: Sendable {
             updatedProject.isCompleted = updatedProject.tiles.allSatisfy { $0.isFilled }
             updatedProject.updatedAt = Date()
             
-            return (updatedProject, updatedTile, "ナイスショット！ピースを撮り直しました！")
+            return (updatedProject, updatedTile, String(localized: "engine.message.retakeSuccess", defaultValue: "ナイスショット！ピースを撮り直しました！"))
         }
         
         // 2. ミッション対象マス（targetTileIDs）の中の未埋めマスから最も合致するタイルを探す
@@ -482,11 +482,13 @@ public final class MosaicEngine: Sendable {
             updatedProject.updatedAt = Date()
             
             let remaining = updatedProject.tiles.filter { !$0.isFilled }.count
-            let msg = remaining == 0 ? "🎉 おめでとうございます！すべてが埋まりました！" : "ナイスショット！ピースが1つハマりました！ (残り\(remaining)マス)"
+            let msg = remaining == 0
+                ? String(localized: "engine.message.allCompleted", defaultValue: "🎉 おめでとうございます！すべてが埋まりました！")
+                : String(localized: "engine.message.pieceMatched.format \(remaining)")
             return (updatedProject, matchedTile, msg)
         }
         
-        return (updatedProject, nil, "すべてのマスが既に埋まっています！")
+        return (updatedProject, nil, String(localized: "engine.message.alreadyFull", defaultValue: "すべてのマスが既に埋まっています！"))
     }
     
     // MARK: - ミッション自動生成

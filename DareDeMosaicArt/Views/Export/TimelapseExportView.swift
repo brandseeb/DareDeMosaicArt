@@ -49,11 +49,11 @@ public struct TimelapseExportView: View {
                 }
             }
             .padding()
-            .navigationTitle("制作タイムラプス動画")
+            .navigationTitle(Text(LocalizedStringResource("timelapse.navTitle", defaultValue: "制作タイムラプス動画")))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button(isRendering ? "キャンセル" : "閉じる") {
+                    Button(isRendering ? String(localized: "common.cancel", defaultValue: "キャンセル") : String(localized: "common.close", defaultValue: "閉じる")) {
                         cancelAndDismiss()
                     }
                 }
@@ -66,12 +66,12 @@ public struct TimelapseExportView: View {
                 isViewVisible = false
                 cleanupPlayerAndTask()
             }
-            .alert("動画を保存できません", isPresented: Binding(
+            .alert(String(localized: "timelapse.alert.saveFailed.title", defaultValue: "動画を保存できません"), isPresented: Binding(
                 get: { saveError != nil },
                 set: { if !$0 { saveError = nil } }
             )) {
-                Button("OK", role: .cancel) {}
-                Button("設定を開く") {
+                Button(String(localized: "common.ok", defaultValue: "OK"), role: .cancel) {}
+                Button(String(localized: "common.openSettings", defaultValue: "設定を開く")) {
                     openAppSettings()
                 }
             } message: {
@@ -106,14 +106,14 @@ public struct TimelapseExportView: View {
             }
             
             VStack(spacing: 6) {
-                Text("制作ショート動画をレンダリング中...")
+                Text(LocalizedStringResource("timelapse.rendering.title", defaultValue: "制作ショート動画をレンダリング中..."))
                     .font(.headline)
-                Text("写真ピースの物理落下・立体影・効果音を合成しています")
+                Text(LocalizedStringResource("timelapse.rendering.subtitle", defaultValue: "写真ピースの物理落下・立体影・効果音を合成しています"))
                     .font(.caption)
                     .foregroundColor(.secondary)
             }
             
-            Button("作成を中止する") {
+            Button(String(localized: "timelapse.button.cancel", defaultValue: "作成を中止する")) {
                 cancelAndDismiss()
             }
             .font(.subheadline)
@@ -132,7 +132,7 @@ public struct TimelapseExportView: View {
                 .font(.system(size: 48))
                 .foregroundColor(.orange)
             
-            Text("動画の作成に失敗しました")
+            Text(LocalizedStringResource("timelapse.error.title", defaultValue: "動画の作成に失敗しました"))
                 .font(.headline)
             
             Text(message)
@@ -141,7 +141,7 @@ public struct TimelapseExportView: View {
                 .multilineTextAlignment(.center)
                 .padding(.horizontal)
             
-            Button("再試行する") {
+            Button(String(localized: "common.retry", defaultValue: "再試行する")) {
                 startRendering()
             }
             .font(.headline)
@@ -227,7 +227,7 @@ public struct TimelapseExportView: View {
                         } else {
                             Image(systemName: saveSuccess ? "checkmark.circle.fill" : "arrow.down.to.line")
                         }
-                        Text(saveSuccess ? "カメラロールに保存しました！" : "カメラロールに保存")
+                        Text(saveSuccess ? LocalizedStringResource("export.button.savedToPhotos", defaultValue: "カメラロールに保存しました！") : LocalizedStringResource("export.button.saveToPhotos", defaultValue: "カメラロールに保存"))
                     }
                     .font(.headline)
                     .foregroundColor(saveSuccess ? .green : .primary)

@@ -79,7 +79,7 @@ public struct MosaicWorkspaceView: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
-                    Button("閉じる") {
+                    Button(String(localized: "common.close", defaultValue: "閉じる")) {
                         dismiss()
                     }
                 }
@@ -90,7 +90,7 @@ public struct MosaicWorkspaceView: View {
                     } label: {
                         HStack(spacing: 4) {
                             Image(systemName: "square.and.arrow.up")
-                            Text("完成版")
+                            Text(LocalizedStringResource("workspace.button.completion", defaultValue: "完成版"))
                         }
                         .font(.subheadline.bold())
                     }
@@ -113,7 +113,7 @@ public struct MosaicWorkspaceView: View {
                 )
                 .presentationDetents([.large])
             }
-            .fullScreenCover(item: $activeMission) { mission in
+            .sheet(item: $activeMission) { mission in
                 MissionCameraView(
                     mission: mission
                 ) { photo in
@@ -138,8 +138,8 @@ public struct MosaicWorkspaceView: View {
             .sheet(isPresented: $showPaywall) {
                 ProPaywallView()
             }
-            .alert("アルバムが見つかりません", isPresented: $showAlbumMissingAlert) {
-                Button("端末内の全写真に切り替える") {
+            .alert(String(localized: "workspace.alert.albumNotFound.title", defaultValue: "アルバムが見つかりません"), isPresented: $showAlbumMissingAlert) {
+                Button(String(localized: "workspace.alert.switchToAllPhotos", defaultValue: "端末内の全写真に切り替える")) {
                     project.photoSource = .allLocalPhotos
                     allSourcePhotos = []
                     hasFullyLoadedSourcePhotos = false
@@ -149,21 +149,21 @@ public struct MosaicWorkspaceView: View {
                         await loadSourcePhotos()
                     }
                 }
-                Button("OK", role: .cancel) {}
+                Button(String(localized: "common.ok", defaultValue: "OK"), role: .cancel) {}
             } message: {
                 Text(albumMissingMessage)
             }
-            .alert("自動配置を取り消しますか？", isPresented: $showResetConfirmAlert) {
-                Button("配置前に戻す", role: .destructive) {
+            .alert(String(localized: "workspace.alert.resetAutoFill.title", defaultValue: "自動配置を取り消しますか？"), isPresented: $showResetConfirmAlert) {
+                Button(String(localized: "workspace.button.revert", defaultValue: "配置前に戻す"), role: .destructive) {
                     let (updated, _) = MosaicEngine.shared.resetAutoFilledTiles(project: project)
                     self.project = updated
                     #if canImport(UIKit)
                     UIImpactFeedbackGenerator(style: .medium).impactOccurred()
                     #endif
                 }
-                Button("キャンセル", role: .cancel) {}
+                Button(String(localized: "common.cancel", defaultValue: "キャンセル"), role: .cancel) {}
             } message: {
-                Text("自動配置された \(autoFilledTilesCount) マスを元の空きマスに戻します。撮影したピースや手動で選んだピースはそのまま保護されます。")
+                Text(String(localized: "workspace.alert.resetAutoFill.message.format \(autoFilledTilesCount)"))
             }
             .task(id: project.photoSource) {
                 await prewarmCachedSourcePhotos()
@@ -325,7 +325,7 @@ public struct MosaicWorkspaceView: View {
         HStack {
             VStack(alignment: .leading, spacing: 2) {
                 HStack(spacing: 6) {
-                    Text("進捗: \(Double(project.progress).formatted(.percent.precision(.fractionLength(0))))")
+                    Text(String(localized: "workspace.progress.format \(Double(project.progress).formatted(.percent.precision(.fractionLength(0))))"))
                         .font(.headline)
                     Text("(\(project.filledCount)/\(project.totalTilesCount))")
                         .font(.caption)
@@ -387,7 +387,7 @@ public struct MosaicWorkspaceView: View {
                 } label: {
                     HStack(spacing: 5) {
                         Image(systemName: "arrow.down.right.and.arrow.up.left")
-                        Text("全体")
+                        Text(LocalizedStringResource("workspace.button.fitToScreen", defaultValue: "全体"))
                     }
                     .font(.caption.bold())
                     .foregroundColor(.white)
@@ -609,10 +609,10 @@ public struct MosaicWorkspaceView: View {
                         HStack {
                             Image(systemName: "photo.on.rectangle.angled")
                                 .foregroundColor(.accentColor)
-                            Text("ライブラリから選び直す")
+                            Text(LocalizedStringResource("workspace.sheet.reselectFromLibrary", defaultValue: "ライブラリから選び直す"))
                                 .font(.headline)
                             if isLoadingCandidates {
-                                Text("解析中…")
+                                Text(LocalizedStringResource("workspace.sheet.analyzing", defaultValue: "解析中…"))
                                     .font(.caption)
                                     .foregroundColor(.secondary)
                                 ProgressView()
@@ -623,7 +623,7 @@ public struct MosaicWorkspaceView: View {
                         .padding(.horizontal)
                         
                         if replacementCandidates.isEmpty && !isLoadingCandidates {
-                            Text("利用可能な類似写真が見つかりませんでした")
+                            Text(LocalizedStringResource("workspace.sheet.noSimilarPhotos", defaultValue: "利用可能な類似写真が見つかりませんでした"))
                                 .font(.subheadline)
                                 .foregroundColor(.secondary)
                                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -643,11 +643,11 @@ public struct MosaicWorkspaceView: View {
                 }
                 .padding(.bottom, 20)
             }
-            .navigationTitle("ピースの確認・変更")
+            .navigationTitle(Text(LocalizedStringResource("workspace.sheet.pieceDetailTitle", defaultValue: "ピースの確認・変更")))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("閉じる") {
+                    Button(String(localized: "common.close", defaultValue: "閉じる")) {
                         selectedTile = nil
                     }
                 }
@@ -681,7 +681,7 @@ public struct MosaicWorkspaceView: View {
                         .cornerRadius(8)
                 }
                 
-                Text("一致度 \(Int(candidate.matchRatio * 100))%")
+                Text(String(localized: "workspace.candidate.matchRatio.format \(Int(candidate.matchRatio * 100))"))
                     .font(.caption2.bold())
                     .foregroundColor(.primary)
             }

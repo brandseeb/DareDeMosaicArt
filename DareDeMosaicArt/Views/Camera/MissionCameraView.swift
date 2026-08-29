@@ -169,7 +169,7 @@ public struct MissionCameraView: View {
                         // 一致度プログレスバー
                         VStack(spacing: 6) {
                             HStack {
-                                Text("枠内の色の一致度")
+                                Text(LocalizedStringResource("camera.matchRatio.label", defaultValue: "枠内の色の一致度"))
                                     .font(.caption)
                                     .foregroundColor(.white.opacity(0.8))
                                 Spacer()
@@ -229,11 +229,11 @@ public struct MissionCameraView: View {
                                     .font(.system(size: 64))
                                     .foregroundColor(.green)
                                 
-                                Text("ピース獲得！")
+                                Text(LocalizedStringResource("camera.success.pieceAcquired", defaultValue: "ピース獲得！"))
                                     .font(.title2.bold())
                                     .foregroundColor(.white)
                                 
-                                Text("モザイクアートにぴったりハマりました！")
+                                Text(LocalizedStringResource("camera.success.pieceFitted", defaultValue: "モザイクアートにぴったりハマりました！"))
                                     .font(.body)
                                     .foregroundColor(.white.opacity(0.9))
                             }
@@ -284,6 +284,7 @@ public struct MissionCameraView: View {
         .allowsHitTesting(false)
     }
 
+    // MARK: - カメラ権限・状態フォールバックビュー
     @ViewBuilder
     private var cameraFallbackOverlay: some View {
         ZStack {
@@ -294,38 +295,38 @@ public struct MissionCameraView: View {
                 case .checking:
                     ProgressView()
                         .tint(.white)
-                    Text("カメラの権限を確認中…")
+                    Text(LocalizedStringResource("camera.status.checkingPermission", defaultValue: "カメラの権限を確認中…"))
                         .foregroundColor(.white)
 
                 case .denied:
                     fallbackMessage(
                         icon: "camera.fill",
-                        title: "カメラへのアクセスが必要です",
-                        message: "設定アプリで「カメラ」を許可すると、色探しミッションを続けられます。"
+                        title: LocalizedStringResource("camera.error.denied.title", defaultValue: "カメラへのアクセスが必要です"),
+                        message: LocalizedStringResource("camera.error.denied.message", defaultValue: "設定アプリで「カメラ」を許可すると、色探しミッションを続けられます。")
                     )
                     settingsButton
 
                 case .restricted:
                     fallbackMessage(
                         icon: "lock.fill",
-                        title: "カメラの使用が制限されています",
-                        message: "スクリーンタイムや管理設定の制限を確認してください。"
+                        title: LocalizedStringResource("camera.error.restricted.title", defaultValue: "カメラの使用が制限されています"),
+                        message: LocalizedStringResource("camera.error.restricted.message", defaultValue: "スクリーンタイムや管理設定の制限を確認してください。")
                     )
 
                 case .unavailable:
                     fallbackMessage(
                         icon: "camera.slash.fill",
-                        title: "カメラを使用できません",
-                        message: "この端末で利用できる背面カメラが見つかりませんでした。"
+                        title: LocalizedStringResource("camera.error.unavailable.title", defaultValue: "カメラを使用できません"),
+                        message: LocalizedStringResource("camera.error.unavailable.message", defaultValue: "この端末で利用できる背面カメラが見つかりませんでした。")
                     )
 
                 case .configurationFailed:
                     fallbackMessage(
                         icon: "exclamationmark.triangle.fill",
-                        title: "カメラを起動できませんでした",
-                        message: "他のアプリがカメラを使用中でないか確認し、もう一度お試しください。"
+                        title: LocalizedStringResource("camera.error.failed.title", defaultValue: "カメラを起動できませんでした"),
+                        message: LocalizedStringResource("camera.error.failed.message", defaultValue: "他のアプリがカメラを使用中でないか確認し、もう一度お試しください。")
                     )
-                    Button("もう一度試す") {
+                    Button(String(localized: "common.retry", defaultValue: "もう一度試す")) {
                         Task { await cameraManager.prepareCamera() }
                     }
                     .buttonStyle(.borderedProminent)
@@ -335,7 +336,7 @@ public struct MissionCameraView: View {
                 }
 
                 if cameraManager.availabilityState != .checking {
-                    Button("ミッションに戻る") {
+                    Button(String(localized: "camera.button.backToMission", defaultValue: "ミッションに戻る")) {
                         dismiss()
                     }
                     .foregroundColor(.white.opacity(0.85))
@@ -346,7 +347,7 @@ public struct MissionCameraView: View {
         }
     }
 
-    private func fallbackMessage(icon: String, title: String, message: String) -> some View {
+    private func fallbackMessage(icon: String, title: LocalizedStringResource, message: LocalizedStringResource) -> some View {
         VStack(spacing: 12) {
             Image(systemName: icon)
                 .font(.system(size: 52))

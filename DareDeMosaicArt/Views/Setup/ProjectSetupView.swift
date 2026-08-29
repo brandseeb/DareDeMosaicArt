@@ -587,7 +587,9 @@ public struct ProjectSetupView: View {
             let missions = MosaicEngine.shared.generateMissions(from: processedTiles)
             
             let newProject = MosaicProject(
-                title: title.isEmpty ? "新しいモザイクアート" : title,
+                title: title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                    ? String(localized: "project.defaultTitle", defaultValue: "新しいモザイクアート")
+                    : title,
                 targetImageData: imageData,
                 gridWidth: gridSize,
                 gridHeight: gridSize,

@@ -1106,7 +1106,9 @@ final class DareDeMosaicArtTests: XCTestCase {
         XCTAssertEqual(enBundle.localizedString(forKey: "paywall.badge.launchSpecial", value: nil, table: "Localizable"), "Special Launch Price • One-time Purchase")
 
         XCTAssertEqual(jaBundle.localizedString(forKey: "paywall.header.subtitle", value: nil, table: "Localizable"), "制限をすべて解除して、極限のモザイクアートを作ろう")
-        XCTAssertEqual(enBundle.localizedString(forKey: "paywall.header.subtitle", value: nil, table: "Localizable"), "Unlock all limits and create ultimate mosaic artworks")
+        XCTAssertEqual(enBundle.localizedString(forKey: "paywall.header.subtitle", value: nil, table: "Localizable"), "Unlock all limits and create stunning photo mosaics")
+        XCTAssertEqual(enBundle.localizedString(forKey: "app.name", value: nil, table: "Localizable"), "EveryMosaic")
+        XCTAssertEqual(enBundle.localizedString(forKey: "export.watermark.madeWith", value: nil, table: "Localizable"), "Made with EveryMosaic")
 
         XCTAssertEqual(jaBundle.localizedString(forKey: "common.cancel", value: nil, table: "Localizable"), "キャンセル")
         XCTAssertEqual(enBundle.localizedString(forKey: "common.cancel", value: nil, table: "Localizable"), "Cancel")
@@ -1120,12 +1122,25 @@ final class DareDeMosaicArtTests: XCTestCase {
         XCTAssertEqual(jaBundle.localizedString(forKey: "common.confirm", value: nil, table: "Localizable"), "決定")
         XCTAssertEqual(enBundle.localizedString(forKey: "common.confirm", value: nil, table: "Localizable"), "Done")
 
-        XCTAssertEqual(jaBundle.localizedString(forKey: "timelapse.saveError.accessNotAllowed", value: nil, table: "Localizable"), "写真へのアクセスが許可されていないため、動画を保存できませんでした。")
-        XCTAssertEqual(enBundle.localizedString(forKey: "timelapse.saveError.accessNotAllowed", value: nil, table: "Localizable"), "Could not save video because photo access is not allowed.")
+        XCTAssertEqual(jaBundle.localizedString(forKey: "home.status.completed", value: nil, table: "Localizable"), "完成！✨")
+        XCTAssertEqual(enBundle.localizedString(forKey: "home.status.completed", value: nil, table: "Localizable"), "Completed! ✨")
+
+        XCTAssertEqual(jaBundle.localizedString(forKey: "camera.matchRatio.label", value: nil, table: "Localizable"), "枠内の色の一致度")
+        XCTAssertEqual(enBundle.localizedString(forKey: "camera.matchRatio.label", value: nil, table: "Localizable"), "Target Color Match")
+
+        XCTAssertEqual(jaBundle.localizedString(forKey: "workspace.alert.albumNotFound.title", value: nil, table: "Localizable"), "アルバムが見つかりません")
+        XCTAssertEqual(enBundle.localizedString(forKey: "workspace.alert.albumNotFound.title", value: nil, table: "Localizable"), "Album Not Found")
+
+        XCTAssertEqual(jaBundle.localizedString(forKey: "timelapse.navTitle", value: nil, table: "Localizable"), "制作タイムラプス動画")
+        XCTAssertEqual(enBundle.localizedString(forKey: "timelapse.navTitle", value: nil, table: "Localizable"), "Mosaic Timelapse")
+
+        XCTAssertEqual(jaBundle.localizedString(forKey: "project.defaultTitle", value: nil, table: "Localizable"), "新しいモザイクアート")
+        XCTAssertEqual(enBundle.localizedString(forKey: "project.defaultTitle", value: nil, table: "Localizable"), "New Mosaic Art")
 
         // 7-2. InfoPlist.strings の解決検証（アプリ名 & 権限文言）
         XCTAssertEqual(jaBundle.localizedString(forKey: "CFBundleDisplayName", value: nil, table: "InfoPlist"), "誰でモザイクアート")
-        XCTAssertEqual(enBundle.localizedString(forKey: "CFBundleDisplayName", value: nil, table: "InfoPlist"), "DareDe Mosaic Art")
+        XCTAssertEqual(enBundle.localizedString(forKey: "CFBundleDisplayName", value: nil, table: "InfoPlist"), "EveryMosaic")
+        XCTAssertEqual(enBundle.localizedString(forKey: "CFBundleName", value: nil, table: "InfoPlist"), "EveryMosaic")
 
         let jaCamDesc = jaBundle.localizedString(forKey: "NSCameraUsageDescription", value: nil, table: "InfoPlist")
         let enCamDesc = enBundle.localizedString(forKey: "NSCameraUsageDescription", value: nil, table: "InfoPlist")
