@@ -7152,6 +7152,40 @@
           }
         }
       }
+    },
+    "home.alert.saveFailed.title": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Failed to Save"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "保存に失敗しました"
+          }
+        }
+      }
+    },
+    "home.error.saveFailed.format %@": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Failed to save project. Please check available device storage: %@"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "プロジェクトの保存に失敗しました。端末の空き容量を確認してください: %@"
+          }
+        }
+      }
     }
   },
   "version": "1.0"

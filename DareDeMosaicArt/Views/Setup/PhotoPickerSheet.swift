@@ -95,66 +95,100 @@ public struct PhotoPickerSheet: UIViewControllerRepresentable {
         }
         
         private func fetchImageFromPHAsset(_ asset: PHAsset) async -> UIImage? {
-            await withCheckedContinuation { continuation in
-                let gate = PhotoPickerImageGate(continuation)
-                
-                let options = PHImageRequestOptions()
-                options.isNetworkAccessAllowed = true
-                options.deliveryMode = .highQualityFormat
-                options.resizeMode = .exact
-                options.isSynchronous = false
-                
-                // ターゲットサイズ（800px四方のモザイク原画用）
-                let targetSize = CGSize(width: 1200, height: 1200)
-                
-                let reqID = PHImageManager.default().requestImage(
-                    for: asset,
-                    targetSize: targetSize,
-                    contentMode: .aspectFill,
-                    options: options
-                ) { image, info in
-                    let isCancelled = (info?[PHImageCancelledKey] as? Bool) == true
-                    let isError = info?[PHImageErrorKey] != nil
-                    let isDegraded = (info?[PHImageResultIsDegradedKey] as? Bool) == true
+            let gate = PhotoPickerImageGate()
+            return await withTaskCancellationHandler {
+                await withCheckedContinuation { continuation in
+                    gate.setContinuation(continuation)
                     
-                    if isCancelled || isError {
-                        gate.resume(with: nil)
-                    } else if let image = image {
-                        if !isDegraded {
-                            gate.resume(with: image)
+                    let options = PHImageRequestOptions()
+                    options.isNetworkAccessAllowed = true
+                    options.deliveryMode = .highQualityFormat
+                    options.resizeMode = .exact
+                    options.isSynchronous = false
+                    
+                    // ターゲットサイズ（800px四方のモザイク原画用）
+                    let targetSize = CGSize(width: 1200, height: 1200)
+                    
+                    let reqID = PHImageManager.default().requestImage(
+                        for: asset,
+                        targetSize: targetSize,
+                        contentMode: .aspectFill,
+                        options: options
+                    ) { image, info in
+                        let isCancelled = (info?[PHImageCancelledKey] as? Bool) == true
+                        let isError = info?[PHImageErrorKey] != nil
+                        let isDegraded = (info?[PHImageResultIsDegradedKey] as? Bool) == true
+                        
+                        if isCancelled || isError {
+                            gate.resume(with: nil)
+                        } else if let image = image {
+                            if !isDegraded {
+                                gate.resume(with: image)
+                            }
+                        } else {
+                            gate.resume(with: nil)
                         }
-                    } else {
-                        gate.resume(with: nil)
                     }
+                    
+                    gate.setRequestID(reqID)
+                    
+                    // 10秒タイムアウト保護
+                    let tTask = Task {
+                        try? await Task.sleep(nanoseconds: 10_000_000_000)
+                        gate.cancel()
+                    }
+                    gate.setTimeoutTask(tTask)
                 }
-                
-                gate.setRequestID(reqID)
-                
-                // 10秒タイムアウト保護
-                Task {
-                    try? await Task.sleep(nanoseconds: 10_000_000_000)
-                    gate.cancel()
-                }
+            } onCancel: {
+                gate.cancel()
             }
         }
         
         private func fetchImageFromItemProviderData(_ provider: NSItemProvider) async -> UIImage? {
-            await withCheckedContinuation { continuation in
-                provider.loadDataRepresentation(forTypeIdentifier: UTType.image.identifier) { data, error in
-                    guard let data = data, let image = UIImage(data: data) else {
-                        continuation.resume(returning: nil)
-                        return
+            let gate = PhotoPickerImageGate()
+            return await withTaskCancellationHandler {
+                await withCheckedContinuation { continuation in
+                    gate.setContinuation(continuation)
+                    
+                    provider.loadDataRepresentation(forTypeIdentifier: UTType.image.identifier) { data, error in
+                        guard let data = data, let image = UIImage(data: data) else {
+                            gate.resume(with: nil)
+                            return
+                        }
+                        gate.resume(with: image)
                     }
-                    continuation.resume(returning: image)
+                    
+                    // 8秒タイムアウト保護
+                    let tTask = Task {
+                        try? await Task.sleep(nanoseconds: 8_000_000_000)
+                        gate.cancel()
+                    }
+                    gate.setTimeoutTask(tTask)
                 }
+            } onCancel: {
+                gate.cancel()
             }
         }
         
         private func fetchImageFromItemProviderObject(_ provider: NSItemProvider) async -> UIImage? {
-            await withCheckedContinuation { continuation in
-                provider.loadObject(ofClass: UIImage.self) { object, error in
-                    continuation.resume(returning: object as? UIImage)
+            let gate = PhotoPickerImageGate()
+            return await withTaskCancellationHandler {
+                await withCheckedContinuation { continuation in
+                    gate.setContinuation(continuation)
+                    
+                    provider.loadObject(ofClass: UIImage.self) { object, error in
+                        gate.resume(with: object as? UIImage)
+                    }
+                    
+                    // 8秒タイムアウト保護
+                    let tTask = Task {
+                        try? await Task.sleep(nanoseconds: 8_000_000_000)
+                        gate.cancel()
+                    }
+                    gate.setTimeoutTask(tTask)
                 }
+            } onCancel: {
+                gate.cancel()
             }
         }
         
@@ -213,9 +247,20 @@ private final class PhotoPickerImageGate: @unchecked Sendable {
     private let lock = NSLock()
     private var continuation: CheckedContinuation<UIImage?, Never>?
     private var requestID: PHImageRequestID?
+    private var timeoutTask: Task<Void, Never>?
+    private var isFinished = false
 
-    init(_ continuation: CheckedContinuation<UIImage?, Never>) {
+    init() {}
+
+    func setContinuation(_ continuation: CheckedContinuation<UIImage?, Never>) {
+        lock.lock()
+        if isFinished {
+            lock.unlock()
+            continuation.resume(returning: nil)
+            return
+        }
         self.continuation = continuation
+        lock.unlock()
     }
 
     func setRequestID(_ id: PHImageRequestID) {
@@ -224,22 +269,44 @@ private final class PhotoPickerImageGate: @unchecked Sendable {
         self.requestID = id
     }
 
+    func setTimeoutTask(_ task: Task<Void, Never>) {
+        lock.lock()
+        defer { lock.unlock() }
+        self.timeoutTask = task
+    }
+
     func resume(with image: UIImage?) {
         lock.lock()
+        guard !isFinished else {
+            lock.unlock()
+            return
+        }
+        isFinished = true
         let value = continuation
+        let tTask = timeoutTask
         continuation = nil
         requestID = nil
+        timeoutTask = nil
         lock.unlock()
+        tTask?.cancel()
         value?.resume(returning: image)
     }
 
     func cancel() {
         lock.lock()
+        guard !isFinished else {
+            lock.unlock()
+            return
+        }
+        isFinished = true
         let value = continuation
         let req = requestID
+        let tTask = timeoutTask
         continuation = nil
         requestID = nil
+        timeoutTask = nil
         lock.unlock()
+        tTask?.cancel()
         if let req {
             PHImageManager.default().cancelImageRequest(req)
         }

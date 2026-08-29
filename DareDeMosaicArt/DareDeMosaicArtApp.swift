@@ -12,6 +12,14 @@ struct DareDeMosaicArtApp: App {
                 projects: $projectStore.projects,
                 onDeleteProjects: projectStore.deleteProjects(ids:)
             )
+            .alert(String(localized: "home.alert.saveFailed.title", defaultValue: "保存に失敗しました"), isPresented: Binding(
+                get: { projectStore.saveErrorMessage != nil },
+                set: { if !$0 { projectStore.saveErrorMessage = nil } }
+            )) {
+                Button(String(localized: "common.ok", defaultValue: "OK"), role: .cancel) {}
+            } message: {
+                Text(projectStore.saveErrorMessage ?? "")
+            }
             .onChange(of: scenePhase) { _, newPhase in
                 if newPhase != .active {
                     projectStore.flushPendingSave()
@@ -38,10 +46,15 @@ final class ProjectStore: ObservableObject {
                     return
                 }
                 guard !Task.isCancelled else { return }
-                await persistence.save(snapshot, revision: revision)
+                let error = await persistence.save(snapshot, revision: revision)
+                if let error {
+                    self.saveErrorMessage = error
+                }
             }
         }
     }
+    
+    @Published var saveErrorMessage: String? = nil
     
     private let saveKey = "SavedMosaicProjects_v1"
     private let persistence = ProjectPersistenceActor()
@@ -64,7 +77,7 @@ final class ProjectStore: ObservableObject {
                   let legacyProjects = try? JSONDecoder().decode([MosaicProject].self, from: legacyData) {
             // 旧 UserDefaults データは消さず、新ファイル形式へ安全にコピーする。
             projects = legacyProjects
-            Task { await persistence.save(legacyProjects, revision: 0) }
+            Task { _ = await persistence.save(legacyProjects, revision: 0) }
         }
     }
 
@@ -83,7 +96,10 @@ final class ProjectStore: ObservableObject {
         let snapshot = projects
         let revision = saveRevision
         saveTask = Task {
-            await persistence.save(snapshot, revision: revision)
+            let error = await persistence.save(snapshot, revision: revision)
+            if let error {
+                self.saveErrorMessage = error
+            }
         }
     }
 }
@@ -91,10 +107,10 @@ final class ProjectStore: ObservableObject {
 private actor ProjectPersistenceActor {
     private var latestRevision = -1
 
-    func save(_ projects: [MosaicProject], revision: Int) {
-        guard revision >= latestRevision else { return }
+    func save(_ projects: [MosaicProject], revision: Int) -> String? {
+        guard revision >= latestRevision else { return nil }
         latestRevision = revision
-        ProjectDiskStore.save(projects)
+        return ProjectDiskStore.save(projects)
     }
 
     func delete(ids: [UUID]) {
@@ -185,8 +201,8 @@ private enum ProjectDiskStore {
         return hydrated
     }
 
-    static func save(_ projects: [MosaicProject]) {
-        guard let rootURL, let indexURL else { return }
+    static func save(_ projects: [MosaicProject]) -> String? {
+        guard let rootURL, let indexURL else { return nil }
         do {
             try fileManager.createDirectory(at: rootURL, withIntermediateDirectories: true)
             let encoder = JSONEncoder()
@@ -225,8 +241,10 @@ private enum ProjectDiskStore {
             let indexData = try encoder.encode(projects.map { $0.id.uuidString })
             try indexData.write(to: indexURL, options: .atomic)
             removeOrphanedFiles(validIds: Set(projects.map { $0.id.uuidString }))
+            return nil
         } catch {
-            // 次回の状態更新時に再試行される。中途半端なJSONは .atomic で防ぐ。
+            print("[ProjectStore] Save error: \(error.localizedDescription)")
+            return String(localized: "home.error.saveFailed.format \(error.localizedDescription)")
         }
     }
 

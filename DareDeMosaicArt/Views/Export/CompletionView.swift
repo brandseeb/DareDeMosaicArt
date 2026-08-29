@@ -734,34 +734,40 @@ public struct CompletionView: View {
     }
 
     private static func requestHighQualityImage(for asset: PHAsset, targetPixels: CGFloat) async -> UIImage? {
-        await withCheckedContinuation { continuation in
-            let options = PHImageRequestOptions()
-            options.deliveryMode = .highQualityFormat
-            options.resizeMode = .exact
-            options.isNetworkAccessAllowed = true
-            let gate = ImageRequestContinuationGate(continuation)
+        let gate = ImageRequestContinuationGate()
+        return await withTaskCancellationHandler {
+            await withCheckedContinuation { continuation in
+                gate.setContinuation(continuation)
+                let options = PHImageRequestOptions()
+                options.deliveryMode = .highQualityFormat
+                options.resizeMode = .exact
+                options.isNetworkAccessAllowed = true
 
-            let reqID = PHImageManager.default().requestImage(
-                for: asset,
-                targetSize: CGSize(width: targetPixels, height: targetPixels),
-                contentMode: .aspectFill,
-                options: options
-            ) { image, info in
-                if (info?[PHImageCancelledKey] as? Bool) == true || info?[PHImageErrorKey] != nil {
-                    gate.resume(with: nil)
-                    return
+                let reqID = PHImageManager.default().requestImage(
+                    for: asset,
+                    targetSize: CGSize(width: targetPixels, height: targetPixels),
+                    contentMode: .aspectFill,
+                    options: options
+                ) { image, info in
+                    if (info?[PHImageCancelledKey] as? Bool) == true || info?[PHImageErrorKey] != nil {
+                        gate.resume(with: nil)
+                        return
+                    }
+                    if (info?[PHImageResultIsDegradedKey] as? Bool) == true { return }
+                    gate.resume(with: image)
                 }
-                if (info?[PHImageResultIsDegradedKey] as? Bool) == true { return }
-                gate.resume(with: image)
+                
+                gate.setRequestID(reqID)
+                
+                // 8秒タイムアウト保護
+                let tTask = Task {
+                    try? await Task.sleep(nanoseconds: 8_000_000_000)
+                    gate.cancel()
+                }
+                gate.setTimeoutTask(tTask)
             }
-            
-            gate.setRequestID(reqID)
-            
-            // 8秒タイムアウト保護
-            Task {
-                try? await Task.sleep(nanoseconds: 8_000_000_000)
-                gate.cancel()
-            }
+        } onCancel: {
+            gate.cancel()
         }
     }
     
@@ -816,9 +822,20 @@ private final class ImageRequestContinuationGate: @unchecked Sendable {
     private let lock = NSLock()
     private var continuation: CheckedContinuation<UIImage?, Never>?
     private var requestID: PHImageRequestID?
+    private var timeoutTask: Task<Void, Never>?
+    private var isFinished = false
 
-    init(_ continuation: CheckedContinuation<UIImage?, Never>) {
+    init() {}
+
+    func setContinuation(_ continuation: CheckedContinuation<UIImage?, Never>) {
+        lock.lock()
+        if isFinished {
+            lock.unlock()
+            continuation.resume(returning: nil)
+            return
+        }
         self.continuation = continuation
+        lock.unlock()
     }
 
     func setRequestID(_ id: PHImageRequestID) {
@@ -827,22 +844,44 @@ private final class ImageRequestContinuationGate: @unchecked Sendable {
         self.requestID = id
     }
 
+    func setTimeoutTask(_ task: Task<Void, Never>) {
+        lock.lock()
+        defer { lock.unlock() }
+        self.timeoutTask = task
+    }
+
     func resume(with image: UIImage?) {
         lock.lock()
+        guard !isFinished else {
+            lock.unlock()
+            return
+        }
+        isFinished = true
         let value = continuation
+        let tTask = timeoutTask
         continuation = nil
         requestID = nil
+        timeoutTask = nil
         lock.unlock()
+        tTask?.cancel()
         value?.resume(returning: image)
     }
 
     func cancel() {
         lock.lock()
+        guard !isFinished else {
+            lock.unlock()
+            return
+        }
+        isFinished = true
         let value = continuation
         let req = requestID
+        let tTask = timeoutTask
         continuation = nil
         requestID = nil
+        timeoutTask = nil
         lock.unlock()
+        tTask?.cancel()
         if let req {
             PHImageManager.default().cancelImageRequest(req)
         }

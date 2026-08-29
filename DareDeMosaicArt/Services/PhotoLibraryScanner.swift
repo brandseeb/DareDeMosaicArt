@@ -179,54 +179,57 @@ public final class PhotoLibraryScanner: ObservableObject {
                         requestOptions.resizeMode = .fast
                         requestOptions.isNetworkAccessAllowed = false // 端末ローカル写真のみ対象
 
-                        return await withCheckedContinuation { continuation in
-                            let gate = PhotoRequestContinuationGate(continuation)
-                            let reqID = imageManager.requestImage(
-                                for: asset,
-                                targetSize: targetSize,
-                                contentMode: .aspectFill,
-                                options: requestOptions
-                            ) { image, info in
-                                let isCancelled = (info?[PHImageCancelledKey] as? Bool) == true
-                                let isError = info?[PHImageErrorKey] != nil
-                                let isDegraded = (info?[PHImageResultIsDegradedKey] as? Bool) == true
-                                let isInCloud = (info?[PHImageResultIsInCloudKey] as? Bool) == true
-                                
-                                if isCancelled || isError || isInCloud {
-                                    // iCloudのみに存在、キャンセル、またはエラーの場合は端末ローカル対象外
-                                    gate.resume(returning: nil)
-                                } else if let uiImage = image {
-                                    if isDegraded {
-                                        // 劣化版画像（プレビュー段階）は確定解析として採用せず、本番コールバックを待つ
-                                        return
-                                    }
+                        let gate = PhotoRequestContinuationGate()
+                        return await withTaskCancellationHandler {
+                            await withCheckedContinuation { continuation in
+                                gate.setContinuation(continuation)
+                                let reqID = imageManager.requestImage(
+                                    for: asset,
+                                    targetSize: targetSize,
+                                    contentMode: .aspectFill,
+                                    options: requestOptions
+                                ) { image, info in
+                                    let isCancelled = (info?[PHImageCancelledKey] as? Bool) == true
+                                    let isError = info?[PHImageErrorKey] != nil
+                                    let isDegraded = (info?[PHImageResultIsDegradedKey] as? Bool) == true
+                                    let isInCloud = (info?[PHImageResultIsInCloudKey] as? Bool) == true
                                     
-                                    // 未解析または更新された写真だけを解析する。
-                                    let signature = ColorAnalysisService.shared.extractSpatialSignature(from: uiImage)
-                                    let thumbData = uiImage.jpegData(compressionQuality: 0.6)
-                                    let item = IndexedPhoto(
-                                        id: asset.localIdentifier,
-                                        labColor: signature.average,
-                                        signature: signature,
-                                        thumbnailData: thumbData
-                                    )
-                                    gate.resume(returning: CachedPhotoIndexEntry(
-                                        id: asset.localIdentifier,
-                                        modificationDate: asset.modificationDate,
-                                        photo: item
-                                    ))
-                                } else {
-                                    gate.resume(returning: nil)
+                                    if isCancelled || isError || isInCloud {
+                                        gate.resume(returning: nil)
+                                    } else if let uiImage = image {
+                                        if isDegraded {
+                                            return
+                                        }
+                                        
+                                        let signature = ColorAnalysisService.shared.extractSpatialSignature(from: uiImage)
+                                        let thumbData = uiImage.jpegData(compressionQuality: 0.6)
+                                        let item = IndexedPhoto(
+                                            id: asset.localIdentifier,
+                                            labColor: signature.average,
+                                            signature: signature,
+                                            thumbnailData: thumbData
+                                        )
+                                        gate.resume(returning: CachedPhotoIndexEntry(
+                                            id: asset.localIdentifier,
+                                            modificationDate: asset.modificationDate,
+                                            photo: item
+                                        ))
+                                    } else {
+                                        gate.resume(returning: nil)
+                                    }
                                 }
+                                
+                                gate.setRequestID(reqID)
+                                
+                                // タイムアウトTask（完了時に即座に破棄される）
+                                let tTask = Task {
+                                    try? await Task.sleep(nanoseconds: 8_000_000_000)
+                                    gate.cancel(using: imageManager)
+                                }
+                                gate.setTimeoutTask(tTask)
                             }
-                            
-                            gate.setRequestID(reqID)
-                            
-                            // 8秒タイムアウト保護
-                            Task {
-                                try? await Task.sleep(nanoseconds: 8_000_000_000)
-                                gate.cancel(using: imageManager)
-                            }
+                        } onCancel: {
+                            gate.cancel(using: imageManager)
                         }
                     }
                 }
@@ -351,9 +354,20 @@ private final class PhotoRequestContinuationGate: @unchecked Sendable {
     private let lock = NSLock()
     private var continuation: CheckedContinuation<CachedPhotoIndexEntry?, Never>?
     private var requestID: PHImageRequestID?
+    private var timeoutTask: Task<Void, Never>?
+    private var isFinished = false
 
-    init(_ continuation: CheckedContinuation<CachedPhotoIndexEntry?, Never>) {
+    init() {}
+
+    func setContinuation(_ continuation: CheckedContinuation<CachedPhotoIndexEntry?, Never>) {
+        lock.lock()
+        if isFinished {
+            lock.unlock()
+            continuation.resume(returning: nil)
+            return
+        }
         self.continuation = continuation
+        lock.unlock()
     }
 
     func setRequestID(_ id: PHImageRequestID) {
@@ -362,22 +376,44 @@ private final class PhotoRequestContinuationGate: @unchecked Sendable {
         self.requestID = id
     }
 
+    func setTimeoutTask(_ task: Task<Void, Never>) {
+        lock.lock()
+        defer { lock.unlock() }
+        self.timeoutTask = task
+    }
+
     func resume(returning value: CachedPhotoIndexEntry?) {
         lock.lock()
+        guard !isFinished else {
+            lock.unlock()
+            return
+        }
+        isFinished = true
         let pending = continuation
+        let tTask = timeoutTask
         continuation = nil
         requestID = nil
+        timeoutTask = nil
         lock.unlock()
+        tTask?.cancel()
         pending?.resume(returning: value)
     }
 
     func cancel(using manager: PHImageManager = .default()) {
         lock.lock()
+        guard !isFinished else {
+            lock.unlock()
+            return
+        }
+        isFinished = true
         let pending = continuation
         let req = requestID
+        let tTask = timeoutTask
         continuation = nil
         requestID = nil
+        timeoutTask = nil
         lock.unlock()
+        tTask?.cancel()
         if let req {
             manager.cancelImageRequest(req)
         }

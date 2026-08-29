@@ -16,6 +16,7 @@ public struct AutoFillSheetView: View {
     @State private var isLoading: Bool = true
     @State private var showStaleAlert: Bool = false
     @State private var showResetConfirmAlert: Bool = false
+    @State private var errorMessage: String? = nil
     @State private var simulationTask: Task<Void, Never>? = nil
     
     public init(
@@ -87,6 +88,16 @@ public struct AutoFillSheetView: View {
                 Button(String(localized: "common.cancel"), role: .cancel) {}
             } message: {
                 Text(LocalizedStringResource("autofill.alert.reset.message.format \(autoFilledCount)"))
+            }
+            .alert(String(localized: "workspace.alert.photoLoadFailed.title", defaultValue: "写真を読み込めませんでした"), isPresented: Binding(
+                get: { errorMessage != nil },
+                set: { if !$0 { errorMessage = nil } }
+            )) {
+                Button(String(localized: "common.ok", defaultValue: "OK"), role: .cancel) {
+                    dismiss()
+                }
+            } message: {
+                Text(errorMessage ?? "")
             }
             .onAppear {
                 startSimulation()
@@ -314,9 +325,18 @@ public struct AutoFillSheetView: View {
             var effectivePhotos = initialPhotos
             // 親ビューからの写真ロードがまだ完了していない場合はここでロード
             if effectivePhotos.isEmpty {
-                effectivePhotos = (try? await PhotoLibraryScanner.shared.photos(for: currentProject.photoSource)) ?? []
-                await MainActor.run {
-                    self.loadedPhotos = effectivePhotos
+                do {
+                    effectivePhotos = try await PhotoLibraryScanner.shared.photos(for: currentProject.photoSource)
+                    await MainActor.run {
+                        self.loadedPhotos = effectivePhotos
+                    }
+                } catch {
+                    guard !Task.isCancelled else { return }
+                    await MainActor.run {
+                        self.isLoading = false
+                        self.errorMessage = error.localizedDescription
+                    }
+                    return
                 }
             }
             
