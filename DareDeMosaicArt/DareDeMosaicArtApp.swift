@@ -171,6 +171,32 @@ enum ProjectDiskStore {
         unloadedProjectIds.subtract(ids)
     }
 
+    /// ディスク上に存在する作品ID（UUID形式のJSONファイルまたは画像フォルダ）をすべて走査
+    private static func scanExistingProjectIdsOnDisk(in root: URL) -> [String] {
+        guard let contents = try? fileManager.contentsOfDirectory(
+            at: root,
+            includingPropertiesForKeys: [.isDirectoryKey],
+            options: [.skipsHiddenFiles]
+        ) else { return [] }
+
+        var ids: [String] = []
+        for url in contents {
+            let candidateId: String
+            let values = try? url.resourceValues(forKeys: [.isDirectoryKey])
+            if values?.isDirectory == true {
+                candidateId = url.lastPathComponent
+            } else if url.pathExtension.lowercased() == "json" && url.lastPathComponent != "index.json" {
+                candidateId = url.deletingPathExtension().lastPathComponent
+            } else {
+                continue
+            }
+            if UUID(uuidString: candidateId) != nil, !ids.contains(candidateId) {
+                ids.append(candidateId)
+            }
+        }
+        return ids
+    }
+
     struct LoadResult {
         let projects: [MosaicProject]
         let errorMessage: String?
@@ -185,14 +211,21 @@ enum ProjectDiskStore {
             return LoadResult(projects: [], errorMessage: nil)
         }
 
-        let orderedIds: [String]
+        var isIndexCorrupt = false
+        var orderedIds: [String] = []
         do {
             let indexData = try Data(contentsOf: indexURL)
             orderedIds = try JSONDecoder().decode([String].self, from: indexData)
         } catch {
-            print("[ProjectStore] Index load failed: \(error.localizedDescription)")
-            let msg = String(localized: "home.error.loadFailed.format \(error.localizedDescription)")
-            return LoadResult(projects: [], errorMessage: msg)
+            print("[ProjectStore] Index load failed: \(error.localizedDescription), attempting recovery from disk scan...")
+            isIndexCorrupt = true
+            let scannedIds = scanExistingProjectIdsOnDisk(in: resolvedRoot)
+            if !scannedIds.isEmpty {
+                orderedIds = scannedIds
+            } else {
+                let msg = String(localized: "home.error.loadFailed.format \(error.localizedDescription)")
+                return LoadResult(projects: [], errorMessage: msg)
+            }
         }
 
         var corruptCount = 0
@@ -235,7 +268,9 @@ enum ProjectDiskStore {
         removeOrphanedFiles(validIds: validIds, in: resolvedRoot)
 
         let errorMsg: String?
-        if corruptCount > 0 {
+        if isIndexCorrupt {
+            errorMsg = String(localized: "home.error.loadFailed.format \(orderedIds.count)")
+        } else if corruptCount > 0 {
             errorMsg = String(localized: "home.error.someProjectsFailed.format \(corruptCount)")
         } else {
             errorMsg = nil
@@ -306,14 +341,18 @@ enum ProjectDiskStore {
                 )
             }
 
-            // 保存対象のID一覧 + 読み込み失敗または未ロードによりメモリ上にないが既存indexに存在するID一覧
+            // 保存対象のID一覧 + 読み込み失敗または未ロードによりメモリ上にないが既存indexに存在するID一覧 + ディスク上に現存する作品ID
             let activeIds = projects.map { $0.id.uuidString }
-            var preservedIds = getUnloadedProjectIds()
+            var preservedIds = (customRootURL == nil) ? getUnloadedProjectIds() : []
             if let indexData = try? Data(contentsOf: indexURL),
                let existingOrderedIds = try? JSONDecoder().decode([String].self, from: indexData) {
                 for existingId in existingOrderedIds {
                     preservedIds.insert(existingId)
                 }
+            }
+            let diskExistingIds = scanExistingProjectIdsOnDisk(in: resolvedRoot)
+            for diskId in diskExistingIds {
+                preservedIds.insert(diskId)
             }
 
             var allIdsToPersist = activeIds

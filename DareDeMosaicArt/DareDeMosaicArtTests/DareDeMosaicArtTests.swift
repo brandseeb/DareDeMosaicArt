@@ -1278,4 +1278,69 @@ final class DareDeMosaicArtTests: XCTestCase {
             "次回保存後も破損作品のファイルは孤立ファイルとして物理削除されず保護されていること"
         )
     }
+
+    func testCorruptedIndexPreservesExistingProjectsOnNewSave() throws {
+        let tempProjectsDir = FileManager.default.temporaryDirectory
+            .appendingPathComponent("ProjectDiskStoreIndexCorruptTests_\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: tempProjectsDir, withIntermediateDirectories: true)
+        
+        defer {
+            try? FileManager.default.removeItem(at: tempProjectsDir)
+        }
+        
+        let existingID = UUID()
+        let newID = UUID()
+        
+        let existingProject = MosaicProject(
+            id: existingID,
+            title: "Existing Project",
+            targetImageData: Data([0xFF, 0xD8, 0xFF, 0xE0]),
+            gridWidth: 1,
+            gridHeight: 1,
+            mode: .hybrid,
+            tiles: [],
+            missions: [],
+            isCompleted: false
+        )
+        
+        // 1. 既存の正常な作品をディスクに作成
+        let existingAssetDir = tempProjectsDir.appendingPathComponent(existingID.uuidString, isDirectory: true)
+        try FileManager.default.createDirectory(at: existingAssetDir, withIntermediateDirectories: true)
+        try Data([0xFF, 0xD8, 0xFF, 0xE0]).write(to: existingAssetDir.appendingPathComponent("target.jpg"))
+        let existingJSONURL = tempProjectsDir.appendingPathComponent("\(existingID.uuidString).json")
+        let existingData = try JSONEncoder().encode(existingProject)
+        try existingData.write(to: existingJSONURL)
+        
+        // 2. index.json を故意に構文破壊
+        let corruptIndexURL = tempProjectsDir.appendingPathComponent("index.json")
+        try "{ corrupted_index_syntax_error: ".data(using: .utf8)!.write(to: corruptIndexURL)
+        
+        // 3. load() を実行（ディスク走査による自己修復またはエラー通知）
+        let loadResult = ProjectDiskStore.load(from: tempProjectsDir)
+        XCTAssertNotNil(loadResult.errorMessage)
+        
+        // 4. 新規プロジェクトを作成して save() を実行
+        let newProject = MosaicProject(
+            id: newID,
+            title: "New Project",
+            targetImageData: Data([0xFF, 0xD8, 0xFF, 0xE0]),
+            gridWidth: 1,
+            gridHeight: 1,
+            mode: .hybrid,
+            tiles: [],
+            missions: [],
+            isCompleted: false
+        )
+        _ = ProjectDiskStore.save([newProject], to: tempProjectsDir)
+        
+        // 5. 新規保存後でも、既存の作品ファイル群が物理削除されずに保全されていることの検証
+        XCTAssertTrue(
+            FileManager.default.fileExists(atPath: existingJSONURL.path),
+            "index.json破損後の新規保存でも、既存作品のJSONファイルは保護されていること"
+        )
+        XCTAssertTrue(
+            FileManager.default.fileExists(atPath: existingAssetDir.path),
+            "index.json破損後の新規保存でも、既存作品の画像ディレクトリは保護されていること"
+        )
+    }
 }
