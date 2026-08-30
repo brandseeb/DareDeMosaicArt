@@ -1097,6 +1097,25 @@ final class DareDeMosaicArtTests: XCTestCase {
         XCTAssertEqual(jaBundle.localizedString(forKey: "album.untitled", value: nil, table: "Localizable"), "無題のアルバム")
         XCTAssertEqual(enBundle.localizedString(forKey: "album.untitled", value: nil, table: "Localizable"), "Untitled Album")
 
+        let jaIndexRecoveredFormat = jaBundle.localizedString(
+            forKey: "home.message.indexRecovered.format %lld",
+            value: nil,
+            table: "Localizable"
+        )
+        let enIndexRecoveredFormat = enBundle.localizedString(
+            forKey: "home.message.indexRecovered.format %lld",
+            value: nil,
+            table: "Localizable"
+        )
+        XCTAssertEqual(
+            String(format: jaIndexRecoveredFormat, Int64(3)),
+            "作品リストを修復し、3件の作品を復元しました。"
+        )
+        XCTAssertEqual(
+            String(format: enIndexRecoveredFormat, Int64(3)),
+            "The project list was repaired. Recovered projects: 3."
+        )
+
         XCTAssertEqual(jaBundle.localizedString(forKey: "photoSource.allPhotos", value: nil, table: "Localizable"), "端末内のすべての写真")
         XCTAssertEqual(enBundle.localizedString(forKey: "photoSource.allPhotos", value: nil, table: "Localizable"), "All Saved Photos on Device")
 

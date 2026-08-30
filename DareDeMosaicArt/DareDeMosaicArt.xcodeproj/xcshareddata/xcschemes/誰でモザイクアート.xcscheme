@@ -15,7 +15,7 @@
             <BuildableReference
                BuildableIdentifier = "primary"
                BlueprintIdentifier = "B795BE0F0CBC40FE89805DF5"
-               BuildableName = "&#x8ab0;&#x3066;&#x3099;&#x30e2;&#x30b5;&#x3099;&#x30a4;&#x30af;&#x30a2;&#x30fc;&#x30c8;.app"
+               BuildableName = "DareDeMosaicArt.app"
                BlueprintName = "&#x8ab0;&#x3067;&#x30e2;&#x30b6;&#x30a4;&#x30af;&#x30a2;&#x30fc;&#x30c8;"
                ReferencedContainer = "container:DareDeMosaicArt.xcodeproj">
             </BuildableReference>
@@ -70,7 +70,7 @@
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "B795BE0F0CBC40FE89805DF5"
-            BuildableName = "&#x8ab0;&#x3066;&#x3099;&#x30e2;&#x30b5;&#x3099;&#x30a4;&#x30af;&#x30a2;&#x30fc;&#x30c8;.app"
+            BuildableName = "DareDeMosaicArt.app"
             BlueprintName = "&#x8ab0;&#x3067;&#x30e2;&#x30b6;&#x30a4;&#x30af;&#x30a2;&#x30fc;&#x30c8;"
             ReferencedContainer = "container:DareDeMosaicArt.xcodeproj">
          </BuildableReference>
@@ -90,7 +90,7 @@
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "B795BE0F0CBC40FE89805DF5"
-            BuildableName = "&#x8ab0;&#x3066;&#x3099;&#x30e2;&#x30b5;&#x3099;&#x30a4;&#x30af;&#x30a2;&#x30fc;&#x30c8;.app"
+            BuildableName = "DareDeMosaicArt.app"
             BlueprintName = "&#x8ab0;&#x3067;&#x30e2;&#x30b6;&#x30a4;&#x30af;&#x30a2;&#x30fc;&#x30c8;"
             ReferencedContainer = "container:DareDeMosaicArt.xcodeproj">
          </BuildableReference>

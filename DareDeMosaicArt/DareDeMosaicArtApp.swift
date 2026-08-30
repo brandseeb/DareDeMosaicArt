@@ -269,7 +269,7 @@ enum ProjectDiskStore {
 
         let errorMsg: String?
         if isIndexCorrupt {
-            errorMsg = String(localized: "home.error.loadFailed.format \(orderedIds.count)")
+            errorMsg = String(localized: "home.message.indexRecovered.format \(orderedIds.count)")
         } else if corruptCount > 0 {
             errorMsg = String(localized: "home.error.someProjectsFailed.format \(corruptCount)")
         } else {
