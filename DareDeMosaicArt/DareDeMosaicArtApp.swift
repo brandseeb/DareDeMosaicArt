@@ -150,8 +150,25 @@ enum ProjectDiskStore {
             .appendingPathComponent("Projects", isDirectory: true)
     }
 
-    private static var indexURL: URL? {
-        rootURL?.appendingPathComponent("index.json")
+    private static let lock = NSLock()
+    nonisolated(unsafe) private static var unloadedProjectIds: Set<String> = []
+
+    static func getUnloadedProjectIds() -> Set<String> {
+        lock.lock()
+        defer { lock.unlock() }
+        return unloadedProjectIds
+    }
+
+    static func setUnloadedProjectIds(_ ids: Set<String>) {
+        lock.lock()
+        defer { lock.unlock() }
+        unloadedProjectIds = ids
+    }
+
+    static func removeUnloadedProjectIds(_ ids: Set<String>) {
+        lock.lock()
+        defer { lock.unlock() }
+        unloadedProjectIds.subtract(ids)
     }
 
     struct LoadResult {
@@ -159,10 +176,11 @@ enum ProjectDiskStore {
         let errorMessage: String?
     }
 
-    static func load() -> LoadResult {
-        guard let rootURL, let indexURL else {
+    static func load(from customRootURL: URL? = nil) -> LoadResult {
+        guard let resolvedRoot = customRootURL ?? rootURL else {
             return LoadResult(projects: [], errorMessage: nil)
         }
+        let indexURL = resolvedRoot.appendingPathComponent("index.json")
         guard fileManager.fileExists(atPath: indexURL.path) else {
             return LoadResult(projects: [], errorMessage: nil)
         }
@@ -179,21 +197,24 @@ enum ProjectDiskStore {
 
         var corruptCount = 0
         var projects: [MosaicProject] = []
+        var failedIds: Set<String> = []
 
         for idString in orderedIds {
             guard let id = UUID(uuidString: idString) else {
                 corruptCount += 1
+                failedIds.insert(idString)
                 continue
             }
-            let metadataURL = rootURL.appendingPathComponent("\(id.uuidString).json")
+            let metadataURL = resolvedRoot.appendingPathComponent("\(id.uuidString).json")
             guard let data = try? Data(contentsOf: metadataURL),
                   var project = try? JSONDecoder().decode(MosaicProject.self, from: data) else {
                 print("[ProjectStore] Project metadata corrupted for id: \(idString)")
                 corruptCount += 1
+                failedIds.insert(idString)
                 continue
             }
 
-            let assetDirectory = rootURL.appendingPathComponent(id.uuidString, isDirectory: true)
+            let assetDirectory = resolvedRoot.appendingPathComponent(id.uuidString, isDirectory: true)
             let targetURL = assetDirectory.appendingPathComponent("target.jpg")
             if let targetData = try? Data(contentsOf: targetURL), !targetData.isEmpty {
                 project.targetImageData = targetData
@@ -201,11 +222,17 @@ enum ProjectDiskStore {
             } else {
                 print("[ProjectStore] Project target image missing for id: \(idString)")
                 corruptCount += 1
+                failedIds.insert(idString)
             }
         }
 
+        // 読み込みに失敗したIDを未ロードリストとして保持（次回以降の通常保存でも消去されないようにする）
+        if customRootURL == nil {
+            setUnloadedProjectIds(failedIds)
+        }
+
         let validIds = Set(orderedIds)
-        removeOrphanedFiles(validIds: validIds)
+        removeOrphanedFiles(validIds: validIds, in: resolvedRoot)
 
         let errorMsg: String?
         if corruptCount > 0 {
@@ -217,10 +244,10 @@ enum ProjectDiskStore {
         return LoadResult(projects: projects, errorMessage: errorMsg)
     }
 
-    static func hydrate(_ project: MosaicProject) -> MosaicProject {
-        guard let rootURL else { return project }
+    static func hydrate(_ project: MosaicProject, from customRootURL: URL? = nil) -> MosaicProject {
+        guard let resolvedRoot = customRootURL ?? rootURL else { return project }
         var hydrated = project
-        let imagesDirectory = rootURL
+        let imagesDirectory = resolvedRoot
             .appendingPathComponent(project.id.uuidString, isDirectory: true)
             .appendingPathComponent("images", isDirectory: true)
 
@@ -241,15 +268,16 @@ enum ProjectDiskStore {
         return hydrated
     }
 
-    static func save(_ projects: [MosaicProject]) -> String? {
-        guard let rootURL, let indexURL else { return nil }
+    static func save(_ projects: [MosaicProject], to customRootURL: URL? = nil) -> String? {
+        guard let resolvedRoot = customRootURL ?? rootURL else { return nil }
+        let indexURL = resolvedRoot.appendingPathComponent("index.json")
         do {
-            try fileManager.createDirectory(at: rootURL, withIntermediateDirectories: true)
+            try fileManager.createDirectory(at: resolvedRoot, withIntermediateDirectories: true)
             let encoder = JSONEncoder()
             encoder.outputFormatting = [.sortedKeys]
 
             for project in projects {
-                let assetDirectory = rootURL.appendingPathComponent(project.id.uuidString, isDirectory: true)
+                let assetDirectory = resolvedRoot.appendingPathComponent(project.id.uuidString, isDirectory: true)
                 let imagesDirectory = assetDirectory.appendingPathComponent("images", isDirectory: true)
                 try fileManager.createDirectory(at: imagesDirectory, withIntermediateDirectories: true)
 
@@ -273,14 +301,29 @@ enum ProjectDiskStore {
 
                 let metadataData = try encoder.encode(metadata)
                 try metadataData.write(
-                    to: rootURL.appendingPathComponent("\(project.id.uuidString).json"),
+                    to: resolvedRoot.appendingPathComponent("\(project.id.uuidString).json"),
                     options: .atomic
                 )
             }
 
-            let indexData = try encoder.encode(projects.map { $0.id.uuidString })
+            // 保存対象のID一覧 + 読み込み失敗または未ロードによりメモリ上にないが既存indexに存在するID一覧
+            let activeIds = projects.map { $0.id.uuidString }
+            var preservedIds = getUnloadedProjectIds()
+            if let indexData = try? Data(contentsOf: indexURL),
+               let existingOrderedIds = try? JSONDecoder().decode([String].self, from: indexData) {
+                for existingId in existingOrderedIds {
+                    preservedIds.insert(existingId)
+                }
+            }
+
+            var allIdsToPersist = activeIds
+            for preserved in preservedIds where !allIdsToPersist.contains(preserved) {
+                allIdsToPersist.append(preserved)
+            }
+
+            let indexData = try encoder.encode(allIdsToPersist)
             try indexData.write(to: indexURL, options: .atomic)
-            removeOrphanedFiles(validIds: Set(projects.map { $0.id.uuidString }))
+            removeOrphanedFiles(validIds: Set(allIdsToPersist), in: resolvedRoot)
             return nil
         } catch {
             print("[ProjectStore] Save error: \(error.localizedDescription)")
@@ -289,11 +332,18 @@ enum ProjectDiskStore {
     }
 
     /// 指定されたプロジェクトのディレクトリおよびメタデータを即座に物理消去
-    static func delete(ids: [UUID]) {
-        guard let rootURL, let indexURL else { return }
+    static func delete(ids: [UUID], from customRootURL: URL? = nil) {
+        guard let resolvedRoot = customRootURL ?? rootURL else { return }
+        let indexURL = resolvedRoot.appendingPathComponent("index.json")
+        let deletedIdStrings = Set(ids.map { $0.uuidString })
+        
+        if customRootURL == nil {
+            removeUnloadedProjectIds(deletedIdStrings)
+        }
+
         for id in ids {
-            let assetDirectory = rootURL.appendingPathComponent(id.uuidString, isDirectory: true)
-            let metadataURL = rootURL.appendingPathComponent("\(id.uuidString).json")
+            let assetDirectory = resolvedRoot.appendingPathComponent(id.uuidString, isDirectory: true)
+            let metadataURL = resolvedRoot.appendingPathComponent("\(id.uuidString).json")
             try? fileManager.removeItem(at: assetDirectory)
             try? fileManager.removeItem(at: metadataURL)
         }
@@ -301,7 +351,6 @@ enum ProjectDiskStore {
         // index.json を更新
         if let indexData = try? Data(contentsOf: indexURL),
            var orderedIds = try? JSONDecoder().decode([String].self, from: indexData) {
-            let deletedIdStrings = Set(ids.map { $0.uuidString })
             orderedIds.removeAll { deletedIdStrings.contains($0) }
             if let updatedIndexData = try? JSONEncoder().encode(orderedIds) {
                 try? updatedIndexData.write(to: indexURL, options: .atomic)
@@ -310,13 +359,12 @@ enum ProjectDiskStore {
     }
 
     /// index.json 更新後に、このアプリが作った UUID 名のJSONと画像フォルダだけを清掃する。
-    private static func removeOrphanedFiles(validIds: Set<String>) {
-        guard let rootURL,
-              let contents = try? fileManager.contentsOfDirectory(
-                at: rootURL,
-                includingPropertiesForKeys: [.isDirectoryKey],
-                options: [.skipsHiddenFiles]
-              ) else { return }
+    private static func removeOrphanedFiles(validIds: Set<String>, in root: URL) {
+        guard let contents = try? fileManager.contentsOfDirectory(
+            at: root,
+            includingPropertiesForKeys: [.isDirectoryKey],
+            options: [.skipsHiddenFiles]
+        ) else { return }
 
         for url in contents {
             if url.lastPathComponent == "index.json" { continue }
