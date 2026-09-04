@@ -406,7 +406,16 @@ public struct ActivityShareSheet: UIViewControllerRepresentable {
     public let applicationActivities: [UIActivity]? = nil
 
     public func makeUIViewController(context: Context) -> UIActivityViewController {
-        UIActivityViewController(activityItems: activityItems, applicationActivities: applicationActivities)
+        let controller = UIActivityViewController(activityItems: activityItems, applicationActivities: applicationActivities)
+        if let popover = controller.popoverPresentationController {
+            popover.permittedArrowDirections = []
+            if let windowScene = UIApplication.shared.connectedScenes.first(where: { $0.activationState == .foregroundActive }) as? UIWindowScene ?? UIApplication.shared.connectedScenes.first as? UIWindowScene,
+               let rootVC = windowScene.windows.first(where: { $0.isKeyWindow })?.rootViewController ?? windowScene.windows.first?.rootViewController {
+                popover.sourceView = rootVC.view
+                popover.sourceRect = CGRect(x: rootVC.view.bounds.midX, y: rootVC.view.bounds.midY, width: 0, height: 0)
+            }
+        }
+        return controller
     }
 
     public func updateUIViewController(_ uiViewController: UIActivityViewController, context: Context) {}

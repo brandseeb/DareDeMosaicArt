@@ -1226,24 +1226,23 @@ extension MosaicEngine {
             
             var assignedPhotos = Set(bestMatchingTtoP.values)
             let unassignedTileIndices = (0..<targetTiles.count).filter { bestMatchingTtoP[$0] == nil }
-            var remainingPool = (0..<usablePhotos.count).filter { !assignedPhotos.contains($0) }
+            var remainingPool = Set((0..<usablePhotos.count).filter { !assignedPhotos.contains($0) })
             
             for tIdx in unassignedTileIndices {
                 if remainingPool.isEmpty { break }
                 let tile = targetTiles[tIdx]
-                
-                var bestPoolIdx = 0
-                var bestScore: Float = Float.infinity
-                for (idx, pIdx) in remainingPool.enumerated() {
-                    let p = usablePhotos[pIdx]
-                    let s = max(0.0, min(1.0, tile.targetLabColor.distance(to: p.labColor) / 40.0))
-                    if s < bestScore {
-                        bestScore = s
-                        bestPoolIdx = idx
-                    }
-                }
-                
-                let chosenPIdx = remainingPool.remove(at: bestPoolIdx)
+
+                guard let fallback = bestAutoFillFallback(
+                    for: tile,
+                    remainingPhotoIndices: remainingPool,
+                    photos: usablePhotos,
+                    photoIndex: photoIndex,
+                    photoIndexMap: photoIndexMap
+                ) else { continue }
+
+                let chosenPIdx = fallback.photoIdx
+                let bestScore = fallback.score
+                remainingPool.remove(chosenPIdx)
                 bestMatchingTtoP[tIdx] = chosenPIdx
                 assignedPhotos.insert(chosenPIdx)
                 if scoreCache[tIdx] == nil { scoreCache[tIdx] = [:] }
@@ -1261,6 +1260,17 @@ extension MosaicEngine {
                 adjList: adjList
             )
         }
+
+        // 上位32候補が他マスに使われた後でも、手動の「選び直す」と同様に
+        // 未使用写真を除外条件付きで再検索し、色外れの割り当てを救済する。
+        bestMatchingTtoP = refineAutoFillWithUnusedCandidates(
+            matching: bestMatchingTtoP,
+            tiles: targetTiles,
+            photos: usablePhotos,
+            photoIndex: photoIndex,
+            photoIndexMap: photoIndexMap,
+            scoreCache: &scoreCache
+        )
         
         // 7. 割り当て配列の構築（決定的に targetTiles 順）
         var assignments: [AutoFillAssignment] = []
@@ -1287,6 +1297,70 @@ extension MosaicEngine {
             totalTilesCount: totalCount,
             projectedProgress: projected
         )
+    }
+
+    /// 100% 完成時の補完も、手動の「選び直す」と同じ総合特徴量で評価する。
+    /// まず多次元インデックスの上位候補を調べ、すべて使用済みの場合だけ
+    /// 平均色で絞った小さな候補集合を総合スコアで再評価する。
+    func bestAutoFillFallback(
+        for tile: MosaicTile,
+        remainingPhotoIndices: Set<Int>,
+        photos: [IndexedPhoto],
+        photoIndex: MultiDimensionalPhotoIndex,
+        photoIndexMap: [String: Int]
+    ) -> (photoIdx: Int, score: Float)? {
+        guard !remainingPhotoIndices.isEmpty else { return nil }
+
+        var best: (photoIdx: Int, score: Float)?
+        let indexedCandidates = photoIndex.candidates(
+            for: tile.targetLabColor,
+            signature: tile.targetSignature,
+            maxCandidates: 200
+        )
+
+        for photo in indexedCandidates {
+            guard let pIdx = photoIndexMap[photo.id], remainingPhotoIndices.contains(pIdx) else { continue }
+            let score = matchScore(
+                targetColor: tile.targetLabColor,
+                targetSignature: tile.targetSignature,
+                photo: photo
+            )
+            guard score.isFinite && !score.isNaN else { continue }
+            if best == nil || score < best!.score ||
+                (score == best!.score && photo.id < photos[best!.photoIdx].id) {
+                best = (pIdx, score)
+            }
+        }
+        if let best { return best }
+
+        // インデックス上位がすべて使用済みのケース。平均色が近い最大64枚だけを
+        // ストリーミングで保持し、最終決定には必ず完全な matchScore を使う。
+        var colorShortlist: [(photoIdx: Int, colorDistance: Float)] = []
+        colorShortlist.reserveCapacity(64)
+        for pIdx in remainingPhotoIndices {
+            let distance = tile.targetLabColor.distance(to: photos[pIdx].labColor)
+            colorShortlist.append((pIdx, distance))
+            colorShortlist.sort {
+                if $0.colorDistance != $1.colorDistance { return $0.colorDistance < $1.colorDistance }
+                return photos[$0.photoIdx].id < photos[$1.photoIdx].id
+            }
+            if colorShortlist.count > 64 { colorShortlist.removeLast() }
+        }
+
+        for candidate in colorShortlist {
+            let photo = photos[candidate.photoIdx]
+            let score = matchScore(
+                targetColor: tile.targetLabColor,
+                targetSignature: tile.targetSignature,
+                photo: photo
+            )
+            guard score.isFinite && !score.isNaN else { continue }
+            if best == nil || score < best!.score ||
+                (score == best!.score && photo.id < photos[best!.photoIdx].id) {
+                best = (candidate.photoIdx, score)
+            }
+        }
+        return best
     }
     
     /// 高速局所 2-opt 最適化（自身の候補リストに含まれる写真を持つタイル間のみ評価して O(N * K) に短縮）
@@ -1315,20 +1389,37 @@ extension MosaicEngine {
             
             for t1 in matchedTileIndices {
                 guard let p1 = currentMatching[t1] else { continue }
+
+                // 最大マッチングの増大路で品質が落ちた場合、未使用の上位候補へ
+                // まず単独差し替えする。従来の2-optだけではこの改善を拾えなかった。
+                for edge in adjList[t1] {
+                    guard photoToTileMap[edge.photoIdx] == nil else { continue }
+                    let currentScore = getScore(tIdx: t1, pIdx: p1)
+                    let replacementScore = getScore(tIdx: t1, pIdx: edge.photoIdx)
+                    if replacementScore + 0.0001 < currentScore {
+                        currentMatching[t1] = edge.photoIdx
+                        photoToTileMap.removeValue(forKey: p1)
+                        photoToTileMap[edge.photoIdx] = t1
+                        passImproved = true
+                        break
+                    }
+                }
+
+                guard let updatedP1 = currentMatching[t1] else { continue }
                 
                 // t1 の上位候補に含まれる写真を持つ相手タイル t2 のみを評価
                 let candidatePhotoIdxs = adjList[t1].prefix(8).map(\.photoIdx)
                 for p2 in candidatePhotoIdxs {
-                    guard p2 != p1, let t2 = photoToTileMap[p2] else { continue }
+                    guard p2 != updatedP1, let t2 = photoToTileMap[p2] else { continue }
                     
-                    let curScore = getScore(tIdx: t1, pIdx: p1) + getScore(tIdx: t2, pIdx: p2)
-                    let swappedScore = getScore(tIdx: t1, pIdx: p2) + getScore(tIdx: t2, pIdx: p1)
+                    let curScore = getScore(tIdx: t1, pIdx: updatedP1) + getScore(tIdx: t2, pIdx: p2)
+                    let swappedScore = getScore(tIdx: t1, pIdx: p2) + getScore(tIdx: t2, pIdx: updatedP1)
                     
                     if swappedScore + 0.0001 < curScore {
                         currentMatching[t1] = p2
-                        currentMatching[t2] = p1
+                        currentMatching[t2] = updatedP1
                         photoToTileMap[p2] = t1
-                        photoToTileMap[p1] = t2
+                        photoToTileMap[updatedP1] = t2
                         passImproved = true
                         break
                     }
@@ -1338,6 +1429,91 @@ extension MosaicEngine {
         }
         
         return currentMatching
+    }
+
+    /// 全体マッチング後の色外れ救済。
+    /// 初回候補を広げるのではなく、確定済み写真を除外した状態で再検索するため、
+    /// 手動候補画面が見つけられる「まだ未使用の良い候補」を同じように発見できる。
+    func refineAutoFillWithUnusedCandidates(
+        matching: [Int: Int],
+        tiles: [MosaicTile],
+        photos: [IndexedPhoto],
+        photoIndex: MultiDimensionalPhotoIndex,
+        photoIndexMap: [String: Int],
+        scoreCache: inout [Int: [Int: Float]]
+    ) -> [Int: Int] {
+        guard !matching.isEmpty, matching.count < photos.count else { return matching }
+
+        var refined = matching
+        var usedPhotoIndices = Set(refined.values)
+
+        func fullScore(tileIndex: Int, photoIndex: Int) -> Float {
+            if let cached = scoreCache[tileIndex]?[photoIndex] { return cached }
+            let score = matchScore(
+                targetColor: tiles[tileIndex].targetLabColor,
+                targetSignature: tiles[tileIndex].targetSignature,
+                photo: photos[photoIndex]
+            )
+            if scoreCache[tileIndex] == nil { scoreCache[tileIndex] = [:] }
+            scoreCache[tileIndex]?[photoIndex] = score
+            return score
+        }
+
+        func averageColorDistance(tileIndex: Int, photoIndex: Int) -> Float {
+            max(0, min(1, tiles[tileIndex].targetLabColor.distance(to: photos[photoIndex].labColor) / 40))
+        }
+
+        // 空間特徴を主軸にしつつ平均色へ追加の安全重みを与え、鮮烈な青などの
+        // 明白な色外れが構図スコアだけで勝つことを防ぐ。
+        func visualQuality(tileIndex: Int, photoIndex: Int) -> Float {
+            fullScore(tileIndex: tileIndex, photoIndex: photoIndex)
+                + 0.30 * averageColorDistance(tileIndex: tileIndex, photoIndex: photoIndex)
+        }
+
+        let worstFirst = refined.keys.sorted {
+            guard let lhsPhoto = refined[$0], let rhsPhoto = refined[$1] else { return $0 < $1 }
+            let lhs = visualQuality(tileIndex: $0, photoIndex: lhsPhoto)
+            let rhs = visualQuality(tileIndex: $1, photoIndex: rhsPhoto)
+            return lhs == rhs ? $0 < $1 : lhs > rhs
+        }
+
+        for tileIndex in worstFirst {
+            if Task.isCancelled { break }
+            guard let currentPhotoIndex = refined[tileIndex] else { continue }
+            let currentFullScore = fullScore(tileIndex: tileIndex, photoIndex: currentPhotoIndex)
+            let currentColorDistance = averageColorDistance(tileIndex: tileIndex, photoIndex: currentPhotoIndex)
+
+            // 良好な割り当ては再検索せず、大規模モザイクの速度を維持する。
+            guard currentFullScore > 0.38 || currentColorDistance > 0.45 else { continue }
+
+            let usedIDs = Set(usedPhotoIndices.map { photos[$0].id })
+            let candidates = photoIndex.candidates(
+                for: tiles[tileIndex].targetLabColor,
+                signature: tiles[tileIndex].targetSignature,
+                maxCandidates: 100,
+                excluding: usedIDs
+            )
+            let currentQuality = visualQuality(tileIndex: tileIndex, photoIndex: currentPhotoIndex)
+            var bestReplacement: (photoIndex: Int, quality: Float)?
+
+            for photo in candidates {
+                guard let candidateIndex = photoIndexMap[photo.id], !usedPhotoIndices.contains(candidateIndex) else { continue }
+                let quality = visualQuality(tileIndex: tileIndex, photoIndex: candidateIndex)
+                guard quality + 0.0001 < currentQuality else { continue }
+                if bestReplacement == nil || quality < bestReplacement!.quality ||
+                    (quality == bestReplacement!.quality && photo.id < photos[bestReplacement!.photoIndex].id) {
+                    bestReplacement = (candidateIndex, quality)
+                }
+            }
+
+            if let replacement = bestReplacement {
+                refined[tileIndex] = replacement.photoIndex
+                usedPhotoIndices.remove(currentPhotoIndex)
+                usedPhotoIndices.insert(replacement.photoIndex)
+            }
+        }
+
+        return refined
     }
     
     /// オートフィル計画の適用（整合性検証 ＆ 決定的採番 ＆ 完全更新）
@@ -1641,25 +1817,23 @@ extension MosaicEngine {
                 if level == .completeMax && matching.count < min(emptyTiles.count, usablePhotos.count) {
                     var assignedPhotos = Set(matching.values)
                     let unassigned = (0..<emptyTiles.count).filter { matching[$0] == nil }
-                    var remainingPool = (0..<usablePhotos.count).filter { !assignedPhotos.contains($0) }
+                    var remainingPool = Set((0..<usablePhotos.count).filter { !assignedPhotos.contains($0) })
                     
                     for tIdx in unassigned {
                         if remainingPool.isEmpty { break }
                         let tile = emptyTiles[tIdx]
-                        
-                        // 高速なクイックスコアで残存プールから最良を選択
-                        var bestPoolIdx = 0
-                        var bestScore: Float = Float.infinity
-                        for (idx, pIdx) in remainingPool.enumerated() {
-                            let p = usablePhotos[pIdx]
-                            let s = max(0.0, min(1.0, tile.targetLabColor.distance(to: p.labColor) / 40.0))
-                            if s < bestScore {
-                                bestScore = s
-                                bestPoolIdx = idx
-                            }
-                        }
-                        
-                        let chosenPIdx = remainingPool.remove(at: bestPoolIdx)
+
+                        guard let fallback = bestAutoFillFallback(
+                            for: tile,
+                            remainingPhotoIndices: remainingPool,
+                            photos: usablePhotos,
+                            photoIndex: photoIndex,
+                            photoIndexMap: photoIndexMap
+                        ) else { continue }
+
+                        let chosenPIdx = fallback.photoIdx
+                        let bestScore = fallback.score
+                        remainingPool.remove(chosenPIdx)
                         matching[tIdx] = chosenPIdx
                         assignedPhotos.insert(chosenPIdx)
                         if globalScoreCache[tIdx] == nil { globalScoreCache[tIdx] = [:] }
@@ -1677,6 +1851,15 @@ extension MosaicEngine {
                         adjList: adjList
                     )
                 }
+
+                matching = refineAutoFillWithUnusedCandidates(
+                    matching: matching,
+                    tiles: emptyTiles,
+                    photos: usablePhotos,
+                    photoIndex: photoIndex,
+                    photoIndexMap: photoIndexMap,
+                    scoreCache: &globalScoreCache
+                )
                 
                 var assignments: [AutoFillAssignment] = []
                 assignments.reserveCapacity(matching.count)

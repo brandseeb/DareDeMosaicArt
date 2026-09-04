@@ -159,7 +159,9 @@ public struct MosaicWorkspaceView: View {
                     let (updated, _) = MosaicEngine.shared.resetAutoFilledTiles(project: project)
                     self.project = updated
                     #if canImport(UIKit)
-                    UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+                    if UIDevice.current.userInterfaceIdiom == .phone {
+                        UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+                    }
                     #endif
                 }
                 Button(String(localized: "common.cancel", defaultValue: "キャンセル"), role: .cancel) {}
@@ -466,7 +468,9 @@ public struct MosaicWorkspaceView: View {
                         .onChanged { _ in
                             if !isPressingOriginalImage {
                                 #if canImport(UIKit)
-                                UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                                if UIDevice.current.userInterfaceIdiom == .phone {
+                                    UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                                }
                                 #endif
                                 isPressingOriginalImage = true
                             }
@@ -474,7 +478,9 @@ public struct MosaicWorkspaceView: View {
                         .onEnded { _ in
                             if isPressingOriginalImage {
                                 #if canImport(UIKit)
-                                UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                                if UIDevice.current.userInterfaceIdiom == .phone {
+                                    UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                                }
                                 #endif
                                 isPressingOriginalImage = false
                             }

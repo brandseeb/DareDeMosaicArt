@@ -458,19 +458,30 @@ public struct CompletionView: View {
                 return
             }
             
-            // 3. 写真ライブラリへ書き込み（非同期保証）
+            // 3. 写真ライブラリへ書き込み（一時ファイル経由でPhotoKitのXPCメモリ超過とクラッシュを完全防止）
+            let tempURL = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString + ".jpg")
             do {
-                try await PHPhotoLibrary.shared().performChanges {
-                    PHAssetChangeRequest.creationRequestForAsset(from: finalImage)
+                guard let jpegData = finalImage.jpegData(compressionQuality: 0.95) else {
+                    throw NSError(domain: "DareDeMosaicArt", code: -1, userInfo: [NSLocalizedDescriptionKey: "画像データの生成に失敗しました。"])
                 }
+                try jpegData.write(to: tempURL)
+                
+                try await PHPhotoLibrary.shared().performChanges {
+                    PHAssetChangeRequest.creationRequestForAssetFromImage(atFileURL: tempURL)
+                }
+                try? FileManager.default.removeItem(at: tempURL)
+                
                 await MainActor.run {
                     self.saveSuccess = true
                     self.isExporting = false
                     #if canImport(UIKit)
-                    UINotificationFeedbackGenerator().notificationOccurred(.success)
+                    if UIDevice.current.userInterfaceIdiom == .phone {
+                        UINotificationFeedbackGenerator().notificationOccurred(.success)
+                    }
                     #endif
                 }
             } catch {
+                try? FileManager.default.removeItem(at: tempURL)
                 await MainActor.run {
                     self.saveErrorMessage = String(localized: "completion.saveError.format \(error.localizedDescription)")
                     self.isExporting = false
@@ -800,7 +811,16 @@ private struct MosaicImageActivityShareSheet: UIViewControllerRepresentable {
     let activityItems: [Any]
 
     func makeUIViewController(context: Context) -> UIActivityViewController {
-        UIActivityViewController(activityItems: activityItems, applicationActivities: nil)
+        let controller = UIActivityViewController(activityItems: activityItems, applicationActivities: nil)
+        if let popover = controller.popoverPresentationController {
+            popover.permittedArrowDirections = []
+            if let windowScene = UIApplication.shared.connectedScenes.first(where: { $0.activationState == .foregroundActive }) as? UIWindowScene ?? UIApplication.shared.connectedScenes.first as? UIWindowScene,
+               let rootVC = windowScene.windows.first(where: { $0.isKeyWindow })?.rootViewController ?? windowScene.windows.first?.rootViewController {
+                popover.sourceView = rootVC.view
+                popover.sourceRect = CGRect(x: rootVC.view.bounds.midX, y: rootVC.view.bounds.midY, width: 0, height: 0)
+            }
+        }
+        return controller
     }
 
     func updateUIViewController(_ uiViewController: UIActivityViewController, context: Context) {}

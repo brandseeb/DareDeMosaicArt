@@ -411,7 +411,11 @@ public struct MissionCameraView: View {
                 
                 await MainActor.run {
                     feedbackMessage = nil
-                    UINotificationFeedbackGenerator().notificationOccurred(.success)
+                    #if canImport(UIKit)
+                    if UIDevice.current.userInterfaceIdiom == .phone {
+                        UINotificationFeedbackGenerator().notificationOccurred(.success)
+                    }
+                    #endif
                     withAnimation {
                         showSuccessAnimation = true
                     }

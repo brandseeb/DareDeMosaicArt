@@ -985,6 +985,74 @@ final class DareDeMosaicArtTests: XCTestCase {
         XCTAssertEqual(updatedProject.tiles[1].placedPhotoIdentifier, "p_yellow", "黄色いマスには黄色い写真が確実に割り当てられること")
     }
 
+    /// 100%完成の最終補完でも平均色だけで決めず、手動候補と同じ空間色を含む総合評価を使うこと。
+    func testAutoFillCompleteFallbackUsesSpatialScoreInsteadOfAverageColorOnly() throws {
+        let neutral = LabColor(l: 50, a: 0, b: 0)
+        let warm = LabColor(l: 58, a: 32, b: 28)
+        let blue = LabColor(l: 35, a: 35, b: -55)
+        let targetSignature = SpatialColorSignature(
+            average: neutral,
+            cells3x3: Array(repeating: warm, count: 9)
+        )
+        let goodSignature = SpatialColorSignature(
+            average: neutral,
+            cells3x3: Array(repeating: warm, count: 9)
+        )
+        let badSignature = SpatialColorSignature(
+            average: neutral,
+            cells3x3: Array(repeating: blue, count: 9)
+        )
+        let tile = MosaicTile(
+            gridX: 0,
+            gridY: 0,
+            targetLabColor: neutral,
+            targetSignature: targetSignature
+        )
+        let photos = [
+            IndexedPhoto(id: "a_bad_blue", labColor: neutral, signature: badSignature),
+            IndexedPhoto(id: "z_good_warm", labColor: neutral, signature: goodSignature)
+        ]
+        let index = MultiDimensionalPhotoIndex(photos: photos)
+        let indexMap = Dictionary(uniqueKeysWithValues: photos.enumerated().map { ($1.id, $0) })
+
+        let selected = MosaicEngine.shared.bestAutoFillFallback(
+            for: tile,
+            remainingPhotoIndices: Set(photos.indices),
+            photos: photos,
+            photoIndex: index,
+            photoIndexMap: indexMap
+        )
+
+        XCTAssertEqual(selected?.photoIdx, 1, "同じ平均色でも、タイル内の色配置が近い写真を選ぶこと")
+        XCTAssertLessThan(selected?.score ?? 1, 0.01)
+    }
+
+    /// 全体割り当てで色外れ写真が残っても、使用済み写真を除外した再検索で
+    /// 手動候補画面と同じ未使用の良色候補へ救済されること。
+    func testAutoFillRefinesObviousColorOutlierUsingUnusedCandidate() throws {
+        let warm = LabColor(l: 58, a: 32, b: 28)
+        let blue = LabColor(l: 35, a: 35, b: -55)
+        let tile = MosaicTile(gridX: 0, gridY: 0, targetLabColor: warm)
+        let photos = [
+            IndexedPhoto(id: "assigned_blue", labColor: blue),
+            IndexedPhoto(id: "unused_warm", labColor: warm)
+        ]
+        let index = MultiDimensionalPhotoIndex(photos: photos)
+        let indexMap = Dictionary(uniqueKeysWithValues: photos.enumerated().map { ($1.id, $0) })
+        var scoreCache: [Int: [Int: Float]] = [:]
+
+        let refined = MosaicEngine.shared.refineAutoFillWithUnusedCandidates(
+            matching: [0: 0],
+            tiles: [tile],
+            photos: photos,
+            photoIndex: index,
+            photoIndexMap: indexMap,
+            scoreCache: &scoreCache
+        )
+
+        XCTAssertEqual(refined[0], 1, "明白な青の色外れを、未使用の暖色候補へ差し替えること")
+    }
+
     /// カメラ撮影ミッションで撮影された写真が、対象マスへ確実に配置され残りマスが減少すること
     func testFitCapturedPhotoGuaranteesFittingForMissionTiles() throws {
         let tile0 = MosaicTile(gridX: 0, gridY: 0, targetLabColor: LabColor(l: 60, a: 25, b: 30))
